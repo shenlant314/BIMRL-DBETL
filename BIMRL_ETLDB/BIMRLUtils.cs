@@ -211,9 +211,9 @@ namespace BIMRL
                trcol4.GeometryType = (int)SdoGeometryTypes.GTYPE.POINT;
                gType = trcol4.PropertiesToGTYPE();
                SdoPoint trcol4V = new SdoPoint();
-               trcol4V.XD = m3D.OffsetX;
-               trcol4V.YD = m3D.OffsetY;
-               trcol4V.ZD = m3D.OffsetZ;
+               trcol4V.XD = m3D.OffsetX * _model.ModelFactors.LengthToMetresConversionFactor;
+               trcol4V.YD = m3D.OffsetY * _model.ModelFactors.LengthToMetresConversionFactor;
+               trcol4V.ZD = m3D.OffsetZ * _model.ModelFactors.LengthToMetresConversionFactor;
                trcol4.SdoPoint = trcol4V;
                sdoGeom[4].Value = trcol4;
 

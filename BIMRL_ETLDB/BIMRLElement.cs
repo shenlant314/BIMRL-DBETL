@@ -122,9 +122,9 @@ namespace BIMRL
                   prodTrf.M33 = pVec[2].Z;
 
                   IIfcCartesianPoint p = placement3D.Location;
-                  prodTrf.OffsetX = p.X;
-                  prodTrf.OffsetY = p.Y;
-                  prodTrf.OffsetZ = p.Z;
+                  prodTrf.OffsetX = p.X * _model.ModelFactors.LengthToMetresConversionFactor;
+                  prodTrf.OffsetY = p.Y * _model.ModelFactors.LengthToMetresConversionFactor;
+                  prodTrf.OffsetZ = p.Z * _model.ModelFactors.LengthToMetresConversionFactor;
                }
                else
                {
@@ -143,8 +143,8 @@ namespace BIMRL
                   prodTrf.M33 = 0;
 
                   IIfcCartesianPoint p = placement2D.Location;
-                  prodTrf.OffsetX = p.X;
-                  prodTrf.OffsetY = p.Y;
+                  prodTrf.OffsetX = p.X * _model.ModelFactors.LengthToMetresConversionFactor;
+                  prodTrf.OffsetY = p.Y * _model.ModelFactors.LengthToMetresConversionFactor;
                   prodTrf.OffsetZ = 0;
                }
 
@@ -337,9 +337,9 @@ namespace BIMRL
                   trcol4.GeometryType = (int)SdoGeometryTypes.GTYPE.POINT;
                   gType = trcol4.PropertiesToGTYPE();
                   SdoPoint trcol4V = new SdoPoint();
-                  trcol4V.XD = trfOnly ? newRelTrf.OffsetX : m3D.OffsetX;
-                  trcol4V.YD = trfOnly ? newRelTrf.OffsetY : m3D.OffsetY;
-                  trcol4V.ZD = trfOnly ? newRelTrf.OffsetZ : m3D.OffsetZ;
+                  trcol4V.XD = trfOnly ? newRelTrf.OffsetX : m3D.OffsetX * _model.ModelFactors.LengthToMetresConversionFactor;
+                  trcol4V.YD = trfOnly ? newRelTrf.OffsetY : m3D.OffsetY * _model.ModelFactors.LengthToMetresConversionFactor;
+                  trcol4V.ZD = trfOnly ? newRelTrf.OffsetZ : m3D.OffsetZ * _model.ModelFactors.LengthToMetresConversionFactor;
                   trcol4.SdoPoint = trcol4V;
                   sdoGeom[4].Value = trcol4;
 

@@ -1240,6 +1240,11 @@ namespace BIMRL
             cDepTyp.Add(connPE.GetType().Name.ToUpper());
          }
          InsertDependencyRecords(cEleId, cEleTyp, cDepend, cDependTyp, cDepTyp);
+         cEleId.Clear();
+         cEleTyp.Clear();
+         cDepend.Clear();
+         cDependTyp.Clear();
+         cDepTyp.Clear();
 
          IEnumerable<IIfcRelProjectsElement> relProjects = _model.Instances.OfType<IIfcRelProjectsElement>(true);
          foreach (IIfcRelProjectsElement connPE in relProjects)
@@ -1255,6 +1260,11 @@ namespace BIMRL
             cDepTyp.Add(connPE.GetType().Name.ToUpper());
          }
          InsertDependencyRecords(cEleId, cEleTyp, cDepend, cDependTyp, cDepTyp);
+         cEleId.Clear();
+         cEleTyp.Clear();
+         cDepend.Clear();
+         cDependTyp.Clear();
+         cDepTyp.Clear();
 
          IEnumerable<IIfcRelFillsElement> relFills = _model.Instances.OfType<IIfcRelFillsElement>(true);
          foreach (IIfcRelFillsElement connPE in relFills)
@@ -1270,6 +1280,11 @@ namespace BIMRL
             cDepTyp.Add(connPE.GetType().Name.ToUpper());
          }
          InsertDependencyRecords(cEleId, cEleTyp, cDepend, cDependTyp, cDepTyp);
+         cEleId.Clear();
+         cEleTyp.Clear();
+         cDepend.Clear();
+         cDependTyp.Clear();
+         cDepTyp.Clear();
 
          IEnumerable<IIfcRelNests> relNests = _model.Instances.OfType<IIfcRelNests>(true);
          foreach (IIfcRelNests connPE in relNests)
@@ -1294,6 +1309,11 @@ namespace BIMRL
             }
          }
          InsertDependencyRecords(cEleId, cEleTyp, cDepend, cDependTyp, cDepTyp);
+         cEleId.Clear();
+         cEleTyp.Clear();
+         cDepend.Clear();
+         cDependTyp.Clear();
+         cDepTyp.Clear();
       }
 
       private void InsertDependencyRecords(List<string> cEleId, List<string> cEleTyp, List<string> cDepend, List<string> cDependTyp, List<string> cDepTyp)

@@ -635,6 +635,7 @@ namespace BIMRL.Common
                     calcV = calcV / 2;
                     level++;
                 }
+                OctreeSubdivLevel = level;
                 return level;
             }
             else

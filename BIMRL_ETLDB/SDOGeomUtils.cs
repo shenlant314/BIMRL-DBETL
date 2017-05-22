@@ -47,6 +47,13 @@ namespace BIMRL
                 geomOut = geomOutPH;
                 sdoGtype = SdoGeometryTypes.GTYPE.SOLID;
             }
+            else if (geomtyp == (int)SdoGeometryTypes.GTYPE.POLYGON && sdoGeomData.OrdinatesArrayOfDoubles.Count() == 6 )
+            {  // Bounding Box
+               BoundingBox3D bbox;
+               generate_BoundingBox(sdoGeomData, out bbox);
+               geomOut = bbox;
+               sdoGtype = SdoGeometryTypes.GTYPE.POLYGON;
+            }
             else if (geomtyp == (int)SdoGeometryTypes.GTYPE.POLYGON || geomtyp == (int)SdoGeometryTypes.GTYPE.MULTIPOLYGON)
             {
                 Face3D geomOutF3D;
@@ -215,7 +222,31 @@ namespace BIMRL
             return true;
         }
 
-        public static bool generate_Point(SdoGeometry geom, out List<Point3D> pointList)
+      /// <summary>
+      /// Generate Bounding Box that is optimized using only 2 coordinates
+      /// </summary>
+      /// <param name="geom">the geometry</param>
+      /// <param name="bbox">output boundingbox</param>
+      /// <returns></returns>
+      public static bool generate_BoundingBox(SdoGeometry geom, out BoundingBox3D bbox)
+      {
+         int[] elInfo = geom.ElemArrayOfInts;
+         double[] ordArray = geom.OrdinatesArrayOfDoubles;
+
+         Point3D LLB = new Point3D(ordArray[0], ordArray[1], ordArray[2]);
+         Point3D URT = new Point3D(ordArray[3], ordArray[4], ordArray[5]);
+         bbox = new BoundingBox3D(LLB, URT);
+
+         return true;
+      }
+
+      /// <summary>
+      /// Generate Point3D or list of Poitn3D
+      /// </summary>
+      /// <param name="geom">the geometry</param>
+      /// <param name="pointList">List of Poitn3D</param>
+      /// <returns></returns>
+      public static bool generate_Point(SdoGeometry geom, out List<Point3D> pointList)
         {
             pointList = new List<Point3D>();
             int gtype = geom.PropertiesFromGTYPE();

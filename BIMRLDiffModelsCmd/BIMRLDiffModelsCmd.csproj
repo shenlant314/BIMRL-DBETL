@@ -132,7 +132,9 @@
     <Compile Include="XBimFederation.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
+    <None Include="App.config">
+      <SubType>Designer</SubType>
+    </None>
     <AdditionalFiles Include="options.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </AdditionalFiles>
@@ -162,7 +164,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>mkdir "$(TargetDir)script"
-copy "$(SolutionDir)script\*" "$(TargetDir)script\" /y</PostBuildEvent>
+copy "$(SolutionDir)script\*" "$(TargetDir)script" /y</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

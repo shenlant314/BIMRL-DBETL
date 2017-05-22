@@ -396,62 +396,71 @@ namespace BIMRL.Common
             }
         }
 
-        void createCellInDict(Tuple<UInt64, UInt64> elementID, CellID64 cellID)
-        {
-            CellID64 parentID = CellID64.parentCell(cellID);
-            CellData cellData;
-            if (!masterDict.TryGetValue(parentID.iCellID, out cellData))
-            {
-                createCellInDict(elementID, parentID);
-                masterDict.TryGetValue(parentID.iCellID, out cellData);
-            }
+      void createCellInDict(Tuple<UInt64, UInt64> elementID, CellID64 cellID)
+      {
+         CellID64 parentID = CellID64.parentCell(cellID);
+         CellData cellData;
+         if (!masterDict.TryGetValue(parentID.iCellID, out cellData))
+         {
+            createCellInDict(elementID, parentID);
+            masterDict.TryGetValue(parentID.iCellID, out cellData);
+         }
 
+         try
+         {
             // entry found, need to create all the entries for the children and transfer all the data into the new cells
             // remove the current elementid in the data first if present. It will be added later on
             if (cellData.data != null)
             {
-                cellData.data.Remove(getIndexForElementID(elementID));
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 0).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 0).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 1).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 1).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 2).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 2).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 3).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 3).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 4).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 4).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 5).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 5).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 6).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 6).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 7).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 7).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
-                // reset cellData and set the nodeType to "node"
-                cellData.data.Clear();
+               cellData.data.Remove(getIndexForElementID(elementID));
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 0).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 0).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 1).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 1).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 2).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 2).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 3).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 3).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 4).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 4).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 5).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 5).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 6).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 6).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 7).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 7).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>(cellData.data) });
+               // reset cellData and set the nodeType to "node"
+               cellData.data.Clear();
             }
             else
             {
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 0).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 0).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 1).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 1).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 2).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 2).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 3).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 3).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 4).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 4).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 5).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 5).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 6).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 6).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
-                if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 7).iCellID))
-                    masterDict.Add(CellID64.newChildCellId(parentID, 7).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 0).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 0).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 1).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 1).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 2).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 2).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 3).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 3).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 4).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 4).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 5).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 5).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 6).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 6).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
+               if (!masterDict.ContainsKey(CellID64.newChildCellId(parentID, 7).iCellID))
+                  masterDict.Add(CellID64.newChildCellId(parentID, 7).iCellID, new CellData { nodeType = 1, data = new SortedSet<int>() });
             }
             cellData.nodeType = 0;
             masterDict[parentID.iCellID] = cellData;
-        }
+         }
+         catch (Exception ex)
+         {
+            refCellBIMRLCommon.StackPushError(ex.Message);
+            throw;
+         }
+      }
+
 
         //static string findCellSQL = "SELECT CELLTYPE FROM CELLTREETMP WHERE CELLID=:cellid";
         //static OracleCommand findCellCmd = new OracleCommand(findCellSQL, DBOperation.DBConn);

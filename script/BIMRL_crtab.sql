@@ -156,7 +156,7 @@ CREATE TABLE BIMRL_TYPEMATERIAL_&1 (
 		  Category varchar2(256), 
 		  SetName varchar2(256), 
 		  MaterialSequence number(10), 
-		  MaterialThickness number(10), 
+		  MaterialThickness number(12,6), 
 		  IsVentilated varchar2(16),
 		  ForProfile varchar2(256)
 );
@@ -168,7 +168,7 @@ CREATE TABLE BIMRL_ELEMENTMATERIAL_&1 (
 		  Category varchar2(256), 
 		  SetName varchar2(256),
 		  MaterialSequence number(10), 
-	     MaterialThickness number(10), 
+	     MaterialThickness number(12,6), 
 		  IsVentilated varchar2(16),
 		  ForProfile varchar2(256)
 );

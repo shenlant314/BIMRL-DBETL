@@ -189,7 +189,7 @@ namespace BIMRL
                arrSetNPS.Add(OracleParameterStatus.NullInsert);
                arrMatSeq.Add(0);
                arrMatSPS.Add(OracleParameterStatus.NullInsert);
-               arrMatThick.Add((double) mLayer.LayerThickness.Value);
+               arrMatThick.Add((double) mLayer.LayerThickness.Value * _model.ModelFactors.LengthToMetresConversionFactor);
                arrMatTPS.Add(OracleParameterStatus.Success);
                if (mLayer.IsVentilated != null)
                {
@@ -234,7 +234,7 @@ namespace BIMRL
                         arrMatName.Add("-");
                   arrMatSeq.Add(seqNo++);
                   arrMatSPS.Add(OracleParameterStatus.NullInsert);
-                  arrMatThick.Add((double) mLayer.LayerThickness.Value);
+                  arrMatThick.Add((double) mLayer.LayerThickness.Value * _model.ModelFactors.LengthToMetresConversionFactor);
                   arrMatTPS.Add(OracleParameterStatus.Success);
                   if (mLayer.IsVentilated != null)
                   {
