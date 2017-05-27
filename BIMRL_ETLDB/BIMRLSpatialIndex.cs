@@ -353,202 +353,205 @@ namespace BIMRL
             command.Dispose();
         }
 
-        public void collectSpatialIndexAndInsert(Octree octreeInstance, int federatedId)
-        {
-            string sqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_SPATIALINDEX", federatedId) + " (ELEMENTID, CELLID, XMinBound, YMinBound, ZMinBound, XMaxBound, YMaxBound, ZMaxBound, Depth) "
-                                + "VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9)";
-            OracleCommand commandIns = new OracleCommand(" ", DBOperation.DBConn);
-            commandIns.CommandText = sqlStmt;
+      public void collectSpatialIndexAndInsert(Octree octreeInstance, int federatedId)
+      {
+         string sqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_SPATIALINDEX", federatedId) + " (ELEMENTID, CELLID, XMinBound, YMinBound, ZMinBound, XMaxBound, YMaxBound, ZMaxBound, Depth) "
+                             + "VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9)";
+         OracleCommand commandIns = new OracleCommand(" ", DBOperation.DBConn);
+         commandIns.CommandText = sqlStmt;
 
-            OracleParameter[] spatialIdx = new OracleParameter[9]; 
-            spatialIdx[0] = commandIns.Parameters.Add("1", OracleDbType.Varchar2);
-            spatialIdx[0].Direction = ParameterDirection.Input;
-            spatialIdx[1] = commandIns.Parameters.Add("2", OracleDbType.Varchar2);
-            spatialIdx[1].Direction = ParameterDirection.Input;
-            spatialIdx[2] = commandIns.Parameters.Add("3", OracleDbType.Int32);
-            spatialIdx[2].Direction = ParameterDirection.Input;
-            spatialIdx[3] = commandIns.Parameters.Add("4", OracleDbType.Int32);
-            spatialIdx[3].Direction = ParameterDirection.Input;
-            spatialIdx[4] = commandIns.Parameters.Add("5", OracleDbType.Int32);
-            spatialIdx[4].Direction = ParameterDirection.Input;
-            spatialIdx[5] = commandIns.Parameters.Add("6", OracleDbType.Int32);
-            spatialIdx[5].Direction = ParameterDirection.Input;
-            spatialIdx[6] = commandIns.Parameters.Add("7", OracleDbType.Int32);
-            spatialIdx[6].Direction = ParameterDirection.Input;
-            spatialIdx[7] = commandIns.Parameters.Add("8", OracleDbType.Int32);
-            spatialIdx[7].Direction = ParameterDirection.Input;
-            spatialIdx[8] = commandIns.Parameters.Add("9", OracleDbType.Int32);
-            spatialIdx[8].Direction = ParameterDirection.Input;
+         OracleParameter[] spatialIdx = new OracleParameter[9];
+         spatialIdx[0] = commandIns.Parameters.Add("1", OracleDbType.Varchar2);
+         spatialIdx[0].Direction = ParameterDirection.Input;
+         spatialIdx[1] = commandIns.Parameters.Add("2", OracleDbType.Varchar2);
+         spatialIdx[1].Direction = ParameterDirection.Input;
+         spatialIdx[2] = commandIns.Parameters.Add("3", OracleDbType.Int32);
+         spatialIdx[2].Direction = ParameterDirection.Input;
+         spatialIdx[3] = commandIns.Parameters.Add("4", OracleDbType.Int32);
+         spatialIdx[3].Direction = ParameterDirection.Input;
+         spatialIdx[4] = commandIns.Parameters.Add("5", OracleDbType.Int32);
+         spatialIdx[4].Direction = ParameterDirection.Input;
+         spatialIdx[5] = commandIns.Parameters.Add("6", OracleDbType.Int32);
+         spatialIdx[5].Direction = ParameterDirection.Input;
+         spatialIdx[6] = commandIns.Parameters.Add("7", OracleDbType.Int32);
+         spatialIdx[6].Direction = ParameterDirection.Input;
+         spatialIdx[7] = commandIns.Parameters.Add("8", OracleDbType.Int32);
+         spatialIdx[7].Direction = ParameterDirection.Input;
+         spatialIdx[8] = commandIns.Parameters.Add("9", OracleDbType.Int32);
+         spatialIdx[8].Direction = ParameterDirection.Input;
 
-            int initArraySize = 1000;
-            List<string> elementIDList = new List<string>(initArraySize);
-            List<string> cellIDStrList = new List<string>(initArraySize);
+         int initArraySize = 1000;
+         List<string> elementIDList = new List<string>(initArraySize);
+         List<string> cellIDStrList = new List<string>(initArraySize);
 
-            List<int> XMinB = new List<int>(initArraySize);
-            List<int> YMinB = new List<int>(initArraySize);
-            List<int> ZMinB = new List<int>(initArraySize);
-            List<int> XMaxB = new List<int>(initArraySize);
-            List<int> YMaxB = new List<int>(initArraySize);
-            List<int> ZMaxB = new List<int>(initArraySize);
-            List<int> depthList = new List<int>(initArraySize);
+         List<int> XMinB = new List<int>(initArraySize);
+         List<int> YMinB = new List<int>(initArraySize);
+         List<int> ZMinB = new List<int>(initArraySize);
+         List<int> XMaxB = new List<int>(initArraySize);
+         List<int> YMaxB = new List<int>(initArraySize);
+         List<int> ZMaxB = new List<int>(initArraySize);
+         List<int> depthList = new List<int>(initArraySize);
 
-            int XMin;
-            int YMin;
-            int ZMin;
-            int XMax;
-            int YMax;
-            int ZMax;
+         int XMin;
+         int YMin;
+         int ZMin;
+         int XMax;
+         int YMax;
+         int ZMax;
 
-            int recCount = 0;
+         int recCount = 0;
 
-            foreach (KeyValuePair<UInt64, Octree.CellData> dictEntry in octreeInstance.MasterDict)
+         for (int i = 0; i < octreeInstance.MasterDictClass.DictEntryCount; ++i)
+         {
+            foreach (KeyValuePair<UInt64, CellData> dictEntry in octreeInstance.MasterDictClass.GetElementAt(i))
             {
-                CellID64 cellID = new CellID64(dictEntry.Key);
-                string cellIDstr = cellID.ToString();
-                CellID64.getCellIDComponents(cellID, out XMin, out YMin, out ZMin, out XMax, out YMax, out ZMax);
-                int cellLevel = CellID64.getLevel(cellID);
+               CellID64 cellID = new CellID64(dictEntry.Key);
+               string cellIDstr = cellID.ToString();
+               CellID64.getCellIDComponents(cellID, out XMin, out YMin, out ZMin, out XMax, out YMax, out ZMax);
+               int cellLevel = CellID64.getLevel(cellID);
 
-                if (dictEntry.Value.data != null && dictEntry.Value.nodeType != 0)
-                {
-                    foreach (int tupEID in dictEntry.Value.data)
-                    {
-                        List<int> cBound = new List<int>();
+               if (dictEntry.Value.data != null && dictEntry.Value.nodeType != 0)
+               {
+                  foreach (int tupEID in dictEntry.Value.data)
+                  {
+                     List<int> cBound = new List<int>();
 
-                        ElementID eID = new ElementID(Octree.getElementIDByIndex(tupEID));
-                        elementIDList.Add(eID.ElementIDString);
-                        //cellIDStrList.Add(cellID.ToString());
-                        cellIDStrList.Add(cellIDstr);
+                     ElementID eID = new ElementID(Octree.getElementIDByIndex(tupEID));
+                     elementIDList.Add(eID.ElementIDString);
+                     //cellIDStrList.Add(cellID.ToString());
+                     cellIDStrList.Add(cellIDstr);
 
-                        //CellID64.getCellIDComponents(cellID, out XMin, out YMin, out ZMin, out XMax, out YMax, out ZMax);
-                        XMinB.Add(XMin);
-                        YMinB.Add(YMin);
-                        ZMinB.Add(ZMin);
-                        XMaxB.Add(XMax);
-                        YMaxB.Add(YMax);
-                        ZMaxB.Add(ZMax);
-                        //depthList.Add(CellID64.getLevel(cellID));
-                        depthList.Add(cellLevel);
-                    }
-                }
+                     //CellID64.getCellIDComponents(cellID, out XMin, out YMin, out ZMin, out XMax, out YMax, out ZMax);
+                     XMinB.Add(XMin);
+                     YMinB.Add(YMin);
+                     ZMinB.Add(ZMin);
+                     XMaxB.Add(XMax);
+                     YMaxB.Add(YMax);
+                     ZMaxB.Add(ZMax);
+                     //depthList.Add(CellID64.getLevel(cellID));
+                     depthList.Add(cellLevel);
+                  }
+               }
 
-                try 
-                {
-                    recCount = elementIDList.Count;
-                    if (recCount >= initArraySize)
-                    {
-                        spatialIdx[0].Value = elementIDList.ToArray();
-                        spatialIdx[0].Size = recCount;
-                        spatialIdx[1].Value = cellIDStrList.ToArray();
-                        spatialIdx[1].Size = recCount;
-                        spatialIdx[2].Value = XMinB.ToArray();
-                        spatialIdx[2].Size = recCount;
+               try
+               {
+                  recCount = elementIDList.Count;
+                  if (recCount >= initArraySize)
+                  {
+                     spatialIdx[0].Value = elementIDList.ToArray();
+                     spatialIdx[0].Size = recCount;
+                     spatialIdx[1].Value = cellIDStrList.ToArray();
+                     spatialIdx[1].Size = recCount;
+                     spatialIdx[2].Value = XMinB.ToArray();
+                     spatialIdx[2].Size = recCount;
 
-                        spatialIdx[3].Value = YMinB.ToArray();
-                        spatialIdx[3].Size = recCount;
+                     spatialIdx[3].Value = YMinB.ToArray();
+                     spatialIdx[3].Size = recCount;
 
-                        spatialIdx[4].Value = ZMinB.ToArray();
-                        spatialIdx[4].Size = recCount;
+                     spatialIdx[4].Value = ZMinB.ToArray();
+                     spatialIdx[4].Size = recCount;
 
-                        spatialIdx[5].Value = XMaxB.ToArray();
-                        spatialIdx[5].Size = recCount;
+                     spatialIdx[5].Value = XMaxB.ToArray();
+                     spatialIdx[5].Size = recCount;
 
-                        spatialIdx[6].Value = YMaxB.ToArray();
-                        spatialIdx[6].Size = recCount;
+                     spatialIdx[6].Value = YMaxB.ToArray();
+                     spatialIdx[6].Size = recCount;
 
-                        spatialIdx[7].Value = ZMaxB.ToArray();
-                        spatialIdx[7].Size = recCount;
+                     spatialIdx[7].Value = ZMaxB.ToArray();
+                     spatialIdx[7].Size = recCount;
 
-                        spatialIdx[8].Value = depthList.ToArray();
-                        spatialIdx[8].Size = recCount;
+                     spatialIdx[8].Value = depthList.ToArray();
+                     spatialIdx[8].Size = recCount;
 
-                        commandIns.ArrayBindCount = recCount;
+                     commandIns.ArrayBindCount = recCount;
 
-                        int commandStatus = commandIns.ExecuteNonQuery();
-                        DBOperation.commitTransaction();
+                     int commandStatus = commandIns.ExecuteNonQuery();
+                     DBOperation.commitTransaction();
 
-                        elementIDList.Clear();
-                        cellIDStrList.Clear();
-                        XMinB.Clear();
-                        YMinB.Clear();
-                        ZMinB.Clear();
-                        XMaxB.Clear();
-                        YMaxB.Clear();
-                        ZMaxB.Clear();
-                        depthList.Clear();
-                    }
-                }
-                catch (OracleException e)
-                {
-                    string excStr = "%%Insert Spatial Index Error - " + e.Message + "\n\t" ;
-                    _refBIMRLCommon.StackPushError(excStr);
-                }
-                catch (SystemException e)
-                {
-                    string excStr = "%%Insert Spatial Index Error - " + e.Message + "\n\t";
-                    _refBIMRLCommon.StackPushError(excStr);
-                    throw;
-                }
+                     elementIDList.Clear();
+                     cellIDStrList.Clear();
+                     XMinB.Clear();
+                     YMinB.Clear();
+                     ZMinB.Clear();
+                     XMaxB.Clear();
+                     YMaxB.Clear();
+                     ZMaxB.Clear();
+                     depthList.Clear();
+                  }
+               }
+               catch (OracleException e)
+               {
+                  string excStr = "%%Insert Spatial Index Error - " + e.Message + "\n\t";
+                  _refBIMRLCommon.StackPushError(excStr);
+               }
+               catch (SystemException e)
+               {
+                  string excStr = "%%Insert Spatial Index Error - " + e.Message + "\n\t";
+                  _refBIMRLCommon.StackPushError(excStr);
+                  throw;
+               }
             }
+         }
 
-            // At last if there are entries in the list, insert them
-            try
+         // At last if there are entries in the list, insert them
+         try
+         {
+            recCount = elementIDList.Count;
+            if (recCount > 0)
             {
-                recCount = elementIDList.Count;
-                if (recCount > 0)
-                {
-                    spatialIdx[0].Value = elementIDList.ToArray();
-                    spatialIdx[0].Size = recCount;
-                    spatialIdx[1].Value = cellIDStrList.ToArray();
-                    spatialIdx[1].Size = recCount;
-                    spatialIdx[2].Value = XMinB.ToArray();
-                    spatialIdx[2].Size = recCount;
+               spatialIdx[0].Value = elementIDList.ToArray();
+               spatialIdx[0].Size = recCount;
+               spatialIdx[1].Value = cellIDStrList.ToArray();
+               spatialIdx[1].Size = recCount;
+               spatialIdx[2].Value = XMinB.ToArray();
+               spatialIdx[2].Size = recCount;
 
-                    spatialIdx[3].Value = YMinB.ToArray();
-                    spatialIdx[3].Size = recCount;
+               spatialIdx[3].Value = YMinB.ToArray();
+               spatialIdx[3].Size = recCount;
 
-                    spatialIdx[4].Value = ZMinB.ToArray();
-                    spatialIdx[4].Size = recCount;
+               spatialIdx[4].Value = ZMinB.ToArray();
+               spatialIdx[4].Size = recCount;
 
-                    spatialIdx[5].Value = XMaxB.ToArray();
-                    spatialIdx[5].Size = recCount;
+               spatialIdx[5].Value = XMaxB.ToArray();
+               spatialIdx[5].Size = recCount;
 
-                    spatialIdx[6].Value = YMaxB.ToArray();
-                    spatialIdx[6].Size = recCount;
+               spatialIdx[6].Value = YMaxB.ToArray();
+               spatialIdx[6].Size = recCount;
 
-                    spatialIdx[7].Value = ZMaxB.ToArray();
-                    spatialIdx[7].Size = recCount;
+               spatialIdx[7].Value = ZMaxB.ToArray();
+               spatialIdx[7].Size = recCount;
 
-                    spatialIdx[8].Value = depthList.ToArray();
-                    spatialIdx[8].Size = recCount;
+               spatialIdx[8].Value = depthList.ToArray();
+               spatialIdx[8].Size = recCount;
 
-                    commandIns.ArrayBindCount = recCount;
+               commandIns.ArrayBindCount = recCount;
 
-                    int commandStatus = commandIns.ExecuteNonQuery();
-                    DBOperation.commitTransaction();
+               int commandStatus = commandIns.ExecuteNonQuery();
+               DBOperation.commitTransaction();
 
-                    elementIDList.Clear();
-                    cellIDStrList.Clear();
-                    XMinB.Clear();
-                    YMinB.Clear();
-                    ZMinB.Clear();
-                    XMaxB.Clear();
-                    YMaxB.Clear();
-                    ZMaxB.Clear();
-                    depthList.Clear();
-                }
+               elementIDList.Clear();
+               cellIDStrList.Clear();
+               XMinB.Clear();
+               YMinB.Clear();
+               ZMinB.Clear();
+               XMaxB.Clear();
+               YMaxB.Clear();
+               ZMaxB.Clear();
+               depthList.Clear();
             }
-            catch (OracleException e)
-            {
-                string excStr = "%%Insert Spatial Index Error - " + e.Message + "\n\t";
-                _refBIMRLCommon.StackPushError(excStr);
-            }
-            catch (SystemException e)
-            {
-                string excStr = "%%Insert Spatial Index Error - " + e.Message + "\n\t";
-                _refBIMRLCommon.StackPushError(excStr);
-                throw;
-            }
-            commandIns.Dispose();
-        }
-    }
+         }
+         catch (OracleException e)
+         {
+            string excStr = "%%Insert Spatial Index Error - " + e.Message + "\n\t";
+            _refBIMRLCommon.StackPushError(excStr);
+         }
+         catch (SystemException e)
+         {
+            string excStr = "%%Insert Spatial Index Error - " + e.Message + "\n\t";
+            _refBIMRLCommon.StackPushError(excStr);
+            throw;
+         }
+         commandIns.Dispose();
+      }
+   }
 }

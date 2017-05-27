@@ -104,6 +104,7 @@
     <Compile Include="Matrix3D.cs" />
     <Compile Include="Matrix3x3.cs" />
     <Compile Include="Octree.cs" />
+    <Compile Include="OctreeDict.cs" />
     <Compile Include="OctreeLibEnum.cs" />
     <Compile Include="OracleSDO\ElementArrayFactory.cs" />
     <Compile Include="OracleSDO\OracleArrayTypeFactory.cs" />
