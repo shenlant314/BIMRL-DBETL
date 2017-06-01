@@ -66,7 +66,7 @@ namespace BIMRLDiffModelsCmd
          }
          catch
          {
-            Console.WriteLine("%Error: Connection to DB Error");
+            Console.WriteLine("%Error: Connection to DB Error" + DBOperation.refBIMRLCommon.ErrorMessages);
             return;
          }
 
