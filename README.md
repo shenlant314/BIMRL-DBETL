@@ -26,14 +26,19 @@ You will need to have a few things:
     * password: bimrl
     * DB service name: pdborcl
 
-2. You also need Visual Studio 2015 to compile BIMRL as well as Xbim. Visual Studio Community Edition from Microsoft is sufficient. It can be downloaded for free from [Microsoft Visual Studio Website](https://www.visualstudio.com/downloads/)
+2. Oracle Client installation and Net setup
+To connect to the Oracle server that has been setup as above, an Oracle Client (runtime) installation will be required for each machine that needs to connect to the database server. 
+**IMPORTANT NOTE**: The required version of the Oracle Client (Runtime) installation that works with BIMRL-DBETL is **12.1.0**. If the server runs Oracle database version other than 12.1.0, the client installation is also needed for the server machine to run BIMRL-ETL.
+Setup the Oracle Net connection similar to the server Net connection, except that the hostname must be the actual host name recognized by the client (on the server it is usually set to localhost).
 
-3. Download Xbim modules needed for BIMRL. They can be downloaded directly from [Xbim Github](https://xbimteam.github.io/), or from a forked project for [Invicara BIM Assure](https://github.com/invicara/). The later version contains small modification to improve XbimWindowsUI. They are also available through nuget packages that can be used directly within the Visual Studio project. There 3 modules needed:
+3. You also need Visual Studio 2015 to compile BIMRL as well as Xbim. Visual Studio Community Edition from Microsoft is sufficient. It can be downloaded for free from [Microsoft Visual Studio Website](https://www.visualstudio.com/downloads/)
+
+4. Download Xbim modules needed for BIMRL. They can be downloaded directly from [Xbim Github](https://xbimteam.github.io/), or from a forked project for [Invicara BIM Assure](https://github.com/invicara/). The later version contains small modification to improve XbimWindowsUI. They are also available through nuget packages that can be used directly within the Visual Studio project. There 3 modules needed:
   * [Xbim Essentials](https://github.com/Invicara/XbimEssentials)
   * [Xbim Geometry](https://github.com/Invicara/XbimGeometry)
   * [Xbim WindowsUI or Xplorer](https://github.com/Invicara/XbimWindowsUI)
 
-4. Once you are able to compile BIMRL, the project executables need to be copied to XbimXplorer\Plugins folder keeping the project names the same as a plugin folder:
+5. Once you are able to compile BIMRL, the project executables need to be copied to XbimXplorer\Plugins folder keeping the project names the same as a plugin folder:
   * BIMRL_ETL.XplorerPlugin
   * BIMRL_ETLConfig.XplorerPlugin
   * BIMRL_Main.XplorerPlugin
@@ -47,6 +52,7 @@ The three plugins if setup correctly will appear in the menu:
 
 1. BIMRL_ETL.XplorerPlugin
   This module is the entry point to perform ETL from the IFC model loaded by Xbim into the Oracle DB.
+  When invoking this menu, an option is given to perform full ETL process in one step, i.e. all the ETL process will be done at the end of the process with the pre-defined or automatically calculated parameters. In some cases when the detailed information may not be required or dfault setting needs to be overidden, untick the option and perform the individual ETL enhancements manually later on using the ETL main window UI.
 
 2. BIMRL_ETLConfig.XplorerPlugin
   This module allows a few configuration settings for the session.
@@ -56,11 +62,13 @@ The three plugins if setup correctly will appear in the menu:
   This module is the main module for all models that are uploaded into BIMRL database
 ![BIMRL Main UI](ReadmeResources/BIMRLMainUI.PNG)
 
-In addition, BIMRL has also developed a compare models functionality that comes both in a [command line utility](BIMRLDiffModelsCmd/) and [UI](BIMRLDiffModelsUI/).
-![BIMRLDiffModelsUI](ReadmeResources/BIMRLDiffModels.PNG)
+  In this UI, there are various operations that can be done. The main one is to perform manual steps for the enhanced ETL:
+  1. Generate (or re-generate) spatial indexes. The level of Octree subdivision can be controlled by "Octree Level". The automatically calculated value can be obtained using "Compute" button.
+  2. Generate (or re-generate) boundary faces. This boundary faces are the optimized boundary faces supporting convex and concave polygon with holes. This process invloves "stiching" operations to optimize the set of triangles data and it may be sensitive to the geometric tolerance. To modify the built-in tolerance (0.0001, which is 0.1mm) specify the value in the "Tol" textbox.
+  3. Generate OBB and the projected OBB
 
-## Acknowledgement
+  Other functionalities include: delete a model from the dabase, generate X3D file from the model (full or partial). For partial model specify the list of elementid in the "Additional Filter/Condition" textbox, e.g. elementid='2hYXglInnGt00000000X5E', or elementid in ('2hYXglInnGt00000000X5E','2hYXglInnGt00000000X5X'). Make sure to select "Draw Element Geom" in the X3D option that instructs it to draw geometry of the model data.
+
+## Acknowledgements
 The author wishes that by making this project open source, more people will benefit from it. Also the research community is encouraged to develop this further for the benefits of the community.
-
-The Compare Models functionality is supported by Autodesk as part of the development support for its IFC functionality in AutoCAD Architecture.
 
