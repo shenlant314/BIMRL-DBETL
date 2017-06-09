@@ -67,8 +67,11 @@ namespace BIMRL
          if (postalAddress.InternalLocation.HasValue)
             BIMRLCommon.appendToString(postalAddress.InternalLocation.Value.ToString(), " ,", ref formattedPostalAddress);
 
-         foreach (IfcLabel addrLine in postalAddress.AddressLines)
-            BIMRLCommon.appendToString(addrLine.ToString(), " ,", ref formattedPostalAddress);
+         if (postalAddress.AddressLines != null)
+         {
+            foreach (IfcLabel addrLine in postalAddress.AddressLines)
+               BIMRLCommon.appendToString(addrLine.ToString(), " ,", ref formattedPostalAddress);
+         }
 
          if (postalAddress.PostalBox.HasValue)
             BIMRLCommon.appendToString("PO Box: " + postalAddress.PostalBox.Value.ToString(), " ,", ref formattedPostalAddress);
