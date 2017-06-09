@@ -91,35 +91,47 @@ namespace BIMRL
       string FormatTelecomAddress(IIfcTelecomAddress telecomAddress)
       {
          string formattedTelecomAddress = "";
-         if (telecomAddress.TelephoneNumbers.Count > 0)
+         if (telecomAddress.TelephoneNumbers != null)
          {
-            BIMRLCommon.appendToString("Tel: ", null, ref formattedTelecomAddress);
-            foreach (IfcLabel telNo in telecomAddress.TelephoneNumbers)
-               BIMRLCommon.appendToString(telNo.ToString(), ", ", ref formattedTelecomAddress);
+            if (telecomAddress.TelephoneNumbers.Count > 0)
+            {
+               BIMRLCommon.appendToString("Tel: ", null, ref formattedTelecomAddress);
+               foreach (IfcLabel telNo in telecomAddress.TelephoneNumbers)
+                  BIMRLCommon.appendToString(telNo.ToString(), ", ", ref formattedTelecomAddress);
+            }
          }
 
-         if (telecomAddress.FacsimileNumbers.Count > 0)
+         if (telecomAddress.FacsimileNumbers != null)
          {
-            BIMRLCommon.appendToString("Fax: ", null, ref formattedTelecomAddress);
-            foreach (IfcLabel faxNo in telecomAddress.FacsimileNumbers)
-               BIMRLCommon.appendToString(faxNo.ToString(), ", ", ref formattedTelecomAddress);
+            if (telecomAddress.FacsimileNumbers.Count > 0)
+            {
+               BIMRLCommon.appendToString("Fax: ", null, ref formattedTelecomAddress);
+               foreach (IfcLabel faxNo in telecomAddress.FacsimileNumbers)
+                  BIMRLCommon.appendToString(faxNo.ToString(), ", ", ref formattedTelecomAddress);
+            }
          }
 
          if (telecomAddress.PagerNumber.HasValue)
             BIMRLCommon.appendToString("Pager: " + telecomAddress.PagerNumber.Value.ToString(), ", ", ref formattedTelecomAddress);
 
-         if (telecomAddress.ElectronicMailAddresses.Count > 0)
+         if (telecomAddress.ElectronicMailAddresses != null)
          {
-            BIMRLCommon.appendToString("e-mail: ", null, ref formattedTelecomAddress);
-            foreach (IfcLabel email in telecomAddress.ElectronicMailAddresses)
-               BIMRLCommon.appendToString(email.ToString(), ", ", ref formattedTelecomAddress);
+            if (telecomAddress.ElectronicMailAddresses.Count > 0)
+            {
+               BIMRLCommon.appendToString("e-mail: ", null, ref formattedTelecomAddress);
+               foreach (IfcLabel email in telecomAddress.ElectronicMailAddresses)
+                  BIMRLCommon.appendToString(email.ToString(), ", ", ref formattedTelecomAddress);
+            }
          }
 
-         if (telecomAddress.MessagingIDs.Count > 0)
+         if (telecomAddress.MessagingIDs != null)
          {
-            BIMRLCommon.appendToString("Messaging ID: ", null, ref formattedTelecomAddress);
-            foreach (IfcURIReference mesgID in telecomAddress.MessagingIDs)
-               BIMRLCommon.appendToString(mesgID.ToString(), ", ", ref formattedTelecomAddress);
+            if (telecomAddress.MessagingIDs.Count > 0)
+            {
+               BIMRLCommon.appendToString("Messaging ID: ", null, ref formattedTelecomAddress);
+               foreach (IfcURIReference mesgID in telecomAddress.MessagingIDs)
+                  BIMRLCommon.appendToString(mesgID.ToString(), ", ", ref formattedTelecomAddress);
+            }
          }
 
          if (telecomAddress.WWWHomePageURL.HasValue)

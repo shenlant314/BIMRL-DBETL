@@ -55,12 +55,21 @@ namespace BIMRL
             string valueList = ID.ToString() + ", " + BIMRLProcessModel.currModelID;
 
             IIfcPerson thePerson = ownH.OwningUser.ThePerson;
+            string givenName = string.Empty;
+            string familyName = string.Empty;
             string middleNames = string.Empty;
-            foreach (string middleName in thePerson.MiddleNames)
+            if (thePerson.MiddleNames != null)
             {
-               BIMRLCommon.appendToString(middleName.Trim(), " ", ref middleNames);
+               foreach (string middleName in thePerson.MiddleNames)
+               {
+                  BIMRLCommon.appendToString(middleName.Trim(), " ", ref middleNames);
+               }
             }
-            string owningPersonName = thePerson.GivenName.ToString().Trim() + " " + middleNames + " " + thePerson.FamilyName.ToString().Trim();
+            if (thePerson.GivenName != null)
+               givenName = thePerson.GivenName.ToString().Trim();
+            if (thePerson.FamilyName != null)
+               familyName = thePerson.FamilyName.ToString().Trim();
+            string owningPersonName = givenName + " " + middleNames + " " + familyName;
 
             if (!string.IsNullOrEmpty(owningPersonName))
             {
