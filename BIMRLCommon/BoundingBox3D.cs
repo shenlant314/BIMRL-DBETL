@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace BIMRL.Common
 {
@@ -83,26 +84,31 @@ namespace BIMRL.Common
             get { return _URT; }
         }
 
+      [JsonIgnore]
         public double extent
         {
             get {return Point3D.distance(LLB, URT);} 
         }
 
+      [JsonIgnore]
         public double XLength
         {
             get { return Math.Abs(URT.X - LLB.X); }
         }
 
+      [JsonIgnore]
         public double YLength
         {
             get { return Math.Abs(URT.Y - LLB.Y); }
         }
 
+      [JsonIgnore]
         public double ZLength
         {
             get { return Math.Abs(URT.Z - LLB.Z); }
         }
 
+      [JsonIgnore]
         public Point3D Center
         {
             get
@@ -111,6 +117,7 @@ namespace BIMRL.Common
             }
         }
 
+      [JsonIgnore]
         public List<Point3D> BBVertices
         {
             get 
