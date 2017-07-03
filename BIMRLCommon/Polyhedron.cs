@@ -403,5 +403,23 @@ namespace BIMRL.Common
       {
          return JsonConvert.SerializeObject(this);
       }
+
+      public static Polyhedron UnionPolyhedronList(IList<Polyhedron> polyHList)
+      {
+         Polyhedron polyH = null;
+         if (polyHList == null || polyHList.Count == 0)
+            return null;
+
+         List<Face3D> unionFaces = new List<Face3D>();
+         foreach (Polyhedron pH in polyHList)
+         {
+            unionFaces.AddRange(pH.Faces);
+         }
+         if (unionFaces.Count > 0)
+         {
+            polyH = new Polyhedron(unionFaces);
+         }
+         return polyH;
+      }
    }
 }

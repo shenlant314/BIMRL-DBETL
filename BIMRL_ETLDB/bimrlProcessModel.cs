@@ -32,10 +32,17 @@ using Xbim.Common;
 using Xbim.Common.Federation;
 using Xbim.Ifc;
 using Xbim.Ifc4.Interfaces;
+#if ORACLE
 using Oracle.DataAccess.Types;
 using Oracle.DataAccess.Client;
 using NetSdoGeometry;
+#endif
+#if POSTGRES
+using Npgsql;
+using NpgsqlTypes;
+#endif
 using BIMRL.Common;
+using Newtonsoft.Json;
 
 namespace BIMRL
 {
@@ -62,6 +69,7 @@ namespace BIMRL
          IfcStore modelStore = model as IfcStore;
          string currStep = String.Empty;
          _bimrlCommon.resetAll();
+         string sqlStmt;
 
          // Connect to Oracle DB
          DBOperation.refBIMRLCommon = _bimrlCommon;      // important to ensure DBoperation has reference to this object!!
@@ -177,6 +185,7 @@ namespace BIMRL
          try
          {
             DBOperation.beginTransaction();
+#if ORACLE
             OracleCommand cmd = new OracleCommand("", DBOperation.DBConn);
 
             // Define the spatial index metadata
@@ -190,7 +199,7 @@ namespace BIMRL
             double lowerZ = _bimrlCommon.LLB_Z - marginZ;
             double upperZ = _bimrlCommon.URT_Z + marginZ;
 
-            string sqlStmt = "insert into USER_SDO_GEOM_METADATA (TABLE_NAME, COLUMN_NAME, DIMINFO, SRID) VALUES "
+            sqlStmt = "insert into USER_SDO_GEOM_METADATA (TABLE_NAME, COLUMN_NAME, DIMINFO, SRID) VALUES "
                            + "('BIMRL_ELEMENT_" + DBOperation.currFedModel.FederatedID.ToString("X4") + "','GEOMETRYBODY',"
                            + "SDO_DIM_ARRAY(SDO_DIM_ELEMENT('X', " + lowerX.ToString() + ", " + upperX.ToString() + ", 0.000001),"
                            + "SDO_DIM_ELEMENT('Y', " + lowerY.ToString() + ", " + upperY.ToString() + ", 0.000001),"
@@ -309,13 +318,19 @@ namespace BIMRL
             currStep = sqlStmt;
             cmd.CommandText = sqlStmt;
             cmd.ExecuteNonQuery();
-
+#endif
+#if POSTGRES
+            NpgsqlCommand cmd = new NpgsqlCommand("", DBOperation.DBConn);
+            NpgsqlConnection.MapCompositeGlobally<Point3D>("point3d");
+            NpgsqlConnection.MapCompositeGlobally<GeometryTypeEnum>("geom3dtype");
+#endif
 
             sqlStmt = "Update BIMRL_FEDERATEDMODEL SET LastUpdateDate=sysdate WHERE FederatedID=" + DBOperation.currFedModel.FederatedID.ToString();
             currStep = sqlStmt;
             cmd.CommandText = sqlStmt;
             cmd.ExecuteNonQuery();
 
+#if ORACLE
             // get the world BBox coordinates and update the BIMRL_FEDERATEDMODEL Table
             SdoGeometry Bbox = new SdoGeometry();
             Bbox.Dimensionality = 3;
@@ -335,7 +350,6 @@ namespace BIMRL
             coordArr[5] = _bimrlCommon.URT_Z;
             Bbox.OrdinatesArrayOfDoubles = coordArr;
 
-            // Create spatial index from the new model (list of triangles are accummulated during processing of geometries)
             sqlStmt = "update BIMRL_FEDERATEDMODEL SET WORLDBBOX=:1 , MAXOCTREELEVEL=:2 WHERE FEDERATEDID=" + DBOperation.currFedModel.FederatedID.ToString();
             currStep = sqlStmt;
             OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
@@ -351,7 +365,17 @@ namespace BIMRL
             sdoGeom2[1].Direction = ParameterDirection.Input;
             sdoGeom2[1].Value = DBOperation.OctreeSubdivLevel;
             sdoGeom2[1].Size = 1;
-
+#endif
+#if POSTGRES
+            sqlStmt = "update BIMRL_FEDERATEDMODEL SET WORLDBBOX=@0 , MAXOCTREELEVEL=@1 WHERE FEDERATEDID=@2";
+            NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+            BoundingBox3D worldBB = new BoundingBox3D(_bimrlCommon.LLB, _bimrlCommon.URT);
+            string worldBBJson = JsonConvert.SerializeObject(worldBB);
+            command.Parameters.AddWithValue("0", worldBBJson);
+            command.Parameters.AddWithValue("1", DBOperation.OctreeSubdivLevel);
+            command.Parameters.AddWithValue("2", DBOperation.currFedModel.FederatedID.ToString());
+            currStep = sqlStmt;
+#endif
             int commandStatus = command.ExecuteNonQuery();
 
             if (DBOperation.OnepushETL)
@@ -381,9 +405,11 @@ namespace BIMRL
                eBrep.ProcessOrientation(whereCond2);
 
                // 5. Create Graph Data
+#if ORACLE
                BIMRLGraph.GraphData graphData = new BIMRLGraph.GraphData();
                graphData.createCirculationGraph(DBOperation.currFedModel.FederatedID);
                graphData.createSpaceAdjacencyGraph(DBOperation.currFedModel.FederatedID);
+#endif
 
                sqlStmt = "UPDATE BIMRL_FEDERATEDMODEL SET LASTUPDATEDATE=sysdate";
                BIMRLCommon.appendToString("MAXOCTREELEVEL=" + octreeLevel.ToString(), ", ", ref sqlStmt);

@@ -23,7 +23,12 @@ using System.Linq;
 using Xbim.Ifc4.Interfaces;
 using Xbim.Common;
 using Xbim.Ifc;
+#if ORACLE
 using Oracle.DataAccess.Client;
+#endif
+#if POSTGRES
+using Npgsql;
+#endif
 using BIMRL.Common;
 
 namespace BIMRL
@@ -45,8 +50,12 @@ namespace BIMRL
 
          DBOperation.beginTransaction();
 
+#if ORACLE
          OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
-
+#endif
+#if POSTGRES
+         NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
+#endif
          IEnumerable<IIfcOwnerHistory> ownerHistoryList = _model.Instances.OfType<IIfcOwnerHistory>();
          foreach (IIfcOwnerHistory ownH in ownerHistoryList)
          {
@@ -219,7 +228,12 @@ namespace BIMRL
                Tuple<int, int> ownHEntry = new Tuple<int, int>(ID, BIMRLProcessModel.currModelID);
                _refBIMRLCommon.OwnerHistoryAdd(ownHEntry);
             }
+#if ORACLE
             catch (OracleException e)
+#endif
+#if POSTGRES
+            catch (NpgsqlException e)
+#endif
             {
                string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
                _refBIMRLCommon.StackPushIgnorableError(excStr);

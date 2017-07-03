@@ -28,8 +28,14 @@ using System.Threading;
 using System.Diagnostics;
 using Xbim.Ifc;
 using Xbim.Ifc4.Interfaces;
+#if ORACLE
 using Oracle.DataAccess.Types;
 using Oracle.DataAccess.Client;
+#endif
+#if POSTGRES
+using Npgsql;
+using NpgsqlTypes;
+#endif
 using BIMRL.Common;
 
 namespace BIMRL
@@ -47,6 +53,7 @@ namespace BIMRL
 
       public void processMaterials()
       {
+#if ORACLE
          List<string> insTGuid = new List<string>();
          List<string> insTMatName = new List<string>();
          List<string> insTSetName = new List<string>();
@@ -57,6 +64,10 @@ namespace BIMRL
          List<OracleParameterStatus> insTMatTPS = new List<OracleParameterStatus>();
          List<string> insTIsVentilated = new List<string>();
          List<OracleParameterStatus> insTIsVPS = new List<OracleParameterStatus>();
+         List<string> insTCategory = new List<string>();
+         List<OracleParameterStatus> insTCatPS = new List<OracleParameterStatus>();
+         List<string> insTForProfile = new List<string>();
+         List<OracleParameterStatus> insTForPPS = new List<OracleParameterStatus>();
 
          List<string> insGuid = new List<string>();
          List<string> insMatName = new List<string>();
@@ -68,56 +79,70 @@ namespace BIMRL
          List<OracleParameterStatus> insMatTPS = new List<OracleParameterStatus>();
          List<string> insIsVentilated = new List<string>();
          List<OracleParameterStatus> insIsVPS = new List<OracleParameterStatus>();
+         List<string> insCategory = new List<string>();
+         List<OracleParameterStatus> insCatPS = new List<OracleParameterStatus>();
+         List<string> insForProfile = new List<string>();
+         List<OracleParameterStatus> insForPPS = new List<OracleParameterStatus>();
 
-         string currStep = "Processing Materials";
+         string sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_TYPEMATERIAL") + " (ElementID, MaterialName, Category, SetName, IsVentilated, forprofile, MaterialSequence, MaterialThickness) "
+            + " values (:1, :2, :3, :4, :5, :6, :7, :8)";
 
-         DBOperation.beginTransaction();
+         string sqlStmt2 = "insert into " + DBOperation.formatTabName("BIMRL_ELEMENTMATERIAL") + " (ElementID, MaterialName, Category, SetName, IsVentilated, forprofile, MaterialSequence, MaterialThickness) "
+                  + " values (:1, :2, :3, :4, :5, :6, :7, :8)";
 
-         OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
-         OracleCommand command2 = new OracleCommand(" ", DBOperation.DBConn);
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+         OracleCommand command2 = new OracleCommand(sqlStmt2, DBOperation.DBConn);
 
-         // 2 columsn are not used: Category, ForProfile is only used in IFC4
-         string sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_TYPEMATERIAL") + " (ElementID, MaterialName, SetName, IsVentilated, MaterialSequence, MaterialThickness) "
-                           + " values (:1, :2, :3, :4, :5, :6)";
-         command.CommandText = sqlStmt;
-         OracleParameter[] Param = new OracleParameter[6];
-         for (int i = 0; i < 4; i++)
+         OracleParameter[] Param = new OracleParameter[8];
+         for (int i = 0; i < 6; i++)
          {
                Param[i] = command.Parameters.Add(i.ToString(), OracleDbType.Varchar2);
                Param[i].Direction = ParameterDirection.Input;
          }
-         Param[4] = command.Parameters.Add("3", OracleDbType.Int16);
-         Param[4].Direction = ParameterDirection.Input;
-         Param[5] = command.Parameters.Add("4", OracleDbType.Double);
-         Param[5].Direction = ParameterDirection.Input;
-                
-         string sqlStmt2 = "insert into " + DBOperation.formatTabName("BIMRL_ELEMENTMATERIAL") + " (ElementID, MaterialName, SetName, IsVentilated, MaterialSequence, MaterialThickness) "
-                           + " values (:1, :2, :3, :4, :5, :6)";
-         command2.CommandText = sqlStmt2;
-         OracleParameter[] Param2 = new OracleParameter[6];
-         for (int i = 0; i < 4; i++)
+         Param[6] = command.Parameters.Add("3", OracleDbType.Int16);
+         Param[6].Direction = ParameterDirection.Input;
+         Param[7] = command.Parameters.Add("4", OracleDbType.Double);
+         Param[7].Direction = ParameterDirection.Input;
+
+         OracleParameter[] Param2 = new OracleParameter[8];
+         for (int i = 0; i < 6; i++)
          {
                Param2[i] = command2.Parameters.Add(i.ToString(), OracleDbType.Varchar2);
                Param2[i].Direction = ParameterDirection.Input;
          }
-         Param2[4] = command2.Parameters.Add("3", OracleDbType.Int16);
-         Param2[4].Direction = ParameterDirection.Input;
-         Param2[5] = command2.Parameters.Add("4", OracleDbType.Double);
-         Param2[5].Direction = ParameterDirection.Input;
+         Param2[6] = command2.Parameters.Add("3", OracleDbType.Int16);
+         Param2[6].Direction = ParameterDirection.Input;
+         Param2[7] = command2.Parameters.Add("4", OracleDbType.Double);
+         Param2[7].Direction = ParameterDirection.Input;
+#endif
+#if POSTGRES
+         string sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_TYPEMATERIAL") + " (ElementID, MaterialName, Category, SetName, IsVentilated, forprofile, MaterialSequence, MaterialThickness) "
+            + " values (@0, @1, @2, @3, @4, @5, @6, @7)";
+
+         string sqlStmt2 = "insert into " + DBOperation.formatTabName("BIMRL_ELEMENTMATERIAL") + " (ElementID, MaterialName, Category, SetName, IsVentilated, forprofile, MaterialSequence, MaterialThickness) "
+            + " values (@0, @1, @2, @3, @4, @5, @6, @7)";
+
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         NpgsqlCommand command2 = new NpgsqlCommand(sqlStmt2, DBOperation.DBConn);
+
+         command.Prepare();
+         command2.Prepare();
+#endif
+         string currStep = "Processing Materials";
+
+         DBOperation.beginTransaction();
 
          IEnumerable<IIfcRelAssociatesMaterial> relMaterials = _model.Instances.OfType<IIfcRelAssociatesMaterial>();
          foreach (IIfcRelAssociatesMaterial relMat in relMaterials)
          {
             // reset Relating material data at the start
             List<string> arrMatName = new List<string>();
+            List<string> arrCategory = new List<string>();
             List<string> arrSetName = new List<string>();
-            List<OracleParameterStatus> arrSetNPS = new List<OracleParameterStatus>();
-            List<int> arrMatSeq = new List<int>();
-            List<OracleParameterStatus> arrMatSPS = new List<OracleParameterStatus>();
-            List<double> arrMatThick = new List<double>();
-            List<OracleParameterStatus> arrMatTPS = new List<OracleParameterStatus>();
             List<string> arrIsVentilated = new List<string>();
-            List<OracleParameterStatus> arrIsVPS = new List<OracleParameterStatus>();
+            List<string> arrForProfile = new List<string>();
+            List<int> arrMatSeq = new List<int>();
+            List<double> arrMatThick = new List<double>();
 
             // Handle various IfcMaterialSelect
             if (relMat.RelatingMaterial is IIfcMaterial)
@@ -125,26 +150,29 @@ namespace BIMRL
                IIfcMaterial m = relMat.RelatingMaterial as IIfcMaterial;
                arrMatName.Add(m.Name);
                arrSetName.Add(string.Empty);
-               arrSetNPS.Add(OracleParameterStatus.NullInsert);
-               arrMatSeq.Add(0);
-               arrMatSPS.Add(OracleParameterStatus.NullInsert);
-               arrMatThick.Add(0.0);
-               arrMatTPS.Add(OracleParameterStatus.NullInsert);
+               arrMatSeq.Add(-1);
+               arrMatThick.Add(-1.0);
                arrIsVentilated.Add(string.Empty);
-               arrIsVPS.Add(OracleParameterStatus.NullInsert);
+               if (m.Category.HasValue)
+                  arrCategory.Add(m.Category);
+               else
+                  arrCategory.Add(string.Empty);
+               arrForProfile.Add(string.Empty);
             }
             else if (relMat.RelatingMaterial is IIfcMaterialConstituent)
             {
                IIfcMaterialConstituent m = relMat.RelatingMaterial as IIfcMaterialConstituent;
                arrMatName.Add(m.Material.Name);
                arrSetName.Add(string.Empty);
-               arrSetNPS.Add(OracleParameterStatus.NullInsert);
-               arrMatSeq.Add(0);
-               arrMatSPS.Add(OracleParameterStatus.NullInsert);
-               arrMatThick.Add(0.0);
-               arrMatTPS.Add(OracleParameterStatus.NullInsert);
+               arrMatSeq.Add(-1);
+               arrMatThick.Add(-1.0);
                arrIsVentilated.Add(string.Empty);
-               arrIsVPS.Add(OracleParameterStatus.NullInsert);
+               if (m.Material.Category.HasValue)
+                  arrCategory.Add(m.Material.Category);
+               else
+                  arrCategory.Add(string.Empty);
+
+               arrForProfile.Add(string.Empty);
             }
             else if (relMat.RelatingMaterial is IIfcMaterialList)
             {
@@ -153,13 +181,14 @@ namespace BIMRL
                {
                   arrMatName.Add(m.Name);
                   arrSetName.Add(string.Empty);
-                  arrSetNPS.Add(OracleParameterStatus.NullInsert);
-                  arrMatSeq.Add(0);
-                  arrMatSPS.Add(OracleParameterStatus.NullInsert);
-                  arrMatThick.Add(0.0);
-                  arrMatTPS.Add(OracleParameterStatus.NullInsert);
+                  arrMatSeq.Add(-1);
+                  arrMatThick.Add(-1.0);
                   arrIsVentilated.Add(string.Empty);
-                  arrIsVPS.Add(OracleParameterStatus.NullInsert);
+                  if (m.Category.HasValue)
+                     arrCategory.Add(m.Category);
+                  else
+                     arrCategory.Add(string.Empty);
+                  arrForProfile.Add(string.Empty);
                }
             }
             else if (relMat.RelatingMaterial is IIfcMaterialConstituentSet)
@@ -169,13 +198,15 @@ namespace BIMRL
                {
                   arrMatName.Add(mConst.Material.Name);
                   arrSetName.Add(mConstSet.Name);
-                  arrSetNPS.Add(OracleParameterStatus.Success);
-                  arrMatSeq.Add(0);
-                  arrMatSPS.Add(OracleParameterStatus.NullInsert);
-                  arrMatThick.Add(0.0);
-                  arrMatTPS.Add(OracleParameterStatus.NullInsert);
+                  arrMatSeq.Add(-1);
+                  arrMatThick.Add(-1.0);
                   arrIsVentilated.Add(string.Empty);
-                  arrIsVPS.Add(OracleParameterStatus.NullInsert);
+                  arrCategory.Add(mConst.Material.Category);
+                  if (mConst.Material.Category.HasValue)
+                     arrCategory.Add(mConst.Material.Category);
+                  else
+                     arrCategory.Add(string.Empty);
+                  arrForProfile.Add(string.Empty);
                }
             }
             else if (relMat.RelatingMaterial is IIfcMaterialLayer)
@@ -186,21 +217,21 @@ namespace BIMRL
                else
                   arrMatName.Add("-");
                arrSetName.Add(string.Empty);
-               arrSetNPS.Add(OracleParameterStatus.NullInsert);
-               arrMatSeq.Add(0);
-               arrMatSPS.Add(OracleParameterStatus.NullInsert);
+               arrMatSeq.Add(-1);
                arrMatThick.Add((double) mLayer.LayerThickness.Value * _model.ModelFactors.LengthToMetresConversionFactor);
-               arrMatTPS.Add(OracleParameterStatus.Success);
                if (mLayer.IsVentilated != null)
                {
                   arrIsVentilated.Add("TRUE");
-                  arrIsVPS.Add(OracleParameterStatus.Success);
                }
                else
                {
                   arrIsVentilated.Add(string.Empty);
-                  arrIsVPS.Add(OracleParameterStatus.NullInsert);
                }
+               if (mLayer.Category.HasValue)
+                  arrCategory.Add(mLayer.Category.Value);
+               else
+                  arrCategory.Add(string.Empty);
+               arrForProfile.Add(string.Empty);
             }
             else if (relMat.RelatingMaterial is IIfcMaterialLayerSet || relMat.RelatingMaterial is IIfcMaterialLayerSetUsage)
             {
@@ -220,12 +251,10 @@ namespace BIMRL
                   if (mLayerSet.LayerSetName != null)
                   {
                         arrSetName.Add(mLayerSet.LayerSetName);
-                        arrSetNPS.Add(OracleParameterStatus.Success);
                   }
                   else
                   {
                         arrSetName.Add(string.Empty);
-                        arrSetNPS.Add(OracleParameterStatus.NullInsert);                      
                   }
 
                   if (mLayer.Material != null)
@@ -233,44 +262,47 @@ namespace BIMRL
                   else
                         arrMatName.Add("-");
                   arrMatSeq.Add(seqNo++);
-                  arrMatSPS.Add(OracleParameterStatus.NullInsert);
                   arrMatThick.Add((double) mLayer.LayerThickness.Value * _model.ModelFactors.LengthToMetresConversionFactor);
-                  arrMatTPS.Add(OracleParameterStatus.Success);
                   if (mLayer.IsVentilated != null)
                   {
                         arrIsVentilated.Add("TRUE");
-                        arrIsVPS.Add(OracleParameterStatus.Success);
                   }
                   else
                   {
                         arrIsVentilated.Add(string.Empty);
-                        arrIsVPS.Add(OracleParameterStatus.NullInsert);
                   }
+                  if (mLayer.Category.HasValue)
+                     arrCategory.Add(mLayer.Category.Value);
+                  else
+                     arrCategory.Add(string.Empty);
+                  arrForProfile.Add(string.Empty);
                }
             }
             else if (relMat.RelatingMaterial is IIfcMaterialProfile)
             {
                IIfcMaterialProfile mProfile = relMat.RelatingMaterial as IIfcMaterialProfile;
-               string profileName = "-";
-               string material;
                if (mProfile.Material != null)
-                  material = "(" + mProfile.Material.Name + ", ";
+               {
+                  if (mProfile.Category.HasValue)
+                     arrCategory.Add(mProfile.Category);
+                  else
+                     arrCategory.Add(string.Empty);
+               }
                else
-                  material = "(-, ";
-               if (mProfile.Profile.ProfileName.HasValue)
-                  profileName = mProfile.Profile.ProfileName.ToString();
+               {
+                  arrMatName.Add("-");
+                  arrCategory.Add(string.Empty);
+               }
 
-               material += profileName + ")";
-               arrMatName.Add(material);
+               if (mProfile.Profile.ProfileName.HasValue)
+                  arrForProfile.Add(mProfile.Profile.ProfileName.ToString());
+               else
+                  arrForProfile.Add(string.Empty);
 
                arrSetName.Add(string.Empty);
-               arrSetNPS.Add(OracleParameterStatus.NullInsert);
-               arrMatSeq.Add(0);
-               arrMatSPS.Add(OracleParameterStatus.NullInsert);
-               arrMatThick.Add(0);
-               arrMatTPS.Add(OracleParameterStatus.NullInsert);
+               arrMatSeq.Add(-1);
+               arrMatThick.Add(-1.0);
                arrIsVentilated.Add(string.Empty);
-               arrIsVPS.Add(OracleParameterStatus.NullInsert);
             }
             else if (relMat.RelatingMaterial is IIfcMaterialProfileSet
                      || relMat.RelatingMaterial is IIfcMaterialProfileSetUsage
@@ -290,9 +322,21 @@ namespace BIMRL
                else
                   mProfileSet = relMat.RelatingMaterial as IIfcMaterialProfileSet;
 
-               string material = getMaterialProfileSetString(mProfileSet);
+               string material;
+               string category;
+               string forProfile;
+               getMaterialProfileSetString(mProfileSet, out material, out category, out forProfile);
                if (mProfileSetEnd != null)
-                  BIMRLCommon.appendToString(getMaterialProfileSetString(mProfileSetEnd), " | ", ref material);
+               {
+                  string endMaterial;
+                  string endCategory;
+                  string endProfile;
+                  getMaterialProfileSetString(mProfileSetEnd, out endMaterial, out endCategory, out endProfile);
+
+                  BIMRLCommon.appendToString(endMaterial, " | ", ref material);
+                  BIMRLCommon.appendToString(endCategory, " | ", ref category);
+                  BIMRLCommon.appendToString(endProfile, " | ", ref forProfile);
+               }
 
                Int16 seqNo = 1;
                foreach (IIfcMaterialProfile mProf in mProfileSet.MaterialProfiles)
@@ -300,22 +344,19 @@ namespace BIMRL
                   if (mProfileSet.Name != null)
                   {
                      arrSetName.Add(mProfileSet.Name);
-                     arrSetNPS.Add(OracleParameterStatus.Success);
                   }
                   else
                   {
                      arrSetName.Add(string.Empty);
-                     arrSetNPS.Add(OracleParameterStatus.NullInsert);
                   }
 
                   arrMatName.Add(material);
-
+                  arrCategory.Add(category);
+                  arrForProfile.Add(forProfile);
+                  
                   arrMatSeq.Add(seqNo++);
-                  arrMatSPS.Add(OracleParameterStatus.Success);
-                  arrMatThick.Add(0);
-                  arrMatTPS.Add(OracleParameterStatus.Success);
+                  arrMatThick.Add(-1.0);
                   arrIsVentilated.Add(string.Empty);
-                  arrIsVPS.Add(OracleParameterStatus.NullInsert);
                }
             }
             else
@@ -336,33 +377,38 @@ namespace BIMRL
                {
                   if (relObj is IIfcProduct)
                   {
-                        insGuid.Add(guid);
-                        insMatName.Add(arrMatName[i]);
-                        insSetName.Add(arrSetName[i]);
-                        insSetNPS.Add(arrSetNPS[i]);
-                        insIsVentilated.Add(arrIsVentilated[i]);
-                        insIsVPS.Add(arrIsVPS[i]);
-                        insMatSeq.Add(arrMatSeq[i]);
-                        insMatSPS.Add(arrMatSPS[i]);
-                        insMatThick.Add(arrMatThick[i]);
-                        insMatTPS.Add(arrMatTPS[i]);
+#if ORACLE
+                     insertMaterial(ref insGuid, guid, ref insMatName, arrMatName[i], 
+                                    ref insCategory, ref insCatPS, arrCategory[i],
+                                    ref insSetName, ref insSetNPS, arrSetName[i],
+                                    ref insIsVentilated, ref insIsVPS, arrIsVentilated[i],
+                                    ref insForProfile, ref insForPPS, arrForProfile[i],
+                                    ref insMatSeq, ref insMatSPS, arrMatSeq[i],
+                                    ref insMatThick, ref insMatTPS, arrMatThick[i]);
+#endif
+#if POSTGRES
+                     insertMaterial(command, guid, arrMatName[i], arrCategory[i], arrSetName[i], arrIsVentilated[i], arrForProfile[i], arrMatSeq[i], arrMatThick[i]);
+#endif
                   }
                   else
                   {
-                        insTGuid.Add(guid);
-                        insTMatName.Add(arrMatName[i]);
-                        insTSetName.Add(arrSetName[i]);
-                        insTSetNPS.Add(arrSetNPS[i]);
-                        insTIsVentilated.Add(arrIsVentilated[i]);
-                        insTIsVPS.Add(arrIsVPS[i]);
-                        insTMatSeq.Add(arrMatSeq[i]);
-                        insTMatSPS.Add(arrMatSPS[i]);
-                        insTMatThick.Add(arrMatThick[i]);
-                        insTMatTPS.Add(arrMatTPS[i]);
+#if ORACLE
+                     insertMaterial(ref insTGuid, guid, ref insTMatName, arrMatName[i], 
+                                    ref insTCategory, ref insTCatPS, arrCategory[i],
+                                    ref insTSetName, ref insTSetNPS, arrSetName[i],
+                                    ref insTIsVentilated, ref insTIsVPS, arrIsVentilated[i],
+                                    ref insTForProfile, ref insTForPPS, arrForProfile[i],
+                                    ref insTMatSeq, ref insTMatSPS, arrMatSeq[i],
+                                    ref insTMatThick, ref insTMatTPS, arrMatThick[i]);
+#endif
+#if POSTGRES
+                     insertMaterial(command2, guid, arrMatName[i], arrCategory[i], arrSetName[i], arrIsVentilated[i], arrForProfile[i], arrMatSeq[i], arrMatThick[i]);
+#endif
                   }
                }
             }
 
+#if ORACLE
             if ((insGuid.Count + insTGuid.Count) >= DBOperation.commitInterval)
             {
                int commandStatus;
@@ -440,13 +486,9 @@ namespace BIMRL
 
                   arrMatName.Clear();
                   arrSetName.Clear();
-                  arrSetNPS.Clear();
                   arrIsVentilated.Clear();
-                  arrIsVPS.Clear();
                   arrMatSeq.Clear();
-                  arrMatSPS.Clear();
                   arrMatThick.Clear();
-                  arrMatTPS.Clear();
 
                   insTGuid.Clear();
                   insTMatName.Clear();
@@ -479,8 +521,10 @@ namespace BIMRL
                   throw;
                }
             }
+#endif
          }
 
+#if ORACLE
          if ((insGuid.Count + insTGuid.Count) > 0)
          {
                int commandStatus;
@@ -541,35 +585,138 @@ namespace BIMRL
                   throw;
                }
          }
+#endif
 
          DBOperation.commitTransaction();
          command.Dispose();
          command2.Dispose();
       }
 
-      string getMaterialProfileSetString(IIfcMaterialProfileSet mProfileSet)
+      void getMaterialProfileSetString(IIfcMaterialProfileSet mProfileSet, out string materialName, out string category, out string profileName)
       {
-         string material = string.Empty;
+         materialName = string.Empty;
+         category = string.Empty;
+         profileName = string.Empty;
 
          foreach (IIfcMaterialProfile mProfile in mProfileSet.MaterialProfiles)
          {
-            string profileName = string.Empty;
-            string materialProfile = "-";
             if (mProfile.Material != null)
-               materialProfile = "(" + mProfile.Material.Name + ", ";
+            {
+               BIMRLCommon.appendToString(mProfile.Material.Name, ", ", ref materialName);
+               if (mProfile.Category.HasValue)
+                  BIMRLCommon.appendToString(mProfile.Category.Value, ", ", ref category);
+               else
+                  BIMRLCommon.appendToString("-", ", ", ref category);
+            }
             else
-               materialProfile = "(-, ";
+            {
+               BIMRLCommon.appendToString("-", ", ", ref materialName);
+               BIMRLCommon.appendToString("-", ", ", ref category);
+            }
 
             if (mProfile.Profile.ProfileName.HasValue)
-               profileName = mProfile.Profile.ProfileName.ToString();
-
-            materialProfile += profileName + ")";
-
-            BIMRLCommon.appendToString(materialProfile, ", ", ref material);
+               BIMRLCommon.appendToString(mProfile.Profile.ProfileName.Value, ", ", ref profileName);
+            else
+               BIMRLCommon.appendToString("-", ", ", ref profileName);
          }
 
-         return material;
+         materialName = "(" + materialName + ")";
+         category = "(" + category + ")";
+         profileName = "(" + profileName + ")";
       }
+
+#if ORACLE
+      private void insertMaterial(ref List<string> insGUID, string elementid, ref List<string> insMatName, string materialName, 
+                                 ref List<string> insCategory, ref List<OracleParameterStatus> insCatPS, string category,
+                                 ref List<string> insSetName, ref List<OracleParameterStatus> insSetNPS, string setName,
+                                 ref List<string> insIsVentilated, ref List<OracleParameterStatus> insIsVPS, string isVentilated,
+                                 ref List<string> insForProfile, ref List<OracleParameterStatus> insForPPS, string forProfile,
+                                 ref List<int> insMatSeq, ref List<OracleParameterStatus> insMatSPS, int materialSequence,
+                                 ref List<double> insMatThick, ref List<OracleParameterStatus> insMatTPS, double materialThickness)
+
+      {
+         insGUID.Add(elementid);
+         insMatName.Add(materialName);
+
+         insCategory.Add(category);
+         if (string.IsNullOrEmpty(category))
+            insCatPS.Add(OracleParameterStatus.NullInsert);
+         else
+            insCatPS.Add(OracleParameterStatus.Success);
+      
+         insSetName.Add(setName);
+         if (string.IsNullOrEmpty(setName))
+            insSetNPS.Add(OracleParameterStatus.NullInsert);
+         else
+            insSetNPS.Add(OracleParameterStatus.Success);
+
+         insIsVentilated.Add(isVentilated);
+         if (string.IsNullOrEmpty(isVentilated))
+            insIsVPS.Add(OracleParameterStatus.NullInsert);
+         else
+            insIsVPS.Add(OracleParameterStatus.Success);
+
+         insForProfile.Add(forProfile);
+         if (string.IsNullOrEmpty(forProfile))
+            insForPPS.Add(OracleParameterStatus.NullInsert);
+         else
+            insForPPS.Add(OracleParameterStatus.Success);
+      
+         if (materialSequence >= 0)
+         {
+            insMatSeq.Add(materialSequence);
+            insMatSPS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {  insMatSeq.Add(0);
+            insMatSPS.Add(OracleParameterStatus.NullInsert);
+         }
+
+         if (materialThickness >= 0)
+         {
+            insMatThick.Add(materialThickness);
+            insMatTPS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {  insMatThick.Add(0.0);
+            insMatTPS.Add(OracleParameterStatus.NullInsert);
+         }
+      }
+#endif
+#if POSTGRES
+      private void insertMaterial(NpgsqlCommand command, string elementid, string materialName, string category, string setname, string isVentilated, string forProfile,
+         int materialSequence, double materialThickness)
+      {
+         command.Parameters.Clear();
+         command.Parameters.AddWithValue("0", elementid);
+         command.Parameters.AddWithValue("1", materialName);
+         command.Parameters.AddWithValue("2", category);
+         command.Parameters.AddWithValue("3", setname);
+         command.Parameters.AddWithValue("4", isVentilated);
+         command.Parameters.AddWithValue("5", forProfile);
+
+         if (materialSequence >= 0)
+            command.Parameters.AddWithValue("6", materialSequence);
+         else
+            command.Parameters.AddWithValue("6", DBNull.Value);
+
+         if (materialThickness >= 0)
+            command.Parameters.AddWithValue("7", materialThickness);
+         else
+            command.Parameters.AddWithValue("7", DBNull.Value);
+
+         try
+         {
+            int commandStatus = command.ExecuteNonQuery();
+         }
+         catch (NpgsqlException e)
+         {
+            // Ignore error and continue
+            _refBIMRLCommon.StackPushIgnorableError(string.Format("Error inserting (\"{0}\",\"{1}\",\"{2}\",\"{3}\",{4},{5},\"{6}\",\"{7}\"); {8})", elementid, materialName, category,
+               setname, materialSequence.ToString(), materialThickness.ToString(), isVentilated, forProfile, e.Message));
+         }
+      }
+#endif
 
    }
 }

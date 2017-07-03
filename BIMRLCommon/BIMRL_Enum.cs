@@ -46,4 +46,19 @@ namespace BIMRL.Common
         UNDERSIDE,              // A special case of a face that is at the underside of a geometry such as stairflight
         TOPSIDE                 // A spacial case of a face that is at the overside of a geometry such as a roof
     }
+
+#if POSTGRES
+   public enum GeometryTypeEnum
+   {
+      geompoint3d,
+      geompoint3dset,
+      geomline3d,
+      geompolyline3d,
+      geomface3d,
+      geomsurface3d,
+      geomsolid3d,
+      geombox3d,
+      geomtriangulatedfaceset3d
+   }
+#endif
 }

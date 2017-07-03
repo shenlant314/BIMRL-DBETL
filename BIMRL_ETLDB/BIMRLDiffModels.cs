@@ -24,8 +24,14 @@ using System.Text;
 using System.Data;
 using System.IO;
 using System.Threading.Tasks;
+#if ORACLE
 using Oracle.DataAccess.Client;
 using NetSdoGeometry;
+#endif
+#if POSTGRES
+using Npgsql;
+using NpgsqlTypes;
+#endif
 using BIMRL.Common;
 using Newtonsoft.Json;
 using Ionic.Zip;
@@ -503,16 +509,31 @@ namespace BIMRL
 
          DataTable queryDataTableBuffer = new DataTable(tabName);
 
+#if ORACLE
          OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
-
+#endif
+#if POSTGRES
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+#endif
          // TODO!!!!! This one still gives mysterious error if the "alias".* on BIMRLEP$<var> has different column list in previous statement
          // The * seems to "remember" the earlier one. If the number of columns are shorter than the previous one, it will throw OracleException for the "missing"/unrecognized column name
          try
          {
+#if ORACLE
             OracleDataReader reader = command.ExecuteReader();
+#endif
+#if POSTGRES
+            NpgsqlDataReader reader = command.ExecuteReader();
+#endif
             queryDataTableBuffer.Load(reader);
          }
+
+#if ORACLE
          catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
          {
             string excStr = "%%Error - " + e.Message + "\n" + command.CommandText;
             m_BIMRLCommonRef.StackPushError(excStr);
@@ -534,13 +555,23 @@ namespace BIMRL
          if (String.IsNullOrEmpty(sqlStmt))
             return 0;
 
+#if ORACLE
          OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+#endif
+#if POSTGRES
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+#endif
          try
          {
             int status = command.ExecuteNonQuery();
             return status;
          }
+#if ORACLE
          catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
          {
             if (ignoreError)
             {

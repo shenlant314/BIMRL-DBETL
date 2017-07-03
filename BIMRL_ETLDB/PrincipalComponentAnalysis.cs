@@ -38,37 +38,6 @@ namespace BIMRL
 
         public PrincipalComponentAnalysis (Polyhedron geom)
         {
-            //double resolution = 20;
-            //projectUnit unit = DBOperation.currModelProjectUnitLength;
-            //switch (unit)
-            //{
-            //    case projectUnit.SIUnit_Length_MilliMeter:
-            //        resolution = 20;
-            //        break;
-            //    case projectUnit.SIUnit_Length_Meter:
-            //        resolution = 0.02;
-            //        break;
-            //    case projectUnit.Imperial_Length_Inch:
-            //        resolution = 0.8;
-            //        break;
-            //    case projectUnit.Imperial_Length_Foot:
-            //        resolution = 0.06;
-            //        break;
-            //    default:
-            //        break;
-            //}
-            //_geom = geom;
-            // Use more elaborate data by sampling all edges into segmented points
-            //foreach(Face3D f in _geom.Faces)
-            //{
-            //    foreach(LineSegment3D l in f.outerAndInnerBoundaries)
-            //    {
-            //        List<Point3D> ptSet = l.toPointSet(resolution);
-            //        pointSet.AddRange(ptSet);
-            //    }
-            //}
-            // Use simple data, i.e. just the list of vertices
-            //pointSet.AddRange(_geom.Vertices);
             pointSet.AddRange(geom.Vertices);
         }
 
@@ -315,8 +284,6 @@ namespace BIMRL
                                 modAxes[0].Z, modAxes[1].Z, modAxes[2].Z, 0,
                                -centroid.X, -centroid.Y, -centroid.Z, 1);
             List<Point3D> transfPoints = transformPointSet();
-            //BoundingBox3D trOBB = new BoundingBox3D(transfPoints);
-            //List<Point3D> modOBB = transformBackPointSet(trOBB.BBVertices);
             return transfPoints;
         }
     }

@@ -32,10 +32,17 @@ using Xbim.Ifc;
 using Xbim.Ifc4.Interfaces;
 using Xbim.Common.Geometry;
 using Xbim.Ifc4.MeasureResource;
+#if ORACLE
 using Oracle.DataAccess.Types;
 using Oracle.DataAccess.Client;
 using NetSdoGeometry;
+#endif
+#if POSTGRES
+using Npgsql;
+using NpgsqlTypes;
+#endif
 using BIMRL.Common;
+using Newtonsoft.Json;
 
 namespace BIMRL
 {
@@ -74,7 +81,13 @@ namespace BIMRL
          int commandStatus = -1;
          int currInsertCount = 0;
 
+#if ORACLE
          OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
+#endif
+#if POSTGRES
+         NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
+
+#endif
          XbimMatrix3D m3D = new XbimMatrix3D();
 
          foreach (int productLabel in _refBIMRLCommon.insEntityLabelList)
@@ -159,10 +172,14 @@ namespace BIMRL
             //if (geomDataList.Count() == 0)
             //    continue;                   // no geometry for this product
 
+#if ORACLE
             int startingOffset = 0;
             List<int> elemInfoArr = new List<int>();
             List<double> arrCoord = new List<double>();
-
+#endif
+#if POSTGRES
+            IList<Polyhedron> ProdGeometries = new List<Polyhedron>();
+#endif
             double totalSurfArea = 0.0;
 
             //foreach (XbimGeometryData geomData in geomDataList)
@@ -179,6 +196,7 @@ namespace BIMRL
                //     XbimMeshGeometry3D builder = new XbimMeshGeometry3D();
                //     triangleStream.BuildWithNormals(builder, m3D);  //This reads only the Vertices and triangle indexes, other modes of Build can read other info (e.g. BuildWithNormal, or BuildPNI)
 
+#if ORACLE
                elemInfoArr.Add(startingOffset + 1);     // The first three tuple defines the geometry as solid (1007) starting at position offset 1
                elemInfoArr.Add((int)SdoGeometryTypes.ETYPE_COMPOUND.SOLID);
                elemInfoArr.Add(1);
@@ -186,14 +204,20 @@ namespace BIMRL
                elemInfoArr.Add((int)SdoGeometryTypes.ETYPE_COMPOUND.SURFACE_EXTERIOR);
                elemInfoArr.Add(prodGeom.TriangleIndexCount / 3); // no. of the (triangle) faces that follows
                int header = startingOffset + 6;
+#endif
+#if POSTGRES
+               IList<Face3D> polyHFaces = new List<Face3D>();
+#endif
 
                for (int noTr = 0; noTr < prodGeom.TriangleIndexCount / 3; noTr++)
                {
                   // int arrPos = header + noTr * 3;       // ElemInfoArray uses 3 members in the long array
 
+#if ORACLE
                   elemInfoArr.Add(startingOffset + noTr * 3 * 4 + 1);  // offset position
                   elemInfoArr.Add((int)SdoGeometryTypes.ETYPE_SIMPLE.POLYGON_EXTERIOR);   // This three tupple defines a face (triangular face) that is made up of 3 points/vertices
                   elemInfoArr.Add(1);
+#endif
 
                   // SDO requires the points to be closed, i.e. for triangle, we will need 4 points: v1, v2, v3, v1
                   XbimPoint3D vOrig = new XbimPoint3D();
@@ -214,6 +238,7 @@ namespace BIMRL
                            v.Z = v.Z * _model.ModelFactors.LengthToMetresConversionFactor;
                         }
                         triangleCoords.Add(v);
+#if ORACLE
                         arrCoord.Add(v.X);          // vertex i
                         arrCoord.Add(v.Y);
                         arrCoord.Add(v.Z);
@@ -225,6 +250,7 @@ namespace BIMRL
                            v0.Y = v.Y;
                            v0.Z = v.Z;
                         }
+#endif
 
                         // Evaluate each point to calculate min bounding box of the entire (federated) model
                         if (v.X < _refBIMRLCommon.LLB_X)
@@ -246,17 +272,30 @@ namespace BIMRL
                      {
                         double surfaceArea = CalculateAreaOfTriangle(triangleCoords);
                         totalSurfArea += surfaceArea;
+#if ORACLE
                         // Close the polygon with the starting point (i=0)
                         arrCoord.Add(v0.X);
                         arrCoord.Add(v0.Y);
                         arrCoord.Add(v0.Z);
+#endif
                      }
                   }
+#if POSTGRES
+                  Face3D face = new Face3D(triangleCoords.ToList());
+                  polyHFaces.Add(face);
+#endif
                }
+#if ORACLE
                startingOffset = startingOffset + prodGeom.TriangleIndexCount * 4;
                //polyHStartingOffset = currFVindex + 3;
+#endif
+#if POSTGRES
+               Polyhedron pH = new Polyhedron(polyHFaces.ToList());
+               ProdGeometries.Add(pH);
+#endif
             }
 
+#if ORACLE
             SdoGeometry sdoGeomData = new SdoGeometry();
             int gType = 0;
             if (!trfOnly)
@@ -273,18 +312,35 @@ namespace BIMRL
                sdoGeomData.ElemArrayOfInts = elemInfoArr.ToArray();
                sdoGeomData.OrdinatesArrayOfDoubles = arrCoord.ToArray();
             }
+#endif
+#if POSTGRES
+            if (!trfOnly)
+            {
+
+            }
+#endif
 
             if (!string.IsNullOrEmpty(prodGuid))
             {
                // Found match, update the table with geometry data
+#if ORACLE
                string sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT") + " set GEOMETRYBODY=:1, TRANSFORM_COL1=:2, TRANSFORM_COL2=:3, TRANSFORM_COL3=:4, TRANSFORM_COL4=:5, TOTAL_SURFACE_AREA=:6"
-                              + " Where elementid = '" + prodGuid + "'";
+               + " Where elementid = '" + prodGuid + "'";
+               command.CommandText = sqlStmt;
+#endif
+#if POSTGRES
+               string sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT") + " set geometrybody_geomtype=@0, GEOMETRYBODY=@1, TRANSFORM_COL=@2, TOTAL_SURFACE_AREA=@3"
+               + " Where elementid = @4";
+               command.CommandText = sqlStmt;
+               // This update statement will be repeated many times for each object with geometry. Prepare the statement.
+               command.Prepare();
+#endif
                // int status = DBOperation.updateGeometry(sqlStmt, sdoGeomData);
                currStep = sqlStmt;
-               command.CommandText = sqlStmt;
 
                try
                {
+#if ORACLE
                   OracleParameter[] sdoGeom = new OracleParameter[6];
                   for (int i = 0; i < sdoGeom.Count()-1; ++i)
                   {
@@ -346,7 +402,39 @@ namespace BIMRL
                   sdoGeom[5] = command.Parameters.Add("6", OracleDbType.Double);
                   sdoGeom[5].Direction = ParameterDirection.Input;
                   sdoGeom[5].Value = totalSurfArea;
+#endif
+#if POSTGRES
+                  command.Parameters.Clear();
+                  command.Parameters.AddWithValue("0", NpgsqlDbType.Enum, GeometryTypeEnum.geomsolid3d);
+                  string geomJson = JsonConvert.SerializeObject(ProdGeometries);
+                  command.Parameters.AddWithValue("1", NpgsqlDbType.Jsonb, geomJson);
+                  // Organized the data according to 
+                  //            | Xaxis-x Xaxis-y Xaxis-z Offset-x |
+                  //            | Yaxis-x Yaxis-y Yaxis-z Offset-y |
+                  //            | Zaxis-x Zaxis-y Zaxis-z Offset-z |
+                  //            |    0       0       0       1     |
 
+                  double[,] trf = new double[4, 4];
+                  trf[0, 0] = trfOnly ? newRelTrf.M11 : m3D.M11;
+                  trf[0, 1] = trfOnly ? newRelTrf.M12 : m3D.M12;
+                  trf[0, 2] = trfOnly ? newRelTrf.M13 : m3D.M13;
+                  trf[0, 3] = trfOnly ? newRelTrf.OffsetX : m3D.OffsetX;
+                  trf[1, 0] = trfOnly ? newRelTrf.M21 : m3D.M21;
+                  trf[1, 1] = trfOnly ? newRelTrf.M22 : m3D.M22;
+                  trf[1, 2] = trfOnly ? newRelTrf.M23 : m3D.M23;
+                  trf[1, 3] = trfOnly ? newRelTrf.OffsetY : m3D.OffsetY;
+                  trf[2, 0] = trfOnly ? newRelTrf.M31 : m3D.M31;
+                  trf[2, 1] = trfOnly ? newRelTrf.M32 : m3D.M32;
+                  trf[2, 2] = trfOnly ? newRelTrf.M33 : m3D.M33;
+                  trf[2, 3] = trfOnly ? newRelTrf.OffsetZ : m3D.OffsetZ;
+                  trf[3, 0] = 0;
+                  trf[3, 1] = 0;
+                  trf[3, 2] = 0;
+                  trf[3, 3] = 1;
+                  command.Parameters.AddWithValue("2", NpgsqlDbType.Array | NpgsqlDbType.Double, trf);
+                  command.Parameters.AddWithValue("3", totalSurfArea);
+                  command.Parameters.AddWithValue("4", prodGuid);
+#endif
                   commandStatus = command.ExecuteNonQuery();
                   command.Parameters.Clear();
 
@@ -358,12 +446,22 @@ namespace BIMRL
                         DBOperation.commitTransaction();
                   }
                }
+#if ORACLE
                catch (OracleException e)
+#endif
+#if POSTGRES
+               catch (NpgsqlException e)
+#endif
                {
                   string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
                   _refBIMRLCommon.StackPushError(excStr);
                   //command.Dispose();   // Log Oracle error and continue
+#if ORACLE
                   command = new OracleCommand(" ", DBOperation.DBConn);
+#endif
+#if POSTGRES
+                  command = new NpgsqlCommand(" ", DBOperation.DBConn);
+#endif
                   // throw;
                }
                catch (SystemException e)
@@ -408,20 +506,35 @@ namespace BIMRL
          string SqlStmt;
          string currStep = string.Empty;
 
+#if ORACLE
          OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
+#endif
+#if POSTGRES
+         NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
+#endif
          try
          {
             // Process IfcProject
             IIfcProject project = _model.Instances.OfType<IIfcProject>().FirstOrDefault();
             SqlStmt = "SELECT COUNT(*) FROM " + DBOperation.formatTabName("BIMRL_ELEMENT") + " WHERE ELEMENTID='" + project.GlobalId.ToString() + "'";
+#if ORACLE
             OracleCommand chkCmd = new OracleCommand(SqlStmt, DBOperation.DBConn);
+#endif
+#if POSTGRES
+            NpgsqlCommand chkCmd = new NpgsqlCommand(SqlStmt, DBOperation.DBConn);
+#endif            
             object ret = chkCmd.ExecuteScalar();
             int iRet = Convert.ToInt32(ret.ToString());
             if (iRet == 0)
             {
                SqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_ELEMENT") + " (ELEMENTID, ELEMENTTYPE, MODELID) VALUES ("
-                           + "'" + project.GlobalId.ToString() + "', 'IFCPROJECT', " + BIMRLProcessModel.currModelID.ToString() + ")";
+               + "'" + project.GlobalId.ToString() + "', 'IFCPROJECT', " + BIMRLProcessModel.currModelID.ToString() + ")";
+#if ORACLE
                OracleCommand cmd = new OracleCommand(SqlStmt, DBOperation.DBConn);
+#endif
+#if POSTGRES
+               NpgsqlCommand cmd = new NpgsqlCommand(SqlStmt, DBOperation.DBConn);
+#endif               
                cmd.ExecuteNonQuery();
                cmd.Dispose();
             }
@@ -574,7 +687,12 @@ namespace BIMRL
                }
             }
          }
+#if ORACLE
          catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
          {
                string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
                _refBIMRLCommon.StackPushError(excStr);
@@ -600,6 +718,7 @@ namespace BIMRL
       private void processProperties()
       {
          BIMRLProperties bimrlProp = new BIMRLProperties(_refBIMRLCommon);
+#if ORACLE
          OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
 
          string SqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_ElementProperties") + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
@@ -629,6 +748,24 @@ namespace BIMRL
          IIfcProject project = projects.First();
          SqlStmt = "SELECT COUNT(*) FROM " + DBOperation.formatTabName("BIMRL_PROPERTIES") + " WHERE ELEMENTID='" + project.GlobalId.ToString() + "'";
          OracleCommand chkCmd = new OracleCommand(SqlStmt, DBOperation.DBConn);
+#endif
+#if POSTGRES
+         NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
+
+         string SqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_ElementProperties") + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
+            + ", PropertyUnit) Values (@0, @1, @2, @3, @4, @5)";
+         command.CommandText = SqlStmt;
+         command.Prepare();
+         string currStep = SqlStmt;
+
+         // Process Project "properties"
+         IEnumerable<IIfcProject> projects = _model.Instances.OfType<IIfcProject>();
+         // Insert only ONE project from the first one. Therefore needs to check its existence first
+         IIfcProject project = projects.First();
+         SqlStmt = "SELECT COUNT(*) FROM " + DBOperation.formatTabName("BIMRL_PROPERTIES") + " WHERE ELEMENTID='" + project.GlobalId.ToString() + "'";
+         NpgsqlCommand chkCmd = new NpgsqlCommand(SqlStmt, DBOperation.DBConn);
+#endif
+
          object ret = chkCmd.ExecuteScalar();
          int iRet = Convert.ToInt32(ret.ToString());
          if (iRet == 0)
@@ -638,64 +775,62 @@ namespace BIMRL
             {
                if (repCtx.TrueNorth != null)
                {
+#if ORACLE
                   trueNorthDir.X = repCtx.TrueNorth.X;
                   trueNorthDir.Y = repCtx.TrueNorth.Y;
                   trueNorthDir.Z = repCtx.TrueNorth.Z;
-                  arrEleGuid.Add(project.GlobalId);
-                  arrPGrpName.Add("IFCATTRIBUTES");
-                  arrPropName.Add("TRUENORTH");
-                  arrPropVal.Add(trueNorthDir.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add("VECTOR");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
+                  insertProperty(ref arrEleGuid, project.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "TRUENORTH",
+                     ref arrPropVal, ref arrPropValBS, trueNorthDir.ToString(), ref arrPDatatyp, "VECTOR", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+                  trueNorthDir.X = repCtx.TrueNorth.X;
+                  trueNorthDir.Y = repCtx.TrueNorth.Y;
+                  trueNorthDir.Z = repCtx.TrueNorth.Z;
+                  insertProperty(command, project.GlobalId, "IFCATTRIBUTES", "TRUENORTH", trueNorthDir.ToString(), "VECTOR", string.Empty);
+#endif
                   break;
                }
             }
             // Other project properties
             if (project.Description != null)
             {
-               arrEleGuid.Add(project.GlobalId);
-               arrPGrpName.Add("IFCATTRIBUTES");
-               arrPropName.Add("DESCRIPTION");
-               arrPropVal.Add(project.Description.Value);
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPDatatyp.Add("STRING");
-               arrPUnit.Add(string.Empty);
-               arrPUnitBS.Add(OracleParameterStatus.NullInsert);
+#if ORACLE
+               insertProperty(ref arrEleGuid, project.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "DESCRIPTION",
+                  ref arrPropVal, ref arrPropValBS, project.Description.Value, ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               insertProperty(command, project.GlobalId, "IFCATTRIBUTES", "DESCRIPTION", project.Description.Value, "STRING", string.Empty);
+#endif
             }
             if (project.ObjectType != null)
             {
-               arrEleGuid.Add(project.GlobalId);
-               arrPGrpName.Add("IFCATTRIBUTES");
-               arrPropName.Add("OBJECTTYPE");
-               arrPropVal.Add(project.ObjectType.Value);
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPDatatyp.Add("STRING");
-               arrPUnit.Add(string.Empty);
-               arrPUnitBS.Add(OracleParameterStatus.NullInsert);
+#if ORACLE
+               insertProperty(ref arrEleGuid, project.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "OBJECTTYPE",
+                  ref arrPropVal, ref arrPropValBS, project.ObjectType.Value, ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               insertProperty(command, project.GlobalId, "IFCATTRIBUTES", "OBJECTTYPE", project.ObjectType.Value, "STRING", string.Empty);
+#endif
             }
             if (project.LongName != null)
             {
-               arrEleGuid.Add(project.GlobalId);
-               arrPGrpName.Add("IFCATTRIBUTES");
-               arrPropName.Add("LONGNAME");
-               arrPropVal.Add(project.LongName);
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPDatatyp.Add("STRING");
-               arrPUnit.Add(string.Empty);
-               arrPUnitBS.Add(OracleParameterStatus.NullInsert);
+#if ORACLE
+               insertProperty(ref arrEleGuid, project.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "LONGNAME",
+                  ref arrPropVal, ref arrPropValBS, project.LongName, ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               insertProperty(command, project.GlobalId, "IFCATTRIBUTES", "LONGNAME", project.LongName, "STRING", string.Empty);
+#endif
             }
             if (project.Phase != null)
             {
-               arrEleGuid.Add(project.GlobalId);
-               arrPGrpName.Add("IFCATTRIBUTES");
-               arrPropName.Add("PHASE");
-               arrPropVal.Add(project.Phase);
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPDatatyp.Add("STRING");
-               arrPUnit.Add(string.Empty);
-               arrPUnitBS.Add(OracleParameterStatus.NullInsert);
+#if ORACLE
+               insertProperty(ref arrEleGuid, project.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PHASE",
+                  ref arrPropVal, ref arrPropValBS, project.Phase, ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               insertProperty(command, project.GlobalId, "IFCATTRIBUTES", "PHASE", project.Phase, "STRING", string.Empty);
+#endif
             }
 
             // Process project units
@@ -767,131 +902,155 @@ namespace BIMRL
             // Now we collect all the dictionary entries and set them into array for property insertion
             foreach (KeyValuePair<string, UnitSetting> unitItem in unitItems)
             {
-               arrEleGuid.Add(project.GlobalId);
-               arrPGrpName.Add("IFCATTRIBUTES");
-               arrPropName.Add(unitItem.Key);
-               arrPropVal.Add(unitItem.Value.unitName);
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPDatatyp.Add(unitItem.Value.unitType);
-               arrPUnit.Add(unitItem.Value.conversionFactor.ToString());
-               arrPUnitBS.Add(OracleParameterStatus.Success);
+#if ORACLE
+               insertProperty(ref arrEleGuid, project.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, unitItem.Key,
+                  ref arrPropVal, ref arrPropValBS, unitItem.Value.unitName, ref arrPDatatyp, unitItem.Value.unitType, ref arrPUnit, ref arrPUnitBS, unitItem.Value.conversionFactor.ToString());
+#endif
+#if POSTGRES
+               insertProperty(command, project.GlobalId, "IFCATTRIBUTES", unitItem.Key, unitItem.Value.unitName, unitItem.Value.unitType, unitItem.Value.conversionFactor.ToString());
+#endif
             }
 
             //// Process the rest of the project properties in property sets (if any)
             //bimrlProp.processElemProperties(project);
          }
 
-         IEnumerable<IIfcProduct> elements = _model.Instances.OfType<IIfcProduct>().Where
+            IEnumerable<IIfcProduct> elements = _model.Instances.OfType<IIfcProduct>().Where
                (et => !(et is IIfcPort || et is IIfcVirtualElement || et is IIfcAnnotation || et is IIfcGrid));
+
+         string uom = string.Empty;
          foreach (IIfcProduct el in elements)
          {
             if (el is IIfcSite)
             {
                IIfcSite sse_s = el as IIfcSite;
 
-               int noPar = 6;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++ )
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
+#if ORACLE
+               if (sse_s.RefLatitude != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "REFLATITUDE",
+                     ref arrPropVal, ref arrPropValBS, sse_s.RefLatitude.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(sse_s.RefLatitude.GetType()));
 
-               arrPropName.Add("REFLATITUDE");
-               arrPropName.Add("REFLONGITUDE");
-               arrPropName.Add("REFELEVATION");
-               arrPropName.Add("LANDTITLENUMBER");
-               arrPropName.Add("SITEADDRESS");
-               arrPropName.Add("COMPOSITIONTYPE");
+               if (sse_s.RefLongitude != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "REFLONGITUDE",
+                     ref arrPropVal, ref arrPropValBS, sse_s.RefLongitude.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(sse_s.RefLongitude.GetType()));
 
-               arrPropVal.Add(sse_s.RefLatitude.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(sse_s.RefLongitude.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(sse_s.RefElevation.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(BIMRLUtils.checkSingleQuote(sse_s.LandTitleNumber.ToString()));
+               if (sse_s.RefElevation != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "REFELEVATION",
+                     ref arrPropVal, ref arrPropValBS, sse_s.RefElevation.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(sse_s.RefElevation.GetType()));
+
                if (sse_s.SiteAddress != null)
                {
-                  //arrPropVal.Add(BIMRLUtils.checkSingleQuote(sse_s.SiteAddress.ToString()));
                   BIMRLAddressData addrData = new BIMRLAddressData(sse_s.SiteAddress);
-                  arrPropVal.Add(addrData.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "SITEADDRESS",
+                     ref arrPropVal, ref arrPropValBS, addrData.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
 
-               arrPropVal.Add(sse_s.CompositionType.ToString());
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (sse_s.LandTitleNumber != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "LANDTITLENUMBER",
+                     ref arrPropVal, ref arrPropValBS, sse_s.LandTitleNumber.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+
+               if (sse_s.CompositionType != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "COMPOSITIONTYPE",
+                     ref arrPropVal, ref arrPropValBS, sse_s.CompositionType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (sse_s.RefLatitude != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "REFLATITUDE", sse_s.RefLatitude.ToString(), 
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(sse_s.RefLatitude.GetType()));
+
+               if (sse_s.RefLongitude != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "REFLONGITUDE", sse_s.RefLongitude.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(sse_s.RefLongitude.GetType()));
+
+               if (sse_s.RefElevation != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "REFELEVATION", sse_s.RefElevation.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(sse_s.RefElevation.GetType()));
+
+               if (sse_s.LandTitleNumber != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "LANDTITLENUMBER", sse_s.LandTitleNumber.ToString(),
+                     "STRING", string.Empty);
+
+               if (sse_s.SiteAddress != null)
+               {
+                  BIMRLAddressData addrData = new BIMRLAddressData(sse_s.SiteAddress);
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "SITEADDRESS", addrData.ToString(),
+                     "STRING", string.Empty);
+               }
+
+               if (sse_s.CompositionType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "COMPOSITIONTYPE", sse_s.CompositionType.ToString(),
+                   "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcBuilding)
             {
                IIfcBuilding sse_b = el as IIfcBuilding;
 
-               int noPar = 4;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
+#if ORACLE
+               if (sse_b.ElevationOfRefHeight != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "ELEVATIONOFREFHEIGHT",
+                     ref arrPropVal, ref arrPropValBS, sse_b.ElevationOfRefHeight.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(sse_b.ElevationOfRefHeight.GetType()));
 
-               arrPropName.Add("ELEVATIONOFREFHEIGHT");
-               arrPropName.Add("ELEVATIONOFTERRAIN");
-               arrPropName.Add("BUILDINGADDRESS");
-               arrPropName.Add("COMPOSITIONTYPE");
+               if (sse_b.ElevationOfTerrain != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "ELEVATIONOFTERRAIN",
+                     ref arrPropVal, ref arrPropValBS, sse_b.ElevationOfTerrain.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(sse_b.ElevationOfTerrain.GetType()));
 
-               arrPropVal.Add(sse_b.ElevationOfRefHeight.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(sse_b.ElevationOfTerrain.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
                if (sse_b.BuildingAddress != null)
                {
-                  //arrPropVal.Add(BIMRLUtils.checkSingleQuote(sse_b.BuildingAddress.ToString()));
                   BIMRLAddressData addrData = new BIMRLAddressData(sse_b.BuildingAddress);
-                  arrPropVal.Add(addrData.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "BUILDINGADDRESS",
+                     ref arrPropVal, ref arrPropValBS, addrData.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
-               else
+
+               if (sse_b.CompositionType != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "COMPOSITIONTYPE",
+                     ref arrPropVal, ref arrPropValBS, sse_b.CompositionType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (sse_b.ElevationOfRefHeight != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "ELEVATIONOFREFHEIGHT", sse_b.ElevationOfRefHeight.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(sse_b.ElevationOfRefHeight.GetType()));
+
+               if (sse_b.ElevationOfTerrain != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "ELEVATIONOFREFHEIGHT", sse_b.ElevationOfTerrain.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(sse_b.ElevationOfTerrain.GetType()));
+
+               if (sse_b.BuildingAddress != null)
                {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
+                  BIMRLAddressData addrData = new BIMRLAddressData(sse_b.BuildingAddress);
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "BUILDINGADDRESS", addrData.ToString(),
+                     "STRING", string.Empty);
                }
 
-               arrPropVal.Add(sse_b.CompositionType.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (sse_b.CompositionType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "COMPOSITIONTYPE", sse_b.CompositionType.ToString(),
+                     "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcBuildingStorey)
             {
                IIfcBuildingStorey sse_bs = el as IIfcBuildingStorey;
 
-               int noPar = 2;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
+#if ORACLE
+               if (sse_bs.Elevation != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "ELEVATION",
+                     ref arrPropVal, ref arrPropValBS, sse_bs.Elevation.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(sse_bs.Elevation.GetType()));
 
-               arrPropName.Add("ELEVATION");
-               arrPropName.Add("COMPOSITIONTYPE");
+               if (sse_bs.CompositionType != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "COMPOSITIONTYPE",
+                     ref arrPropVal, ref arrPropValBS, sse_bs.CompositionType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (sse_bs.Elevation != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "ELEVATION", sse_bs.Elevation.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(sse_bs.Elevation.GetType()));
 
-               arrPropVal.Add(sse_bs.Elevation.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(sse_bs.CompositionType.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (sse_bs.CompositionType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "COMPOSITIONTYPE", sse_bs.CompositionType.ToString(),
+                     "STRING", string.Empty);
+#endif
             }
 
             /* Various Element specific attributes to be inserted into Property tables as group IFCATTRIBUTES
@@ -900,74 +1059,46 @@ namespace BIMRL
             {
                IIfcBuildingElementProxy elem = el as IIfcBuildingElementProxy;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+#if ORACLE
                if (isIfc2x3)
                {
-                  arrPropName.Add("COMPOSITIONTYPE");
                   Xbim.Ifc2x3.Interfaces.IIfcBuildingElementProxy elem2x3 = elem as Xbim.Ifc2x3.Interfaces.IIfcBuildingElementProxy;
-                  if (elem2x3.CompositionType != null)
-                  {
-                     arrPropVal.Add(elem2x3.CompositionType.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "COMPOSITIONTYPE",
+                     ref arrPropVal, ref arrPropValBS, elem2x3.CompositionType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
                else
                {
-                  arrPropName.Add("PREDEFINEDTYPE");
-                  if (elem.PredefinedType != null)
-                  {
-                     arrPropVal.Add(elem.PredefinedType.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                     ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+#endif
+#if POSTGRES
+               if (isIfc2x3)
+               {
+                  Xbim.Ifc2x3.Interfaces.IIfcBuildingElementProxy elem2x3 = elem as Xbim.Ifc2x3.Interfaces.IIfcBuildingElementProxy;
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "COMPOSITIONTYPE", elem2x3.CompositionType.ToString(),
+                     "STRING", string.Empty);
+               }
+               else
+               {
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                     "STRING", string.Empty);
+               }
+#endif
             }
                 
             else if (el is IIfcCovering)
             {
                IIfcCovering elem = el as IIfcCovering;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("PREDEFINEDTYPE");
-
-               if (elem.PredefinedType != null)
-               {
-                  arrPropVal.Add(elem.PredefinedType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+#if ORACLE
+               insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                  ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                  "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcDistributionControlElement)
@@ -975,236 +1106,163 @@ namespace BIMRL
                IIfcDistributionControlElement elem = el as IIfcDistributionControlElement;
                Xbim.Ifc2x3.Interfaces.IIfcDistributionControlElement elem2x3 = el as Xbim.Ifc2x3.Interfaces.IIfcDistributionControlElement;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+#if ORACLE
                if (isIfc2x3)
                {
-                  arrPropName.Add("CONTROLELEMENTID");
-
-                  if (elem2x3.ControlElementId != null)
-                  {
-                     arrPropVal.Add(elem2x3.ControlElementId.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "CONTROLELEMENTID",
+                     ref arrPropVal, ref arrPropValBS, elem2x3.ControlElementId.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
                else
                {
-                  arrPropName.Add("PREDEFINEDTYPE");
                   // It is IFC4, use dynamic cast to the actual type to get the PredefinedType attribute
                   dynamic elemDet = Convert.ChangeType(elem, elem.GetType());
                   if (!(elemDet is Xbim.Ifc4.SharedBldgServiceElements.IfcDistributionControlElement) && elemDet.PredefinedType != null)
-                  {
-                     arrPropVal.Add(elemDet.PredefinedType.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                        ref arrPropVal, ref arrPropValBS, elemDet.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+#endif
+#if POSTGRES
+               if (isIfc2x3)
+               {
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "CONTROLELEMENTID", elem2x3.ControlElementId.ToString(),
+                        "STRING", string.Empty);
+               }
+               else
+               {
+                  // It is IFC4, use dynamic cast to the actual type to get the PredefinedType attribute
+                  dynamic elemDet = Convert.ChangeType(elem, elem.GetType());
+                  if (!(elemDet is Xbim.Ifc4.SharedBldgServiceElements.IfcDistributionControlElement) && elemDet.PredefinedType != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elemDet.PredefinedType.ToString(),
+                        "STRING", string.Empty);
+               }
+#endif
             }
 
             else if (el is IIfcDoor)
             {
                IIfcDoor elem = el as IIfcDoor;
 
-
-               int noPar = 2;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("OVERALLHEIGHT");
-               arrPropName.Add("OVERALLWIDTH");
-
+#if ORACLE
                if (elem.OverallHeight != null)
-               {
-                  arrPropVal.Add(elem.OverallHeight.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "OVERALLHEIGHT",
+                     ref arrPropVal, ref arrPropValBS, elem.OverallHeight.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.OverallHeight.GetType()));
 
                if (elem.OverallWidth != null)
-               {
-                  arrPropVal.Add(elem.OverallWidth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "OVERALLWIDTH",
+                     ref arrPropVal, ref arrPropValBS, elem.OverallWidth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.OverallWidth.GetType()));
+#endif
+#if POSTGRES
+               if (elem.OverallHeight != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "OVERALLHEIGHT", elem.OverallHeight.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.OverallHeight.GetType()));
+
+               if (elem.OverallWidth != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "OVERALLWIDTH", elem.OverallWidth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.OverallWidth.GetType()));
+#endif
             } 
 
             else if (el is Xbim.Ifc2x3.ElectricalDomain.IfcElectricDistributionPoint)
             {
                Xbim.Ifc2x3.Interfaces.IIfcElectricDistributionPoint elem2x3 = el as Xbim.Ifc2x3.Interfaces.IIfcElectricDistributionPoint;
 
-               int noPar = 2;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("DISTRIBUTIONPOINTFUNCTION");
-               arrPropName.Add("USERDEFINEDFUNCTION");
-
+#if ORACLE
                if (elem2x3.UserDefinedFunction != null)
-               {
-                  arrPropVal.Add(elem2x3.UserDefinedFunction.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
-               arrPropVal.Add(elem2x3.DistributionPointFunction.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "USERDEFINEDFUNCTION",
+                     ref arrPropVal, ref arrPropValBS, elem2x3.UserDefinedFunction.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
 
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "DISTRIBUTIONPOINTFUNCTION",
+                  ref arrPropVal, ref arrPropValBS, elem2x3.DistributionPointFunction.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (elem2x3.UserDefinedFunction != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "USERDEFINEDFUNCTION", elem2x3.UserDefinedFunction.ToString(),
+                     "STRING", string.Empty);
+
+               insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "DISTRIBUTIONPOINTFUNCTION", elem2x3.DistributionPointFunction.ToString(),
+                  "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcElementAssembly)
             {
                IIfcElementAssembly elem = el as IIfcElementAssembly;
 
-               int noPar = 2;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("ASSEMBLYPLACE");
-               arrPropName.Add("PREDEFINEDTYPE");
-
+#if ORACLE
                if (elem.AssemblyPlace != null)
-               {
-                  arrPropVal.Add(elem.AssemblyPlace.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "ASSEMBLYPLACE",
+                     ref arrPropVal, ref arrPropValBS, elem.AssemblyPlace.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
 
-               arrPropVal.Add(elem.PredefinedType.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
+               if (elem.PredefinedType != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                     ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (elem.AssemblyPlace != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "ASSEMBLYPLACE", elem.AssemblyPlace.ToString(),
+                     "STRING", string.Empty);
 
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (elem.PredefinedType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                     "STRING", string.Empty);
+#endif
             }
- 
+
             else if (el is IIfcFooting)
             {
                IIfcFooting elem = el as IIfcFooting;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+#if ORACLE
                arrPropName.Add("PREDEFINEDTYPE");
-
-               arrPropVal.Add(elem.PredefinedType.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (elem.PredefinedType != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                     ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (elem.PredefinedType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                     "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcPile)
             {
                IIfcPile elem = el as IIfcPile;
 
-               int noPar = 2;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("PREDEFINEDTYPE");
-               arrPropName.Add("CONSTRUCTIONTYPE");
-
+#if ORACLE
                if (elem.ConstructionType != null)
-               {
-                  arrPropVal.Add(elem.ConstructionType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "CONSTRUCTIONTYPE",
+                     ref arrPropVal, ref arrPropValBS, elem.ConstructionType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
 
-               arrPropVal.Add(elem.PredefinedType.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
+               if (elem.PredefinedType != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                     ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (elem.ConstructionType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "CONSTRUCTIONTYPE", elem.ConstructionType.ToString(),
+                     "STRING", string.Empty);
 
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (elem.PredefinedType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                     "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcRailing)
             {
                IIfcRailing elem = el as IIfcRailing;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("PREDEFINEDTYPE");
-
+#if ORACLE
                if (elem.PredefinedType != null)
-               {
-                  arrPropVal.Add(elem.PredefinedType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                     ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (elem.PredefinedType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                     "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcRamp)
@@ -1212,31 +1270,32 @@ namespace BIMRL
                IIfcRamp elem = el as IIfcRamp;
                Xbim.Ifc2x3.Interfaces.IIfcRamp elem2x3 = el as Xbim.Ifc2x3.Interfaces.IIfcRamp;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+#if ORACLE
                if (isIfc2x3)
                {
-                  arrPropName.Add("SHAPETYPE");
-
-                  arrPropVal.Add(elem2x3.ShapeType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "SHAPETYPE",
+                     ref arrPropVal, ref arrPropValBS, elem2x3.ShapeType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
                else
                {
-                  arrPropName.Add("PREDEFINEDTYPE");
-
-                  arrPropVal.Add(elem.PredefinedType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
+                  if (elem.PredefinedType != null)
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                        ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
-
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+#endif
+#if POSTGRES
+               if (isIfc2x3)
+               {
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "SHAPETYPE", elem2x3.ShapeType.ToString(),
+                     "STRING", string.Empty);
+               }
+               else
+               {
+                  if (elem.PredefinedType != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                        "STRING", string.Empty);
+               }
+#endif            
             }
 
             else if (el is IIfcRampFlight)
@@ -1244,27 +1303,28 @@ namespace BIMRL
                IIfcRampFlight elem = el as IIfcRampFlight;
                Xbim.Ifc2x3.Interfaces.IIfcRampFlight elem2x3 = el as Xbim.Ifc2x3.Interfaces.IIfcRampFlight;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+#if ORACLE
                if (isIfc2x3)
                {
                }
                else
                {
-                  arrPropName.Add("PREDEFINEDTYPE");
-
-                  arrPropVal.Add(elem.PredefinedType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
+                  if (elem.PredefinedType != null)
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                        ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
-
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+#endif
+#if POSTGRES
+               if (isIfc2x3)
+               {
+               }
+               else
+               {
+                  if (elem.PredefinedType != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                        "STRING", string.Empty);
+               }
+#endif
             }
 
             else if (el is IIfcReinforcingBar)
@@ -1272,157 +1332,152 @@ namespace BIMRL
                IIfcReinforcingBar elem = el as IIfcReinforcingBar;
                Xbim.Ifc2x3.Interfaces.IIfcReinforcingBar elem2x3 = el as Xbim.Ifc2x3.Interfaces.IIfcReinforcingBar;
 
-               int noPar;
-               if (isIfc2x3)
-                  noPar = 6;
-               else
-                  noPar = 5;
-
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+#if ORACLE
                if (isIfc2x3)
                {
-                  arrPropName.Add("STEELGRADE");
-                  arrPropName.Add("BARROLE");
                   if (elem2x3.SteelGrade != null)
-                  {
-                     arrPropVal.Add(elem2x3.SteelGrade.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "STEELGRADE",
+                        ref arrPropVal, ref arrPropValBS, elem2x3.SteelGrade.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
 
-                  arrPropVal.Add(elem2x3.BarRole.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "BARROLE",
+                     ref arrPropVal, ref arrPropValBS, elem2x3.BarRole.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
                else
                {
-                  arrPropName.Add("PREDEFINEDTYPE");
-                  if (elem.PredefinedType != null)
-                  {
-                     arrPropVal.Add(elem.PredefinedType.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                  if (elem.PredefinedType!= null)
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                        ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
 
-               arrPropName.Add("NOMINALDIAMETER");
-               arrPropName.Add("CROSSSECTIONAREA");
-               arrPropName.Add("BARLENGTH");
-               arrPropName.Add("BARSURFACE");
+               if (elem.NominalDiameter != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "NOMINALDIAMETER",
+                     ref arrPropVal, ref arrPropValBS, elem.NominalDiameter.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.NominalDiameter.GetType()));
 
-               arrPropVal.Add(elem.NominalDiameter.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(elem.CrossSectionArea.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-                    
+               if (elem.CrossSectionArea != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "CROSSSECTIONAREA",
+                     ref arrPropVal, ref arrPropValBS, elem.CrossSectionArea.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.CrossSectionArea.GetType()));
+
                if (elem.BarLength != null)
-               {
-                  arrPropVal.Add(elem.BarLength.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "BARLENGTH",
+                     ref arrPropVal, ref arrPropValBS, elem.BarLength.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.BarLength.GetType()));
 
                if (elem.BarSurface != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "BARSURFACE",
+                     ref arrPropVal, ref arrPropValBS, elem.BarSurface.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (isIfc2x3)
                {
-                  arrPropVal.Add(elem.BarSurface.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
+                  if (elem2x3.SteelGrade != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "STEELGRADE", elem2x3.SteelGrade.ToString(),
+                        "STRING", string.Empty);
+
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "BARROLE", elem2x3.BarRole.ToString(),
+                     "STRING", string.Empty);
                }
                else
                {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
+                  if (elem.PredefinedType != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                        "STRING", string.Empty);
                }
 
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (elem.NominalDiameter != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "NOMINALDIAMETER", elem.NominalDiameter.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.NominalDiameter.GetType()));
+
+               if (elem.CrossSectionArea != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "CROSSSECTIONAREA", elem.CrossSectionArea.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.CrossSectionArea.GetType()));
+
+               if (elem.BarLength != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "BARLENGTH", elem.BarLength.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.BarLength.GetType()));
+
+               if (elem.BarSurface != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "BARSURFACE", elem.BarSurface.ToString(),
+                     "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcReinforcingMesh)
             {
                IIfcReinforcingMesh elem = el as IIfcReinforcingMesh;
 
-               int noPar = 9;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("STEELGRADE");
-               arrPropName.Add("MESHLENGTH");
-               arrPropName.Add("MESHWIDTH");
-               arrPropName.Add("LONGITUDINALBARNOMINALDIAMETER");
-               arrPropName.Add("TRANSVERSEBARNOMINALDIAMETER");
-               arrPropName.Add("LONGITUDINALBARCROSSSECTIONAREA");
-               arrPropName.Add("TRANSVERSEBARCROSSSECTIONAREA");
-               arrPropName.Add("LONGITUDINALBARSPACING");
-               arrPropName.Add("TRANSVERSEBARSPACING");
-
+#if ORACLE
                if (elem.SteelGrade != null)
-               {
-                  arrPropVal.Add(elem.SteelGrade.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "STEELGRADE",
+                     ref arrPropVal, ref arrPropValBS, elem.SteelGrade.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
 
                if (elem.MeshLength != null)
-               {
-                  arrPropVal.Add(elem.MeshLength.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "MESHLENGTH",
+                     ref arrPropVal, ref arrPropValBS, elem.MeshLength.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.MeshLength.GetType()));
 
                if (elem.MeshWidth != null)
-               {
-                  arrPropVal.Add(elem.MeshWidth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
-               arrPropVal.Add(elem.LongitudinalBarNominalDiameter.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(elem.TransverseBarNominalDiameter.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(elem.LongitudinalBarCrossSectionArea.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(elem.TransverseBarCrossSectionArea.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(elem.LongitudinalBarSpacing.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(elem.TransverseBarSpacing.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "MESHWIDTH",
+                     ref arrPropVal, ref arrPropValBS, elem.MeshWidth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.MeshWidth.GetType()));
 
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (elem.LongitudinalBarNominalDiameter != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "LONGITUDINALBARNOMINALDIAMETER",
+                     ref arrPropVal, ref arrPropValBS, elem.LongitudinalBarNominalDiameter.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.LongitudinalBarNominalDiameter.GetType()));
+
+               if (elem.TransverseBarNominalDiameter != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "TRANSVERSEBARNOMINALDIAMETER",
+                     ref arrPropVal, ref arrPropValBS, elem.TransverseBarNominalDiameter.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.TransverseBarNominalDiameter.GetType()));
+
+               if (elem.LongitudinalBarCrossSectionArea != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "LONGITUDINALBARCROSSSECTIONAREA",
+                     ref arrPropVal, ref arrPropValBS, elem.LongitudinalBarCrossSectionArea.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.LongitudinalBarCrossSectionArea.GetType()));
+
+               if (elem.TransverseBarCrossSectionArea != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "TRANSVERSEBARCROSSSECTIONAREA",
+                     ref arrPropVal, ref arrPropValBS, elem.TransverseBarCrossSectionArea.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.TransverseBarCrossSectionArea.GetType()));
+
+               if (elem.LongitudinalBarSpacing != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "LONGITUDINALBARSPACING",
+                     ref arrPropVal, ref arrPropValBS, elem.LongitudinalBarSpacing.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.LongitudinalBarSpacing.GetType()));
+
+               if (elem.TransverseBarSpacing != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "TRANSVERSEBARSPACING",
+                     ref arrPropVal, ref arrPropValBS, elem.TransverseBarSpacing.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.TransverseBarSpacing.GetType()));
+#endif
+#if POSTGRES
+               if (elem.SteelGrade != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "STEELGRADE", elem.SteelGrade.ToString(),
+                     "STRING", string.Empty);
+
+               if (elem.MeshLength != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "MESHLENGTH", elem.MeshLength.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.MeshLength.GetType()));
+
+               if (elem.MeshWidth != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "MESHWIDTH", elem.MeshWidth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.MeshWidth.GetType()));
+
+               if (elem.LongitudinalBarNominalDiameter != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "LONGITUDINALBARNOMINALDIAMETER", elem.LongitudinalBarNominalDiameter.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.LongitudinalBarNominalDiameter.GetType()));
+
+               if (elem.TransverseBarNominalDiameter != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "TRANSVERSEBARNOMINALDIAMETER", elem.TransverseBarNominalDiameter.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.TransverseBarNominalDiameter.GetType()));
+
+               if (elem.LongitudinalBarCrossSectionArea != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "LONGITUDINALBARCROSSSECTIONAREA", elem.LongitudinalBarCrossSectionArea.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.LongitudinalBarCrossSectionArea.GetType()));
+
+               if (elem.TransverseBarCrossSectionArea != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "TRANSVERSEBARCROSSSECTIONAREA", elem.TransverseBarCrossSectionArea.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.TransverseBarCrossSectionArea.GetType()));
+
+               if (elem.LongitudinalBarSpacing != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "LONGITUDINALBARSPACING", elem.LongitudinalBarSpacing.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.LongitudinalBarSpacing.GetType()));
+
+               if (elem.TransverseBarSpacing != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "TRANSVERSEBARSPACING", elem.TransverseBarSpacing.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.TransverseBarSpacing.GetType()));
+#endif
             }
 
             else if (el is IIfcRoof)
@@ -1430,59 +1485,48 @@ namespace BIMRL
                IIfcRoof elem = el as IIfcRoof;
                Xbim.Ifc2x3.Interfaces.IIfcRoof elem2x3 = el as Xbim.Ifc2x3.Interfaces.IIfcRoof;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+#if ORACLE
                if (isIfc2x3)
                {
-                  arrPropName.Add("SHAPETYPE");
-
-                  arrPropVal.Add(elem2x3.ShapeType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "SHAPETYPE",
+                     ref arrPropVal, ref arrPropValBS, elem2x3.ShapeType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
                else
                {
-                  arrPropName.Add("PREDEFINEDTYPE");
-
-                  arrPropVal.Add(elem.PredefinedType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
+                  if (elem.PredefinedType != null)
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                        ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+#endif
+#if POSTGRES
+               if (isIfc2x3)
+               {
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "SHAPETYPE", elem2x3.ShapeType.ToString(),
+                     "STRING", string.Empty);
+               }
+               else
+               {
+                  if (elem.PredefinedType != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                        "STRING", string.Empty);
+               }
+#endif
             } 
 
             else if (el is IIfcSlab)
             {
                IIfcSlab elem = el as IIfcSlab;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("PREDEFINEDTYPE");
-
+#if ORACLE
                if (elem.PredefinedType != null)
-               {
-                  arrPropVal.Add(elem.PredefinedType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                     ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
+               if (elem.PredefinedType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                     "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcStair)
@@ -1490,29 +1534,16 @@ namespace BIMRL
                IIfcStair elem = el as IIfcStair;
                Xbim.Ifc2x3.Interfaces.IIfcStair elem2x3 = el as Xbim.Ifc2x3.Interfaces.IIfcStair;
 
-               int noPar = 0;
+#if ORACLE
                if (isIfc2x3)
-               {
-                  noPar = 1;
-
-               }
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "SHAPETYPE",
+                     ref arrPropVal, ref arrPropValBS, elem2x3.ShapeType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+#endif
+#if POSTGRES
                if (isIfc2x3)
-               {
-                  arrPropName.Add("SHAPETYPE");
-
-                  arrPropVal.Add(elem2x3.ShapeType.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "SHAPETYPE", elem2x3.ShapeType.ToString(),
+                     "STRING", string.Empty);
+#endif
             } 
 
             else if (el is IIfcStairFlight)
@@ -1520,200 +1551,158 @@ namespace BIMRL
                IIfcStairFlight elem = el as IIfcStairFlight;
                Xbim.Ifc2x3.Interfaces.IIfcStairFlight elem2x3 = el as Xbim.Ifc2x3.Interfaces.IIfcStairFlight;
 
-               int noPar = 4;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+#if ORACLE
                if (isIfc2x3)
                {
-                  arrPropName.Add("NUMBEROFRISER");
-
                   if (elem2x3.NumberOfRiser != null)
-                  {
-                     arrPropVal.Add(elem2x3.NumberOfRiser.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "NUMBEROFRISER",
+                        ref arrPropVal, ref arrPropValBS, elem2x3.NumberOfRiser.ToString(), ref arrPDatatyp, "INTEGER", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem2x3.NumberOfRiser.GetType()));
                }
                else
                {
-                  arrPropName.Add("NUMBEROFRISERS");
-
                   if (elem.NumberOfRisers != null)
-                  {
-                     arrPropVal.Add(elem.NumberOfRisers.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "NUMBEROFRISERS",
+                        ref arrPropVal, ref arrPropValBS, elem.NumberOfRisers.ToString(), ref arrPDatatyp, "INTEGER", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.NumberOfRisers.GetType()));
                }
-
-               arrPropName.Add("NUMBEROFTHREADS");
-               arrPropName.Add("RISERHEIGHT");
-               arrPropName.Add("TREADLENGTH");
 
                if (elem.NumberOfTreads != null)
-               {
-                  arrPropVal.Add(elem.NumberOfTreads.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "NUMBEROFTHREADS",
+                     ref arrPropVal, ref arrPropValBS, elem.NumberOfTreads.ToString(), ref arrPDatatyp, "INTEGER", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.NumberOfTreads.GetType()));
 
                if (elem.RiserHeight != null)
-               {
-                  arrPropVal.Add(elem.RiserHeight.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "RISERHEIGHT",
+                     ref arrPropVal, ref arrPropValBS, elem.RiserHeight.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.RiserHeight.GetType()));
 
                if (elem.TreadLength!= null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "TREADLENGTH",
+                     ref arrPropVal, ref arrPropValBS, elem.TreadLength.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.TreadLength.GetType()));
+#endif
+#if POSTGRES
+               if (isIfc2x3)
                {
-                  arrPropVal.Add(elem.TreadLength.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
+                  if (elem2x3.NumberOfRiser != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "NUMBEROFRISER", elem2x3.NumberOfRiser.ToString(),
+                        "INTEGER", BIMRLUtils.getDefaultIfcUnitStr(elem2x3.NumberOfRiser.GetType()));
                }
                else
                {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
+                  if (elem.NumberOfRisers != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "NUMBEROFRISERS", elem.NumberOfRisers.ToString(),
+                        "INTEGER", BIMRLUtils.getDefaultIfcUnitStr(elem.NumberOfRisers.GetType()));
                }
 
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (elem.NumberOfTreads != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "NUMBEROFTHREADS", elem.NumberOfTreads.ToString(),
+                     "INTEGER", BIMRLUtils.getDefaultIfcUnitStr(elem.NumberOfTreads.GetType()));
+
+               if (elem.RiserHeight != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "RISERHEIGHT", elem.RiserHeight.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.RiserHeight.GetType()));
+
+               if (elem.TreadLength != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "TREADLENGTH", elem.TreadLength.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.TreadLength.GetType()));
+#endif
             }
 
             else if (el is IIfcTendon)
             {
                IIfcTendon elem = el as IIfcTendon;
 
-               int noPar = 8;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
+#if ORACLE
+               if (elem.PredefinedType != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                     ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
 
-               arrPropName.Add("PREDEFINEDTYPE");
-               arrPropName.Add("NOMINALDIAMETER");
-               arrPropName.Add("CROSSSECTIONAREA");
-               arrPropName.Add("TENSIONFORCE");
-               arrPropName.Add("PRESTRESS");
-               arrPropName.Add("FRICTIONCOEFFICIENT");
-               arrPropName.Add("ANCHORAGESLIP");
-               arrPropName.Add("MINCURVATURERADIUS");
+               if (elem.NominalDiameter != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "NOMINALDIAMETER",
+                     ref arrPropVal, ref arrPropValBS, elem.NominalDiameter.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.NominalDiameter.GetType()));
 
-               arrPropVal.Add(elem.PredefinedType.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(elem.NominalDiameter.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPropVal.Add(elem.CrossSectionArea.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
+               if (elem.CrossSectionArea != null)
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "CROSSSECTIONAREA",
+                     ref arrPropVal, ref arrPropValBS, elem.CrossSectionArea.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.CrossSectionArea.GetType()));
 
                if (elem.TensionForce != null)
-               {
-                  arrPropVal.Add(elem.TensionForce.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "TENSIONFORCE",
+                     ref arrPropVal, ref arrPropValBS, elem.TensionForce.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.TensionForce.GetType()));
 
                if (elem.PreStress != null)
-               {
-                  arrPropVal.Add(elem.PreStress.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PRESTRESS",
+                     ref arrPropVal, ref arrPropValBS, elem.PreStress.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.PreStress.GetType()));
 
                if (elem.FrictionCoefficient != null)
-               {
-                  arrPropVal.Add(elem.FrictionCoefficient.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "FRICTIONCOEFFICIENT",
+                     ref arrPropVal, ref arrPropValBS, elem.FrictionCoefficient.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.FrictionCoefficient.GetType()));
 
                if (elem.AnchorageSlip != null)
-               {
-                  arrPropVal.Add(elem.AnchorageSlip.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "ANCHORAGESLIP",
+                     ref arrPropVal, ref arrPropValBS, elem.AnchorageSlip.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.AnchorageSlip.GetType()));
 
                if (elem.MinCurvatureRadius != null)
-               {
-                  arrPropVal.Add(elem.MinCurvatureRadius.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "MINCURVATURERADIUS",
+                     ref arrPropVal, ref arrPropValBS, elem.MinCurvatureRadius.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.MinCurvatureRadius.GetType()));
+#endif
+#if POSTGRES
+               if (elem.PredefinedType != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                     "STRING", string.Empty);
 
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (elem.NominalDiameter != null)
+               insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "NOMINALDIAMETER", elem.NominalDiameter.ToString(),
+                  "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.NominalDiameter.GetType()));
+
+               if (elem.CrossSectionArea != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "CROSSSECTIONAREA", elem.CrossSectionArea.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.CrossSectionArea.GetType()));
+
+               if (elem.TensionForce != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "TENSIONFORCE", elem.TensionForce.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.TensionForce.GetType()));
+
+               if (elem.PreStress != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PRESTRESS", elem.PreStress.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.PreStress.GetType()));
+
+               if (elem.FrictionCoefficient != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "FRICTIONCOEFFICIENT", elem.FrictionCoefficient.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.FrictionCoefficient.GetType()));
+
+               if (elem.AnchorageSlip != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "ANCHORAGESLIP", elem.AnchorageSlip.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.AnchorageSlip.GetType()));
+
+               if (elem.MinCurvatureRadius != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "MINCURVATURERADIUS", elem.MinCurvatureRadius.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.MinCurvatureRadius.GetType()));
+#endif
             }
 
             else if (el is IIfcTendonAnchor)
             {
                IIfcTendonAnchor elem = el as IIfcTendonAnchor;
 
-               int noPar = 1;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("STEELGRADE");
-
+#if ORACLE
                if (elem.SteelGrade != null)
-               {
-                  arrPropVal.Add(elem.SteelGrade.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "STEELGRADE",
+                     ref arrPropVal, ref arrPropValBS, elem.SteelGrade.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
 
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+               if (!isIfc2x3)
+               {
+                  if (elem.PredefinedType != null)
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                        ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
+               }
+#endif
+#if POSTGRES
+               if (elem.SteelGrade != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "STEELGRADE", elem.SteelGrade.ToString(),
+                     "STRING", string.Empty);
+
+               if (!isIfc2x3)
+                  if (elem.PredefinedType != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                        "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcTransportElement)
@@ -1721,20 +1710,7 @@ namespace BIMRL
                IIfcTransportElement elem = el as IIfcTransportElement;
                Xbim.Ifc2x3.Interfaces.IIfcTransportElement elem2x3 = el as Xbim.Ifc2x3.Interfaces.IIfcTransportElement;
 
-               int noPar;
-               if (isIfc2x3)
-                  noPar = 3;
-               else
-                  noPar = 1;
-
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
+#if ORACLE
                if (isIfc2x3)
                {
                   arrPropName.Add("OPERATIONTYPE");
@@ -1742,93 +1718,68 @@ namespace BIMRL
                   arrPropName.Add("CAPACITYBYNUMBER");
 
                   if (elem2x3.OperationType != null)
-                  {
-                     arrPropVal.Add(elem2x3.OperationType.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "OPERATIONTYPE",
+                        ref arrPropVal, ref arrPropValBS, elem2x3.OperationType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
 
                   if (elem2x3.CapacityByWeight != null)
-                  {
-                     arrPropVal.Add(elem2x3.CapacityByWeight.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "CAPACITYBYWEIGHT",
+                        ref arrPropVal, ref arrPropValBS, elem2x3.CapacityByWeight.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem2x3.CapacityByWeight.GetType()));
 
                   if (elem2x3.CapacityByNumber != null)
-                  {
-                     arrPropVal.Add(elem2x3.CapacityByNumber.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "CAPACITYBYNUMBER",
+                        ref arrPropVal, ref arrPropValBS, elem2x3.CapacityByNumber.ToString(), ref arrPDatatyp, "INTEGER", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem2x3.CapacityByNumber.GetType()));
                }
                else
                {
                   if (elem.PredefinedType != null)
-                  {
-                     arrPropVal.Add(elem.PredefinedType.ToString());
-                     arrPropValBS.Add(OracleParameterStatus.Success);
-                  }
-                  else
-                  {
-                     arrPropVal.Add(string.Empty);
-                     arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  }
+                     insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "PREDEFINEDTYPE",
+                        ref arrPropVal, ref arrPropValBS, elem.PredefinedType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, string.Empty);
                }
+#endif
+#if POSTGRES
+               if (isIfc2x3)
+               {
+                  if (elem2x3.OperationType != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "OPERATIONTYPE", elem2x3.OperationType.ToString(),
+                        "STRING", string.Empty);
 
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+                  if (elem2x3.CapacityByWeight != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "CAPACITYBYWEIGHT", elem2x3.CapacityByWeight.ToString(),
+                        "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem2x3.CapacityByWeight.GetType()));
+
+                  if (elem2x3.CapacityByNumber != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "CAPACITYBYNUMBER", elem2x3.CapacityByNumber.ToString(),
+                        "INTEGER", BIMRLUtils.getDefaultIfcUnitStr(elem2x3.CapacityByNumber.GetType()));
+               }
+               else
+                  if (elem.PredefinedType != null)
+                     insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "PREDEFINEDTYPE", elem.PredefinedType.ToString(),
+                        "STRING", string.Empty);
+#endif
             }
 
             else if (el is IIfcWindow)
             {
                IIfcWindow elem = el as IIfcWindow;
 
-               int noPar = 2;
-               for (int i = 0; i < noPar; i++) arrEleGuid.Add(el.GlobalId);
-               for (int i = 0; i < noPar; i++) arrPGrpName.Add("IFCATTRIBUTES");
-               for (int i = 0; i < noPar; i++)
-               {
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               arrPropName.Add("OVERALLHEIGHT");
-               arrPropName.Add("OVERALLWIDTH");
-
+#if ORACLE
                if (elem.OverallHeight != null)
-               {
-                  arrPropVal.Add(elem.OverallHeight.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "OVERALLHEIGHT",
+                     ref arrPropVal, ref arrPropValBS, elem.OverallHeight.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.OverallHeight.GetType()));
 
                if (elem.OverallWidth != null)
-               {
-                  arrPropVal.Add(elem.OverallWidth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  arrPropVal.Add(string.Empty);
-                  arrPropValBS.Add(OracleParameterStatus.NullInsert);
-               }
-               for (int i = 0; i < noPar; i++) arrPDatatyp.Add("STRING");
+                  insertProperty(ref arrEleGuid, el.GlobalId, ref arrPGrpName, "IFCATTRIBUTES", ref arrPropName, "OVERALLWIDTH",
+                     ref arrPropVal, ref arrPropValBS, elem.OverallWidth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, BIMRLUtils.getDefaultIfcUnitStr(elem.OverallWidth.GetType()));
+#endif
+#if POSTGRES
+               if (elem.OverallHeight != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "OVERALLHEIGHT", elem.OverallHeight.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.OverallHeight.GetType()));
+
+               if (elem.OverallWidth != null)
+                  insertProperty(command, el.GlobalId, "IFCATTRIBUTES", "OVERALLWIDTH", elem.OverallWidth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(elem.OverallWidth.GetType()));
+#endif
             }
 
             else if (el is IIfcDistributionPort)
@@ -1857,6 +1808,7 @@ namespace BIMRL
             */
             // bimrlProp.processElemProperties(el);
 
+#if ORACLE
             if (arrEleGuid.Count >= DBOperation.commitInterval)
             {
 
@@ -1948,6 +1900,7 @@ namespace BIMRL
                _refBIMRLCommon.StackPushError(excStr);
                throw;
             }
+#endif
          }
 
          DBOperation.commitTransaction();
@@ -1956,5 +1909,49 @@ namespace BIMRL
          // Now Process all properties from property sets (and quantity sets) in one go for performance reason
          bimrlProp.processAllElemProperties(_model);
       }
+
+#if ORACLE
+      private void insertProperty(ref List<string> arrGUID, string elementid, ref List<string> arrPGroup, string propGroup, 
+                                 ref List<string> arrPName, string propName, ref List<string> arrPValue, ref List<OracleParameterStatus> arrPropValBS, string propValue, 
+                                 ref List<string> arrPDataType, string propDataType, ref List<string> arrUOM, ref List<OracleParameterStatus> arrPUnitBS, string uom)
+      {
+         arrGUID.Add(elementid);
+         arrPGroup.Add(propGroup);
+         arrPName.Add(propName);
+         arrPValue.Add(propValue);
+         if (string.IsNullOrEmpty(propValue))
+            arrPropValBS.Add(OracleParameterStatus.NullInsert);
+         else
+            arrPropValBS.Add(OracleParameterStatus.Success);
+         arrPDataType.Add(propDataType);
+         arrUOM.Add(uom);
+         if (string.IsNullOrEmpty(uom))
+            arrPUnitBS.Add(OracleParameterStatus.NullInsert);
+         else
+            arrPUnitBS.Add(OracleParameterStatus.Success);
+      }
+#endif
+#if POSTGRES
+      private void insertProperty(NpgsqlCommand command, string elementid, string propGroup, string propName, string propValue, string propDataType, string uom)
+      {
+         command.Parameters.Clear();
+         command.Parameters.AddWithValue("0", elementid);
+         command.Parameters.AddWithValue("1", propGroup);
+         command.Parameters.AddWithValue("2", propName);
+         command.Parameters.AddWithValue("3", propValue);
+         command.Parameters.AddWithValue("4", propDataType);
+         command.Parameters.AddWithValue("5", uom);
+         try
+         {
+            int commandStatus = command.ExecuteNonQuery();
+         }
+         catch (NpgsqlException e)
+         {
+            // Ignore error and continue
+            _refBIMRLCommon.StackPushIgnorableError(string.Format("Error inserting (\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\"); {6})", elementid, propGroup, propName,
+               propValue, propDataType, uom, e.Message));
+         }
+      }
+#endif
    }
 }

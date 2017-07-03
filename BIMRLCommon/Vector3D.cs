@@ -349,5 +349,9 @@ namespace BIMRL.Common
 
         #endregion
 
+      public Point3D ToPoint3D()
+      {
+         return new Point3D(_X, _Y, _Z);
+      }
     }
 }

@@ -22,11 +22,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Data;
+#if ORACLE
 using Oracle.DataAccess.Types;
 using Oracle.DataAccess.Client;
-using Xbim.Common.Geometry;
 using NetSdoGeometry;
+#endif
+#if POSTGRES
+using Npgsql;
+using NpgsqlTypes;
+#endif
+using Xbim.Common.Geometry;
 using BIMRL.Common;
+using Newtonsoft.Json;
 
 namespace BIMRL
 {
@@ -41,198 +48,264 @@ namespace BIMRL
         public int NumberOfElement { get; set; }
     }
 
-    public class BIMRLQueryModel
-    {
-        BIMRLCommon _refBIMRLCommon;
+   public class BIMRLQueryModel
+   {
+      BIMRLCommon _refBIMRLCommon;
 
-        public BIMRLQueryModel(BIMRLCommon refBIMRLCommon)
-        {
-            _refBIMRLCommon = refBIMRLCommon;
-        }
+      public BIMRLQueryModel(BIMRLCommon refBIMRLCommon)
+      {
+         _refBIMRLCommon = refBIMRLCommon;
+      }
 
-        public List<FederatedModelInfo> getFederatedModels()
-        {
-            List<FederatedModelInfo> fedModels = new List<FederatedModelInfo>();
+      public List<FederatedModelInfo> getFederatedModels()
+      {
+         List<FederatedModelInfo> fedModels = new List<FederatedModelInfo>();
 
-            DBOperation.beginTransaction();
-            string currStep = string.Empty;
+         DBOperation.beginTransaction();
+         string currStep = string.Empty;
+                     
+         try
+         {
+            string sqlStmt = "select federatedID, ModelName, ProjectNumber, ProjectName, WORLDBBOX, MAXOCTREELEVEL, LastUpdateDate, Owner, DBConnection from BIMRL_FEDERATEDMODEL order by federatedID";
+#if ORACLE
+            OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+            OracleDataReader reader = command.ExecuteReader();
             SdoGeometry worldBB = new SdoGeometry();
-            
-            try
+#endif
+#if POSTGRES
+            NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+            NpgsqlConnection.MapCompositeGlobally<Point3D>("point3d");
+            NpgsqlConnection.MapCompositeGlobally<GeometryTypeEnum>("geom3dtype");
+            command.Prepare();
+            NpgsqlDataReader reader = command.ExecuteReader();
+#endif
+            while (reader.Read())
             {
-                string sqlStmt = "select federatedID, ModelName, ProjectNumber, ProjectName, WORLDBBOX, MAXOCTREELEVEL, LastUpdateDate, Owner, DBConnection from BIMRL_FEDERATEDMODEL order by federatedID";
-                OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
-                OracleDataReader reader = command.ExecuteReader();
-                while (reader.Read())
-                {
-                    FederatedModelInfo fedModel = new FederatedModelInfo();
-                    fedModel.FederatedID = reader.GetInt32(0);
-                    fedModel.ModelName = reader.GetString(1);
-                    fedModel.ProjectNumber = reader.GetString(2);
-                    fedModel.ProjectName = reader.GetString(3);
-                    if (!reader.IsDBNull(4))
-                    {
-                        worldBB = reader.GetValue(4) as SdoGeometry;
-                        Point3D LLB = new Point3D(worldBB.OrdinatesArrayOfDoubles[0], worldBB.OrdinatesArrayOfDoubles[1], worldBB.OrdinatesArrayOfDoubles[2]);
-                        Point3D URT = new Point3D(worldBB.OrdinatesArrayOfDoubles[3], worldBB.OrdinatesArrayOfDoubles[4], worldBB.OrdinatesArrayOfDoubles[5]);
-                        fedModel.WorldBoundingBox = LLB.ToString() + " " + URT.ToString();
-                    }
-                    if (!reader.IsDBNull(5))
-                        fedModel.OctreeMaxDepth = reader.GetInt16(5);
-                    if (!reader.IsDBNull(6))
-                        fedModel.LastUpdateDate = reader.GetDateTime(6);
-                     if (!reader.IsDBNull(7))
-                        fedModel.Owner = reader.GetString(7);
-                     if (!reader.IsDBNull(8))
-                        fedModel.DBConnection = reader.GetString(8);
+               FederatedModelInfo fedModel = new FederatedModelInfo();
+               fedModel.FederatedID = reader.GetInt32(0);
+               fedModel.ModelName = reader.GetString(1);
+               fedModel.ProjectNumber = reader.GetString(2);
+               fedModel.ProjectName = reader.GetString(3);
+               if (!reader.IsDBNull(4))
+               {
+#if ORACLE
+                  worldBB = reader.GetValue(4) as SdoGeometry;
+                  Point3D LLB = new Point3D(worldBB.OrdinatesArrayOfDoubles[0], worldBB.OrdinatesArrayOfDoubles[1], worldBB.OrdinatesArrayOfDoubles[2]);
+                  Point3D URT = new Point3D(worldBB.OrdinatesArrayOfDoubles[3], worldBB.OrdinatesArrayOfDoubles[4], worldBB.OrdinatesArrayOfDoubles[5]);
+                  fedModel.WorldBoundingBox = LLB.ToString() + " " + URT.ToString();
+#endif
+#if POSTGRES
+                  string worldBBstr = reader.GetString(4);
+                  BoundingBox3D worldBB = JsonConvert.DeserializeObject<BoundingBox3D>(worldBBstr);
+                  fedModel.WorldBoundingBox = worldBB.LLB.ToString() + " " + worldBB.URT.ToString();
+#endif
+               }
+               if (!reader.IsDBNull(5))
+                  fedModel.OctreeMaxDepth = reader.GetInt16(5);
+               if (!reader.IsDBNull(6))
+                  fedModel.LastUpdateDate = reader.GetDateTime(6);
+               if (!reader.IsDBNull(7))
+                  fedModel.Owner = reader.GetString(7);
+               if (!reader.IsDBNull(8))
+                  fedModel.DBConnection = reader.GetString(8);
 
-                     fedModels.Add(fedModel);
-                }
-               reader.Close();
+               fedModels.Add(fedModel);
             }
-            catch (OracleException e)
+            reader.Close();
+         }
+#if ORACLE
+         catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
+            _refBIMRLCommon.StackPushError(excStr);
+         }
+         catch (SystemException e)
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
+            _refBIMRLCommon.StackPushError(excStr);
+            throw;
+         }
+
+         return fedModels;
+      }
+
+      public List<BIMRLModelInfo> getModelInfos(int fedModelID)
+      {
+         List<BIMRLModelInfo> modelInfos = new List<BIMRLModelInfo>();
+
+         DBOperation.beginTransaction();
+         string currStep = string.Empty;
+
+         try
+         {
+            string sqlStmt = "Select b.ModelID, a.ModelName, a.Source, count(b.modelid) as \"No. Element\" from " + DBOperation.formatTabName("BIMRL_MODELINFO", fedModelID)
+                           + " a, " + DBOperation.formatTabName("BIMRL_ELEMENT", fedModelID) + " b WHERE b.modelid=a.modelid "
+                           + "group by b.modelid, modelname, source order by ModelID";
+#if ORACLE
+            OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+            OracleDataReader reader = command.ExecuteReader();
+            SdoGeometry worldBB = new SdoGeometry();
+#endif
+#if POSTGRES
+            NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+            command.Prepare();
+            NpgsqlDataReader reader = command.ExecuteReader();
+#endif
+            while (reader.Read())
             {
-                string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
-                _refBIMRLCommon.StackPushError(excStr);
+               BIMRLModelInfo modelInfo = new BIMRLModelInfo();
+               modelInfo.ModelID = reader.GetInt32(0);
+               modelInfo.ModelName = reader.GetString(1);
+               modelInfo.Source = reader.GetString(2);
+               modelInfo.NumberOfElement = reader.GetInt32(3);
+               //if (!reader.IsDBNull(3))
+                  //modelInfo.Location = (XbimPoint3D) reader.GetValue(3);
+               //if (!reader.IsDBNull(4))
+                  //modelInfo.Transformation = (XbimMatrix3D)reader.GetValue(4);
+               //if (!reader.IsDBNull(5))
+                  //modelInfo.Scale = (XbimVector3D)reader.GetValue(5);
+
+               modelInfos.Add(modelInfo);
             }
-            catch (SystemException e)
-            {
-                string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
-                _refBIMRLCommon.StackPushError(excStr);
-                throw;
-            }
+            reader.Close();
+         }
+#if ORACLE
+         catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
+            _refBIMRLCommon.StackPushError(excStr);
+         }
+         catch (SystemException e)
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
+            _refBIMRLCommon.StackPushError(excStr);
+            throw;
+         }
 
-            return fedModels;
-        }
+         return modelInfos;
+      }
 
-        public List<BIMRLModelInfo> getModelInfos(int fedModelID)
-        {
-            List<BIMRLModelInfo> modelInfos = new List<BIMRLModelInfo>();
+      public void deleteModel (int federatedModelID)
+      {
+         string currStep = "Dropping existing model tables (ID: " + federatedModelID.ToString("X4") + ")";
+         try
+         {
+            int retStat = DBOperation.dropModelTables(federatedModelID);
 
+            string sqlStmt = "delete from BIMRL_FEDERATEDMODEL where FEDERATEDID=" + federatedModelID;
+#if ORACLE
+            OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+#endif
+#if POSTGRES
+            NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+            command.Prepare();
+#endif
             DBOperation.beginTransaction();
-            string currStep = string.Empty;
+            //OracleTransaction txn = DBOperation.DBconnShort.BeginTransaction();
+            command.ExecuteNonQuery();
+            DBOperation.commitTransaction();
+            //txn.Commit();
+         }
+#if ORACLE
+         catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
+            _refBIMRLCommon.StackPushError(excStr);
+         }
+      }
 
-            try
-            {
-                // Temporary: currently we don't support transformation information (Xbim does not provide that information) and I have not handle Oracle UDT yet
-                // string sqlStmt = "Select ModelID, ModelName, Source, Location, Transformation, Scale from BIMRL_MODELINFO_" + fedModelID.ToString("X4");
-                string sqlStmt = "Select b.ModelID, a.ModelName, a.Source, count(b.modelid) as \"No. Element\" from " + DBOperation.formatTabName("BIMRL_MODELINFO", fedModelID)
-                                + " a, " + DBOperation.formatTabName("BIMRL_ELEMENT", fedModelID) + " b WHERE b.modelid=a.modelid "
-                                + "group by b.modelid, modelname, source order by ModelID";
-                OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
-                OracleDataReader reader = command.ExecuteReader();
-                while (reader.Read())
-                {
-                    BIMRLModelInfo modelInfo = new BIMRLModelInfo();
-                    modelInfo.ModelID = reader.GetInt32(0);
-                    modelInfo.ModelName = reader.GetString(1);
-                    modelInfo.Source = reader.GetString(2);
-                    modelInfo.NumberOfElement = reader.GetInt32(3);
-                    //if (!reader.IsDBNull(3))
-                        //modelInfo.Location = (XbimPoint3D) reader.GetValue(3);
-                    //if (!reader.IsDBNull(4))
-                        //modelInfo.Transformation = (XbimMatrix3D)reader.GetValue(4);
-                    //if (!reader.IsDBNull(5))
-                        //modelInfo.Scale = (XbimVector3D)reader.GetValue(5);
+      public void deleteModel (string modelName, string projectName, string projectNumber)
+      {
+         object federatedModelID = null;
+         string sqlStmt = "Select FEDERATEDID from BIMRL_FEDERATEDMODEL where MODELNAME = '" + modelName + "' and PROJECTNAME = '" + projectName + "' and PROJECTNUMBER = '" + projectNumber + "'";
+         try
+         {
+#if ORACLE
+            OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+#endif
+#if POSTGRES
+            NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+            command.Prepare();
+#endif
+            federatedModelID = command.ExecuteScalar();
+            int? fedID = federatedModelID as int?;
+            if (fedID.HasValue)
+               deleteModel(fedID.Value);
+         }
+#if ORACLE
+         catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
+            _refBIMRLCommon.StackPushError(excStr);
+         }
+      }
 
-                    modelInfos.Add(modelInfo);
-                }
-               reader.Close();
-            }
-            catch (OracleException e)
-            {
-                string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
-                _refBIMRLCommon.StackPushError(excStr);
-            }
-            catch (SystemException e)
-            {
-                string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
-                _refBIMRLCommon.StackPushError(excStr);
-                throw;
-            }
+      public DataTable checkModelExists (int fedID)
+      {
+         string whereClause = "FEDERATEDID=" + fedID;
+         DataTable modelInfo = new DataTable();
+         bool exist = checkModelExists(whereClause, out modelInfo);
+         return modelInfo;
+      }
 
-            return modelInfos;
-        }
+      public DataTable checkModelExists(string projectName, string projectNumber)
+      {
+         string whereClause = "PROJECTNAME='" + projectName + "'" + " AND PROJECTNUMBER='" + projectNumber + "'";
+         DataTable modelInfo = new DataTable();
+         bool exist = checkModelExists(whereClause, out modelInfo);
+         return modelInfo;
+      }
 
-        public void deleteModel (int federatedModelID)
-        {
-            string currStep = "Dropping existing model tables (ID: " + federatedModelID.ToString("X4") + ")";
-            try
-            {
-                int retStat = DBOperation.dropModelTables(federatedModelID);
+      bool checkModelExists(string whereClause, out DataTable modelInfo)
+      {
+         DataTable qResult = new DataTable();
+         modelInfo = qResult;
 
-                string sqlStmt = "delete from BIMRL_FEDERATEDMODEL where FEDERATEDID=" + federatedModelID;
-                OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
-                DBOperation.beginTransaction();
-                //OracleTransaction txn = DBOperation.DBconnShort.BeginTransaction();
-                command.ExecuteNonQuery();
-                DBOperation.commitTransaction();
-                //txn.Commit();
-            }
-            catch (OracleException e)
-            {
-                string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
-                _refBIMRLCommon.StackPushError(excStr);
-            }
-        }
-
-        public void deleteModel (string modelName, string projectName, string projectNumber)
-        {
-            object federatedModelID = null;
-            string SqlStmt = "Select FEDERATEDID from BIMRL_FEDERATEDMODEL where MODELNAME = '" + modelName + "' and PROJECTNAME = '" + projectName + "' and PROJECTNUMBER = '" + projectNumber + "'";
-            try
-            {
-                OracleCommand command = new OracleCommand(SqlStmt, DBOperation.DBConn);
-                federatedModelID = command.ExecuteScalar();
-                int? fedID = federatedModelID as int?;
-                if (fedID.HasValue)
-                    deleteModel(fedID.Value);
-            }
-            catch (OracleException e)
-            {
-                string excStr = "%%Read Error - " + e.Message + "\n\t" + SqlStmt;
-                _refBIMRLCommon.StackPushError(excStr);
-            }
-        }
-
-        public DataTable checkModelExists (int fedID)
-        {
-            string whereClause = "FEDERATEDID=" + fedID;
-            DataTable modelInfo = new DataTable();
-            bool exist = checkModelExists(whereClause, out modelInfo);
-            return modelInfo;
-        }
-
-        public DataTable checkModelExists(string projectName, string projectNumber)
-        {
-            string whereClause = "PROJECTNAME='" + projectName + "'" + " AND PROJECTNUMBER='" + projectNumber + "'";
-            DataTable modelInfo = new DataTable();
-            bool exist = checkModelExists(whereClause, out modelInfo);
-            return modelInfo;
-        }
-
-        bool checkModelExists(string whereClause, out DataTable modelInfo)
-        {
-            DataTable qResult = new DataTable();
-            modelInfo = qResult;
-
-            string SqlStmt = "Select * from BIMRL_FEDERATEDMODEL where " + whereClause;
-            try
-            {
-                OracleCommand command = new OracleCommand(SqlStmt, DBOperation.DBConn);
-                OracleDataAdapter qAdapter = new OracleDataAdapter(command);
-                qAdapter.Fill(qResult);
-                if (qResult != null)
-                    if (qResult.Rows.Count > 0)
-                        return true;
-                return false;
-            }
-            catch (OracleException e)
-            {
-                string excStr = "%%Read Error - " + e.Message + "\n\t" + SqlStmt;
-                _refBIMRLCommon.StackPushError(excStr);
-                return false;
-            }
-        }
-    }
+         string sqlStmt = "Select * from BIMRL_FEDERATEDMODEL where " + whereClause;
+         try
+         {
+#if ORACLE
+            OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+            OracleDataAdapter qAdapter = new OracleDataAdapter(command);
+#endif
+#if POSTGRES
+            NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+            command.Prepare();
+            NpgsqlDataAdapter qAdapter = new NpgsqlDataAdapter(command);
+#endif
+            qAdapter.Fill(qResult);
+            if (qResult != null)
+               if (qResult.Rows.Count > 0)
+                  return true;
+            return false;
+         }
+#if ORACLE
+         catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
+            _refBIMRLCommon.StackPushError(excStr);
+            return false;
+         }
+      }
+   }
 }

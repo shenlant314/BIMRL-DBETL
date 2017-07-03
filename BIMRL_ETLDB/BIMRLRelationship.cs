@@ -28,8 +28,14 @@ using System.Threading;
 using System.Diagnostics;
 using Xbim.Ifc;
 using Xbim.Ifc4.Interfaces;
+#if ORACLE
 using Oracle.DataAccess.Types;
 using Oracle.DataAccess.Client;
+#endif
+#if POSTGRES
+using Npgsql;
+using NpgsqlTypes;
+#endif
 using BIMRL.Common;
 
 namespace BIMRL
@@ -56,11 +62,7 @@ namespace BIMRL
 
       private void processRelAggregation()
       {
-         List<string> arrMastGuids = new List<string>();
-         List<string> arrMastTypes = new List<string>();
-         List<string> arrAggrGuids = new List<string>();
-         List<string> arrAggrTypes = new List<string>();
-         string SqlStmt;
+         string sqlStmt;
          string currStep = string.Empty;
 
          DBOperation.beginTransaction();
@@ -69,12 +71,15 @@ namespace BIMRL
          string parentGuid = string.Empty;
          string parentType = string.Empty;
 
-         OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
-
-         SqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELAGGREGATION")
+#if ORACLE
+         List<string> arrMastGuids = new List<string>();
+         List<string> arrMastTypes = new List<string>();
+         List<string> arrAggrGuids = new List<string>();
+         List<string> arrAggrTypes = new List<string>();
+         
+         sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELAGGREGATION")
                      + " (MASTERELEMENTID, MASTERELEMENTTYPE, AGGREGATEELEMENTID, AGGREGATEELEMENTTYPE) values (:mGuids, :mType, :aGuids, :aType )";
-         command.CommandText = SqlStmt;
-         currStep = SqlStmt;
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
 
          OracleParameter[] Param = new OracleParameter[4];
          Param[0] = command.Parameters.Add("mGuids", OracleDbType.Varchar2);
@@ -85,71 +90,37 @@ namespace BIMRL
          Param[2].Direction = ParameterDirection.Input;
          Param[3] = command.Parameters.Add("aType", OracleDbType.Varchar2);
          Param[3].Direction = ParameterDirection.Input;
-
+#endif
+#if POSTGRES
+         sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELAGGREGATION")
+                     + " (MASTERELEMENTID, MASTERELEMENTTYPE, AGGREGATEELEMENTID, AGGREGATEELEMENTTYPE) values (@mGuids, @mType, @aGuids, @aType )";
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         command.Prepare();
+#endif
+         currStep = sqlStmt;
 
          IEnumerable<IIfcRelAggregates> rels = _model.Instances.OfType<IIfcRelAggregates>();
          foreach (IIfcRelAggregates aggr in rels)
          {
-               string aggrGuid = aggr.RelatingObject.GlobalId.ToString();
-               string aggrType = aggr.RelatingObject.GetType().Name.ToUpper();
-               if (_refBIMRLCommon.getLineNoFromMapping(aggrGuid) == null)
-                  continue;   // skip relationship that involves "non" element Guids
+            string aggrGuid = aggr.RelatingObject.GlobalId.ToString();
+            string aggrType = aggr.RelatingObject.GetType().Name.ToUpper();
+            if (_refBIMRLCommon.getLineNoFromMapping(aggrGuid) == null)
+               continue;   // skip relationship that involves "non" element Guids
 
-               IEnumerable<IIfcObjectDefinition> relObjects = aggr.RelatedObjects;
-               foreach (IIfcObjectDefinition relObj in relObjects)
-               {
-                  string relObjGuid = relObj.GlobalId.ToString();
-                  string relObjType = relObj.GetType().Name.ToUpper();
-                  arrMastGuids.Add(aggrGuid);
-                  arrMastTypes.Add(aggrType);
-                  arrAggrGuids.Add(relObjGuid);
-                  arrAggrTypes.Add(relObjType);
-               }
+            IEnumerable<IIfcObjectDefinition> relObjects = aggr.RelatedObjects;
+            foreach (IIfcObjectDefinition relObj in relObjects)
+            {
+#if ORACLE
+               string relObjGuid = relObj.GlobalId.ToString();
+               string relObjType = relObj.GetType().Name.ToUpper();
+               arrMastGuids.Add(aggrGuid);
+               arrMastTypes.Add(aggrType);
+               arrAggrGuids.Add(relObjGuid);
+               arrAggrTypes.Add(relObjType);
+            }
 
-               if (arrMastGuids.Count >= DBOperation.commitInterval)
-               {
-                  Param[0].Size = arrMastGuids.Count();
-                  Param[0].Value = arrMastGuids.ToArray();
-                  Param[1].Size = arrMastTypes.Count();
-                  Param[1].Value = arrMastTypes.ToArray();
-                  Param[2].Size = arrAggrGuids.Count();
-                  Param[2].Value = arrAggrGuids.ToArray();
-                  Param[3].Size = arrAggrTypes.Count();
-                  Param[3].Value = arrAggrTypes.ToArray();
-
-                  try
-                  {
-                     command.ArrayBindCount = arrMastGuids.Count;    // No of values in the array to be inserted
-                     commandStatus = command.ExecuteNonQuery();
-                     //Do commit at interval but keep the long transaction (reopen)
-                     DBOperation.commitTransaction();
-                     arrMastGuids.Clear();
-                     arrMastTypes.Clear();
-                     arrAggrGuids.Clear();
-                     arrAggrTypes.Clear();
-                  }
-                  catch (OracleException e)
-                  {
-                     string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                     _refBIMRLCommon.StackPushIgnorableError(excStr);
-                     // Ignore any error
-                     arrMastGuids.Clear();
-                     arrMastTypes.Clear();
-                     arrAggrGuids.Clear();
-                     arrAggrTypes.Clear();
-                     continue;
-                  }
-                  catch (SystemException e)
-                  {
-                     string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                     _refBIMRLCommon.StackPushError(excStr);
-                     throw;
-                  }
-               }
-         }
-
-         if (arrMastGuids.Count > 0)
-         {
+            if (arrMastGuids.Count >= DBOperation.commitInterval)
+            {
                Param[0].Size = arrMastGuids.Count();
                Param[0].Value = arrMastGuids.ToArray();
                Param[1].Size = arrMastTypes.Count();
@@ -158,18 +129,27 @@ namespace BIMRL
                Param[2].Value = arrAggrGuids.ToArray();
                Param[3].Size = arrAggrTypes.Count();
                Param[3].Value = arrAggrTypes.ToArray();
-
+               command.ArrayBindCount = arrMastGuids.Count;    // No of values in the array to be inserted
                try
                {
-                  command.ArrayBindCount = arrMastGuids.Count;    // No of values in the array to be inserted
                   commandStatus = command.ExecuteNonQuery();
                   //Do commit at interval but keep the long transaction (reopen)
                   DBOperation.commitTransaction();
+                  arrMastGuids.Clear();
+                  arrMastTypes.Clear();
+                  arrAggrGuids.Clear();
+                  arrAggrTypes.Clear();
                }
                catch (OracleException e)
                {
                   string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
                   _refBIMRLCommon.StackPushIgnorableError(excStr);
+                  // Ignore any error
+                  arrMastGuids.Clear();
+                  arrMastTypes.Clear();
+                  arrAggrGuids.Clear();
+                  arrAggrTypes.Clear();
+                  continue;
                }
                catch (SystemException e)
                {
@@ -177,36 +157,92 @@ namespace BIMRL
                   _refBIMRLCommon.StackPushError(excStr);
                   throw;
                }
+#endif
+#if POSTGRES
+               command.Parameters.Clear();
+               command.Parameters.AddWithValue("mGuids", aggrGuid);
+               command.Parameters.AddWithValue("mType", aggrType);
+               command.Parameters.AddWithValue("aGuids", relObj.GlobalId.ToString());
+               command.Parameters.AddWithValue("aType", relObj.GetType().Name.ToUpper());
+               try
+               {
+                  commandStatus = command.ExecuteNonQuery();
+                  //Do commit at interval but keep the long transaction (reopen)
+                  DBOperation.commitTransaction();
+               }
+               catch (NpgsqlException e)
+               {
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+                  _refBIMRLCommon.StackPushIgnorableError(excStr);
+                  continue;
+               }
+               catch (SystemException e)
+               {
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+                  _refBIMRLCommon.StackPushError(excStr);
+                  throw;
+               }
+#endif
+            }
          }
+
+#if ORACLE
+         if (arrMastGuids.Count > 0)
+         {
+            Param[0].Size = arrMastGuids.Count();
+            Param[0].Value = arrMastGuids.ToArray();
+            Param[1].Size = arrMastTypes.Count();
+            Param[1].Value = arrMastTypes.ToArray();
+            Param[2].Size = arrAggrGuids.Count();
+            Param[2].Value = arrAggrGuids.ToArray();
+            Param[3].Size = arrAggrTypes.Count();
+            Param[3].Value = arrAggrTypes.ToArray();
+
+            try
+            {
+               command.ArrayBindCount = arrMastGuids.Count;    // No of values in the array to be inserted
+               commandStatus = command.ExecuteNonQuery();
+               //Do commit at interval but keep the long transaction (reopen)
+               DBOperation.commitTransaction();
+            }
+            catch (OracleException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushIgnorableError(excStr);
+            }
+            catch (SystemException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushError(excStr);
+               throw;
+            }
+         }
+#endif
          DBOperation.commitTransaction();
          command.Dispose();
       }
 
       private void processRelConnections()
       {
-         string SqlStmt;
+         string sqlStmt;
          string currStep = string.Empty;
 
          DBOperation.beginTransaction();
 
-         OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
-
-         SqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELCONNECTION")
+#if ORACLE
+         sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELCONNECTION")
                      + " (CONNECTINGELEMENTID, CONNECTINGELEMENTTYPE, CONNECTINGELEMENTATTRNAME, CONNECTINGELEMENTATTRVALUE, "
                      + "CONNECTEDELEMENTID, CONNECTEDELEMENTTYPE, CONNECTEDELEMENTATTRNAME, CONNECTEDELEMENTATTRVALUE, "
                      + "CONNECTIONATTRNAME, CONNECTIONATTRVALUE, REALIZINGELEMENTID, REALIZINGELEMENTTYPE, RELATIONSHIPTYPE) "
                      + "VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, :13)";
-         command.CommandText = SqlStmt;
-         currStep = SqlStmt;
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
 
          OracleParameter[] Param = new OracleParameter[13];
          for (int i = 0; i < 13; i++)
          {
-               Param[i] = command.Parameters.Add((i + 1).ToString(), OracleDbType.Varchar2);
-               Param[i].Direction = ParameterDirection.Input;
+            Param[i] = command.Parameters.Add((i + 1).ToString(), OracleDbType.Varchar2);
+            Param[i].Direction = ParameterDirection.Input;
          }
-
-         int commandStatus = -1;
 
          List<string> cIngEle = new List<string>();
          List<string> cIngEleTyp = new List<string>();
@@ -229,17 +265,29 @@ namespace BIMRL
          List<OracleParameterStatus> cAttrVBS = new List<OracleParameterStatus>();
          List<OracleParameterStatus> realElBS = new List<OracleParameterStatus>();
          List<OracleParameterStatus> realElTBS = new List<OracleParameterStatus>();
+#endif
+#if POSTGRES
+         sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELCONNECTION")
+            + " (CONNECTINGELEMENTID, CONNECTINGELEMENTTYPE, CONNECTINGELEMENTATTRNAME, CONNECTINGELEMENTATTRVALUE, "
+            + "CONNECTEDELEMENTID, CONNECTEDELEMENTTYPE, CONNECTEDELEMENTATTRNAME, CONNECTEDELEMENTATTRVALUE, "
+            + "CONNECTIONATTRNAME, CONNECTIONATTRVALUE, REALIZINGELEMENTID, REALIZINGELEMENTTYPE, RELATIONSHIPTYPE) "
+            + "VALUES (@1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13)";
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         command.Prepare();
+#endif
+         int commandStatus = -1;
+         currStep = sqlStmt;
 
          // Do speacial step first by processing the IfcRelConnecsPortToElement to match FccDistributionPort and IfcElement for MEP connectivity
          IEnumerable<IIfcRelConnectsPortToElement> ptes = _model.Instances.OfType<IIfcRelConnectsPortToElement>();
          foreach (IIfcRelConnectsPortToElement pte in ptes)
          {
-               Dictionary<string, string> portElemVal;
-               portElemVal = _refBIMRLCommon.PortToElem_GetValue(pte.RelatingPort.GlobalId.ToString());
-               if (portElemVal == null)
-                  portElemVal = new Dictionary<string, string>();
-               portElemVal.Add("RELATEDELEMENT", pte.RelatedElement.GlobalId.ToString());
-               portElemVal.Add("RELATEDELEMENTTYPE", pte.RelatedElement.GetType().Name.ToUpper());
+            Dictionary<string, string> portElemVal;
+            portElemVal = _refBIMRLCommon.PortToElem_GetValue(pte.RelatingPort.GlobalId.ToString());
+            if (portElemVal == null)
+               portElemVal = new Dictionary<string, string>();
+            portElemVal.Add("RELATEDELEMENT", pte.RelatedElement.GlobalId.ToString());
+            portElemVal.Add("RELATEDELEMENTTYPE", pte.RelatedElement.GetType().Name.ToUpper());
          }
 
          IEnumerable<IIfcRelConnects> rels = _model.Instances.OfType<IIfcRelConnects>().Where
@@ -253,27 +301,24 @@ namespace BIMRL
                if (_refBIMRLCommon.getLineNoFromMapping(connPE.RelatingElement.GlobalId.ToString()) == null)
                   continue;       // skip "non" element guid in the relationship object
 
-               cIngEle.Add(connPE.RelatingElement.GlobalId.ToString());
-               cIngEleTyp.Add(connPE.RelatingElement.GetType().Name.ToUpper());
-               cEdEle.Add(connPE.RelatedElement.GlobalId.ToString());
-               cEdEleTyp.Add(connPE.RelatedElement.GetType().Name.ToUpper());
-               cIngAttrN.Add("RELATINGCONNECTIONTYPE");
-               cIngAttrNBS.Add(OracleParameterStatus.Success);
-               cIngAttrV.Add(connPE.RelatingConnectionType.ToString());
-               cIngAttrVBS.Add(OracleParameterStatus.Success);
-               cEdAttrN.Add("RELATEDCONNECTIONTYPE");
-               cEdAttrNBS.Add(OracleParameterStatus.Success);
-               cEdAttrV.Add(connPE.RelatedConnectionType.ToString());
-               cEdAttrVBS.Add(OracleParameterStatus.Success);
-               cAttrN.Add(string.Empty);
-               cAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cAttrV.Add(string.Empty);
-               cAttrVBS.Add(OracleParameterStatus.NullInsert);
-               realEl.Add(string.Empty);
-               realElTyp.Add(string.Empty);
-               realElTBS.Add(OracleParameterStatus.NullInsert);
-               realElBS.Add(OracleParameterStatus.NullInsert);
-               relTyp.Add(connPE.GetType().Name.ToUpper());
+#if ORACLE
+               insRelConnect(ref cIngEle, connPE.RelatingElement.GlobalId.ToString(), ref cIngEleTyp, connPE.RelatingElement.GetType().Name.ToUpper(),
+                              ref cIngAttrN, ref cIngAttrNBS, "RELATINGCONNECTIONTYPE", ref cIngAttrV, ref cIngAttrVBS, connPE.RelatingConnectionType.ToString(),
+                              ref cEdEle, connPE.RelatedElement.GlobalId.ToString(), ref cEdEleTyp, connPE.RelatedElement.GetType().Name.ToUpper(),
+                              ref cEdAttrN, ref cEdAttrNBS, "RELATEDCONNECTIONTYPE", ref cEdAttrV, ref cEdAttrVBS, connPE.RelatedConnectionType.ToString(),
+                              ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null, 
+                              ref realEl, ref realElBS, null, ref realElTyp, ref realElTBS, null, 
+                              ref relTyp, connPE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+               insRelConnect(command, connPE.RelatingElement.GlobalId.ToString(), connPE.RelatingElement.GetType().Name.ToUpper(),
+                              "RELATINGCONNECTIONTYPE", connPE.RelatingConnectionType.ToString(),
+                              connPE.RelatedElement.GlobalId.ToString(), connPE.RelatedElement.GetType().Name.ToUpper(),
+                              "RELATEDCONNECTIONTYPE", connPE.RelatedConnectionType.ToString(),
+                              null, null, 
+                              null, null, 
+                              connPE.GetType().Name.ToUpper());
+#endif
             }
             else if (conn is IIfcRelConnectsWithRealizingElements)
             {
@@ -284,37 +329,31 @@ namespace BIMRL
                //Iterate for each Realizing element. One record for each realizing element
                foreach (IIfcElement realElem in connPE.RealizingElements)
                {
-                  cIngEle.Add(connPE.RelatingElement.GlobalId.ToString());
-                  cIngEleTyp.Add(connPE.RelatingElement.GetType().Name.ToUpper());
-                  cEdEle.Add(connPE.RelatedElement.GlobalId.ToString());
-                  cEdEleTyp.Add(connPE.RelatedElement.GetType().Name.ToUpper());
-                  cIngAttrN.Add(string.Empty);
-                  cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cIngAttrV.Add(string.Empty);
-                  cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrN.Add(string.Empty);
-                  cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrV.Add(string.Empty);
-                  cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  if (connPE.ConnectionType == null)
+                  string cAttrNstr = string.Empty;
+                  string cAttrVstr = string.Empty;
+                  if (connPE.ConnectionType != null)
                   {
-                        cAttrN.Add(string.Empty);
-                        cAttrNBS.Add(OracleParameterStatus.NullInsert);
-                        cAttrV.Add(string.Empty);
-                        cAttrVBS.Add(OracleParameterStatus.NullInsert);
+                     cAttrNstr = "CONNECTIONTYPE";
+                     cAttrVstr = connPE.ConnectionType.ToString();
                   }
-                  else
-                  {
-                        cAttrN.Add("CONNECTIONTYPE");
-                        cAttrNBS.Add(OracleParameterStatus.Success);
-                        cAttrV.Add(connPE.ConnectionType.ToString());
-                        cAttrVBS.Add(OracleParameterStatus.Success);
-                  }
-                  realEl.Add(realElem.GlobalId.ToString());
-                  realElBS.Add(OracleParameterStatus.Success);
-                  realElTyp.Add(realElem.GetType().Name.ToUpper());
-                  realElTBS.Add(OracleParameterStatus.Success);
-                  relTyp.Add(connPE.GetType().Name.ToUpper());
+#if ORACLE
+                  insRelConnect(ref cIngEle, connPE.RelatingElement.GlobalId.ToString(), ref cIngEleTyp, connPE.RelatingElement.GetType().Name.ToUpper(),
+                                 ref cIngAttrN, ref cIngAttrNBS, null, ref cIngAttrV, ref cIngAttrVBS, null,
+                                 ref cEdEle, connPE.RelatedElement.GlobalId.ToString(), ref cEdEleTyp, connPE.RelatedElement.GetType().Name.ToUpper(),
+                                 ref cEdAttrN, ref cEdAttrNBS, null, ref cEdAttrV, ref cEdAttrVBS, null,
+                                 ref cAttrN, ref cAttrNBS, cAttrNstr, ref cAttrV, ref cAttrVBS, cAttrVstr,
+                                 ref realEl, ref realElBS, realElem.GlobalId.ToString(), ref realElTyp, ref realElTBS, realElem.GetType().Name.ToUpper(),
+                                 ref relTyp, connPE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+                  insRelConnect(command, connPE.RelatingElement.GlobalId.ToString(), connPE.RelatingElement.GetType().Name.ToUpper(),
+                                 null, null,
+                                 connPE.RelatedElement.GlobalId.ToString(), connPE.RelatedElement.GetType().Name.ToUpper(),
+                                 null, null,
+                                 cAttrNstr, cAttrVstr,
+                                 realElem.GlobalId.ToString(), realElem.GetType().Name.ToUpper(), 
+                                 connPE.GetType().Name.ToUpper());
+#endif
                }
             }
             else if (conn is IIfcRelConnectsElements)
@@ -323,27 +362,24 @@ namespace BIMRL
                if (_refBIMRLCommon.getLineNoFromMapping(connPE.RelatingElement.GlobalId.ToString()) == null)
                   continue;       // skip "non" element guid in the relationship object
 
-               cIngEle.Add(connPE.RelatingElement.GlobalId.ToString());
-               cIngEleTyp.Add(connPE.RelatingElement.GetType().Name.ToUpper());
-               cEdEle.Add(connPE.RelatedElement.GlobalId.ToString());
-               cEdEleTyp.Add(connPE.RelatedElement.GetType().Name.ToUpper());
-               cIngAttrN.Add(string.Empty);
-               cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cIngAttrV.Add(string.Empty);
-               cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-               cEdAttrN.Add(string.Empty);
-               cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cEdAttrV.Add(string.Empty);
-               cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-               cAttrN.Add(string.Empty);
-               cAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cAttrV.Add(string.Empty);
-               cAttrVBS.Add(OracleParameterStatus.NullInsert);
-               realEl.Add(string.Empty);
-               realElBS.Add(OracleParameterStatus.NullInsert);
-               realElTyp.Add(string.Empty);
-               realElTBS.Add(OracleParameterStatus.NullInsert);
-               relTyp.Add(connPE.GetType().Name.ToUpper());
+#if ORACLE
+               insRelConnect(ref cIngEle, connPE.RelatingElement.GlobalId.ToString(), ref cIngEleTyp, connPE.RelatingElement.GetType().Name.ToUpper(),
+                              ref cIngAttrN, ref cIngAttrNBS, null, ref cIngAttrV, ref cIngAttrVBS, null,
+                              ref cEdEle, connPE.RelatedElement.GlobalId.ToString(), ref cEdEleTyp, connPE.RelatedElement.GetType().Name.ToUpper(),
+                              ref cEdAttrN, ref cEdAttrNBS, null, ref cEdAttrV, ref cEdAttrVBS, null,
+                              ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null,
+                              ref realEl, ref realElBS, null, ref realElTyp, ref realElTBS, null,
+                              ref relTyp, connPE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+               insRelConnect(command, connPE.RelatingElement.GlobalId.ToString(), connPE.RelatingElement.GetType().Name.ToUpper(),
+                              null, null,
+                              connPE.RelatedElement.GlobalId.ToString(), connPE.RelatedElement.GetType().Name.ToUpper(),
+                              null, null,
+                              null, null, 
+                              null, null, 
+                              connPE.GetType().Name.ToUpper());
+#endif
             }
             else if (conn is IIfcRelConnectsPorts)
             {
@@ -390,115 +426,51 @@ namespace BIMRL
                portElemVal1.TryGetValue("ATTRIBUTEVALUE", out attrVal1);
                portElemVal2.TryGetValue("ATTRIBUTEVALUE", out attrVal2);
 
-               cIngEle.Add(eleGuid1);
-               cIngEle.Add(eleGuid2);
-
-               cIngEleTyp.Add(eleType1);
-               cIngEleTyp.Add(eleType2);
-
-               cEdEle.Add(eleGuid2);
-               cEdEle.Add(eleGuid1);
-
-               cEdEleTyp.Add(eleType2);
-               cEdEleTyp.Add(eleType1);
-
                // RealizingElement if any
+               string realElStr = string.Empty;
+               string realElTypStr = string.Empty;
                if (connPE.RealizingElement != null)
                {
-                  realEl.Add(connPE.RealizingElement.GlobalId.ToString());
-                  realEl.Add(connPE.RealizingElement.GlobalId.ToString());
-                  realElBS.Add(OracleParameterStatus.Success);
-                  realElBS.Add(OracleParameterStatus.Success);
-                  realElTyp.Add(connPE.RealizingElement.GetType().Name.ToUpper());
-                  realElTyp.Add(connPE.RealizingElement.GetType().Name.ToUpper());
-                  realElTBS.Add(OracleParameterStatus.Success);
-                  realElTBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  realEl.Add(string.Empty);
-                  realEl.Add(string.Empty);
-                  realElBS.Add(OracleParameterStatus.NullInsert);
-                  realElBS.Add(OracleParameterStatus.NullInsert);
-                  realElTyp.Add(string.Empty);
-                  realElTyp.Add(string.Empty);
-                  realElTBS.Add(OracleParameterStatus.NullInsert);
-                  realElTBS.Add(OracleParameterStatus.NullInsert);
+                  realElStr = connPE.RealizingElement.GlobalId.ToString();
+                  realElTypStr = connPE.RealizingElement.GetType().Name.ToUpper();
                }
 
-               // First rel
-               if (!String.IsNullOrEmpty(attrName1))
-               {
-                  cIngAttrN.Add(attrName1);
-                  cIngAttrNBS.Add(OracleParameterStatus.Success);
-                  cIngAttrV.Add(attrVal1);
-                  cIngAttrVBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  cIngAttrN.Add(string.Empty);
-                  cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cIngAttrV.Add(string.Empty);
-                  cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-               }
-               if (!String.IsNullOrEmpty(attrName2))
-               {
-                  cEdAttrN.Add(attrName2);
-                  cEdAttrNBS.Add(OracleParameterStatus.Success);
-                  cEdAttrV.Add(attrVal2);
-                  cEdAttrVBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  cEdAttrN.Add(string.Empty);
-                  cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrV.Add(string.Empty);
-                  cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               // Second rel
-               if (!String.IsNullOrEmpty(attrName2))
-               {
-                  cIngAttrN.Add(attrName2);
-                  cIngAttrNBS.Add(OracleParameterStatus.Success);
-                  cIngAttrV.Add(attrVal2);
-                  cIngAttrVBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  cIngAttrN.Add(string.Empty);
-                  cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cIngAttrV.Add(string.Empty);
-                  cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-               }
-               if (!String.IsNullOrEmpty(attrName1))
-               {
-                  cEdAttrN.Add(attrName1);
-                  cEdAttrNBS.Add(OracleParameterStatus.Success);
-                  cEdAttrV.Add(attrVal1);
-                  cEdAttrVBS.Add(OracleParameterStatus.Success);
-               }
-               else
-               {
-                  cEdAttrN.Add(string.Empty);
-                  cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrV.Add(string.Empty);
-                  cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-               }
-
-               cAttrN.Add(string.Empty);
-               cAttrN.Add(string.Empty);
-               cAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cAttrV.Add(string.Empty);
-               cAttrV.Add(string.Empty);
-               cAttrVBS.Add(OracleParameterStatus.NullInsert);
-               cAttrVBS.Add(OracleParameterStatus.NullInsert);
-               relTyp.Add(connPE.GetType().Name.ToUpper());
-               relTyp.Add(connPE.GetType().Name.ToUpper());
+               // Create 2 records for bi-directional relationship
+#if ORACLE
+               insRelConnect(ref cIngEle, eleGuid1, ref cIngEleTyp, eleType1,
+                              ref cIngAttrN, ref cIngAttrNBS, attrName1, ref cIngAttrV, ref cIngAttrVBS, attrVal1,
+                              ref cEdEle, eleGuid2, ref cEdEleTyp, eleType2,
+                              ref cEdAttrN, ref cEdAttrNBS, attrName2, ref cEdAttrV, ref cEdAttrVBS, attrVal2,
+                              ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null,
+                              ref realEl, ref realElBS, realElStr, ref realElTyp, ref realElTBS, realElTypStr,
+                              ref relTyp, connPE.GetType().Name.ToUpper());
+               insRelConnect(ref cIngEle, eleGuid2, ref cIngEleTyp, eleType2,
+                              ref cIngAttrN, ref cIngAttrNBS, attrName2, ref cIngAttrV, ref cIngAttrVBS, attrVal2,
+                              ref cEdEle, eleGuid1, ref cEdEleTyp, eleType1,
+                              ref cEdAttrN, ref cEdAttrNBS, attrName1, ref cEdAttrV, ref cEdAttrVBS, attrVal1,
+                              ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null,
+                              ref realEl, ref realElBS, realElStr, ref realElTyp, ref realElTBS, realElTypStr,
+                              ref relTyp, connPE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+               insRelConnect(command, eleGuid1, eleType1,
+                              attrName1, attrVal1,
+                              eleGuid2, eleType2,
+                              attrName2, attrVal2,
+                              null, null,
+                              realElStr, realElTypStr,
+                              connPE.GetType().Name.ToUpper());
+               insRelConnect(command, eleGuid2, eleType2,
+                              attrName2, attrVal2,
+                              eleGuid1, eleType1,
+                              attrName1, attrVal1,
+                              null, null,
+                              realElStr, realElTypStr,
+                              connPE.GetType().Name.ToUpper());
+#endif
             }
 
-               // Handle covering for both covering for spaces and building element
+            // Handle covering for both covering for spaces and building element
             else if (conn is IIfcRelCoversSpaces)
             {
                IIfcRelCoversSpaces covS = conn as IIfcRelCoversSpaces;
@@ -521,28 +493,25 @@ namespace BIMRL
                IEnumerable<IIfcCovering> relCovs = covS.RelatedCoverings;
                foreach (IIfcCovering cov in relCovs)
                {
-                  cIngEle.Add(guid);
-                  cIngEleTyp.Add(relType);
-                  cEdEle.Add(cov.GlobalId.ToString());
-                  cEdEleTyp.Add(cov.GetType().Name.ToUpper());
-                  cIngAttrN.Add(string.Empty);
-                  cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cIngAttrV.Add(string.Empty);
-                  cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrN.Add(string.Empty);
-                  cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrV.Add(string.Empty);
-                  cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrN.Add(string.Empty);
-                  cAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrV.Add(string.Empty);
-                  cAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  realEl.Add(string.Empty);
-                  realElBS.Add(OracleParameterStatus.NullInsert);
-                  realElTyp.Add(string.Empty);
-                  realElTBS.Add(OracleParameterStatus.NullInsert);
+#if ORACLE
+                  insRelConnect(ref cIngEle, guid, ref cIngEleTyp, relType,
+                                 ref cIngAttrN, ref cIngAttrNBS, null, ref cIngAttrV, ref cIngAttrVBS, null,
+                                 ref cEdEle, cov.GlobalId.ToString(), ref cEdEleTyp, cov.GetType().Name.ToUpper(),
+                                 ref cEdAttrN, ref cEdAttrNBS, null, ref cEdAttrV, ref cEdAttrVBS, null,
+                                 ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null,
+                                 ref realEl, ref realElBS, null, ref realElTyp, ref realElTBS, null,
+                                 ref relTyp, covS.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+                  insRelConnect(command, guid, relType,
+                                 null, null,
+                                 cov.GlobalId.ToString(), cov.GetType().Name.ToUpper(),
+                                 null, null,
+                                 null, null,
+                                 null, null,
+                                 covS.GetType().Name.ToUpper());
+#endif
                }
-               relTyp.Add(covS.GetType().Name.ToUpper());
             }
 
             else if (conn is IIfcRelCoversBldgElements)
@@ -554,28 +523,25 @@ namespace BIMRL
                IEnumerable<IIfcCovering> relCovs = covE.RelatedCoverings;
                foreach (IIfcCovering cov in relCovs)
                {
-                  cIngEle.Add(covE.RelatingBuildingElement.GlobalId.ToString());
-                  cIngEleTyp.Add(covE.RelatingBuildingElement.GetType().Name.ToUpper());
-                  cEdEle.Add(cov.GlobalId.ToString());
-                  cEdEleTyp.Add(cov.GetType().Name.ToUpper());
-                  cIngAttrN.Add(string.Empty);
-                  cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cIngAttrV.Add(string.Empty);
-                  cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrN.Add(string.Empty);
-                  cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrV.Add(string.Empty);
-                  cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrN.Add(string.Empty);
-                  cAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrV.Add(string.Empty);
-                  cAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  realEl.Add(string.Empty);
-                  realElBS.Add(OracleParameterStatus.NullInsert);
-                  realElTyp.Add(string.Empty);
-                  realElTBS.Add(OracleParameterStatus.NullInsert);
+#if ORACLE
+                  insRelConnect(ref cIngEle, covE.RelatingBuildingElement.GlobalId.ToString(), ref cIngEleTyp, covE.RelatingBuildingElement.GetType().Name.ToUpper(),
+                                 ref cIngAttrN, ref cIngAttrNBS, null, ref cIngAttrV, ref cIngAttrVBS, null,
+                                 ref cEdEle, cov.GlobalId.ToString(), ref cEdEleTyp, cov.GetType().Name.ToUpper(),
+                                 ref cEdAttrN, ref cEdAttrNBS, null, ref cEdAttrV, ref cEdAttrVBS, null,
+                                 ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null,
+                                 ref realEl, ref realElBS, null, ref realElTyp, ref realElTBS, null,
+                                 ref relTyp, covE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+                  insRelConnect(command, covE.RelatingBuildingElement.GlobalId.ToString(), covE.RelatingBuildingElement.GetType().Name.ToUpper(),
+                                 null, null,
+                                 cov.GlobalId.ToString(), cov.GetType().Name.ToUpper(),
+                                 null, null,
+                                 null, null,
+                                 null, null,
+                                 covE.GetType().Name.ToUpper());
+#endif
                }
-               relTyp.Add(covE.GetType().Name.ToUpper());
             }
 
             else if (conn is IIfcRelFlowControlElements)
@@ -587,28 +553,25 @@ namespace BIMRL
 
                foreach (IIfcDistributionControlElement dist in connPE.RelatedControlElements)
                {
-                  cIngEle.Add(connPE.RelatingFlowElement.GlobalId.ToString());
-                  cIngEleTyp.Add(connPE.RelatingFlowElement.GetType().Name.ToUpper());
-                  cEdEle.Add(dist.GlobalId.ToString());
-                  cEdEleTyp.Add(dist.GetType().Name.ToUpper());
-                  cIngAttrN.Add(string.Empty);
-                  cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cIngAttrV.Add(string.Empty);
-                  cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrN.Add(string.Empty);
-                  cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrV.Add(string.Empty);
-                  cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrN.Add(string.Empty);
-                  cAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrV.Add(string.Empty);
-                  cAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  realEl.Add(string.Empty);
-                  realElBS.Add(OracleParameterStatus.NullInsert);
-                  realElTyp.Add(string.Empty);
-                  realElTBS.Add(OracleParameterStatus.NullInsert);
+#if ORACLE
+                  insRelConnect(ref cIngEle, connPE.RelatingFlowElement.GlobalId.ToString(), ref cIngEleTyp, connPE.RelatingFlowElement.GetType().Name.ToUpper(),
+                                 ref cIngAttrN, ref cIngAttrNBS, null, ref cIngAttrV, ref cIngAttrVBS, null,
+                                 ref cEdEle, dist.GlobalId.ToString(), ref cEdEleTyp, dist.GetType().Name.ToUpper(),
+                                 ref cEdAttrN, ref cEdAttrNBS, null, ref cEdAttrV, ref cEdAttrVBS, null,
+                                 ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null,
+                                 ref realEl, ref realElBS, null, ref realElTyp, ref realElTBS, null,
+                                 ref relTyp, connPE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+                  insRelConnect(command, connPE.RelatingFlowElement.GlobalId.ToString(), connPE.RelatingFlowElement.GetType().Name.ToUpper(),
+                                 null, null,
+                                 dist.GlobalId.ToString(), dist.GetType().Name.ToUpper(),
+                                 null, null,
+                                 null, null,
+                                 null, null,
+                                 connPE.GetType().Name.ToUpper());
+#endif
                }
-               relTyp.Add(connPE.GetType().Name.ToUpper());
             }
 
             else if (conn is IIfcRelInterferesElements)
@@ -618,38 +581,32 @@ namespace BIMRL
                if (_refBIMRLCommon.getLineNoFromMapping(connPE.RelatingElement.GlobalId.ToString()) == null)
                   continue;       // skip "non" element guid in the relationship object
 
-               cIngEle.Add(connPE.RelatingElement.GlobalId.ToString());
-               cIngEleTyp.Add(connPE.RelatingElement.GetType().Name.ToUpper());
-               cEdEle.Add(connPE.RelatedElement.GlobalId.ToString());
-               cEdEleTyp.Add(connPE.RelatedElement.GetType().Name.ToUpper());
-               cIngAttrN.Add(string.Empty);
-               cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cIngAttrV.Add(string.Empty);
-               cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-               cEdAttrN.Add(string.Empty);
-               cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cEdAttrV.Add(string.Empty);
-               cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
+               string interfN = null;
+               string interfV = null;
                if (connPE.InterferenceType != null)
                {
-                  cAttrN.Add("INTERFERENCETYPE");
-                  cAttrNBS.Add(OracleParameterStatus.Success);
-                  cAttrV.Add(connPE.InterferenceType.ToString());
-                  cAttrVBS.Add(OracleParameterStatus.Success);
+                  interfN = "INTERFERENCETYPE";
+                  interfV = connPE.InterferenceType.ToString();
                }
-               else
-               {
-                  cAttrN.Add(string.Empty);
-                  cAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrV.Add(string.Empty);
-                  cAttrVBS.Add(OracleParameterStatus.NullInsert);
-               }
-               realEl.Add(string.Empty);
-               realElBS.Add(OracleParameterStatus.NullInsert);
-               realElTyp.Add(string.Empty);
-               realElTBS.Add(OracleParameterStatus.NullInsert);
-               relTyp.Add(connPE.GetType().Name.ToUpper());
 
+#if ORACLE
+               insRelConnect(ref cIngEle, connPE.RelatingElement.GlobalId.ToString(), ref cIngEleTyp, connPE.RelatingElement.GetType().Name.ToUpper(),
+                              ref cIngAttrN, ref cIngAttrNBS, null, ref cIngAttrV, ref cIngAttrVBS, null,
+                              ref cEdEle, connPE.RelatedElement.GlobalId.ToString(), ref cEdEleTyp, connPE.RelatedElement.GetType().Name.ToUpper(),
+                              ref cEdAttrN, ref cEdAttrNBS, null, ref cEdAttrV, ref cEdAttrVBS, null,
+                              ref cAttrN, ref cAttrNBS, interfN, ref cAttrV, ref cAttrVBS, interfV,
+                              ref realEl, ref realElBS, null, ref realElTyp, ref realElTBS, null,
+                              ref relTyp, connPE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+               insRelConnect(command, connPE.RelatingElement.GlobalId.ToString(), connPE.RelatingElement.GetType().Name.ToUpper(),
+                              null, null,
+                              connPE.RelatedElement.GlobalId.ToString(), connPE.RelatedElement.GetType().Name.ToUpper(),
+                              null, null,
+                              interfN, interfV,
+                              null, null,
+                              connPE.GetType().Name.ToUpper());
+#endif
             }
 
             else if (conn is IIfcRelReferencedInSpatialStructure)
@@ -661,27 +618,24 @@ namespace BIMRL
 
                foreach (IIfcProduct elem in connPE.RelatedElements)
                {
-                  cIngEle.Add(connPE.RelatingStructure.GlobalId.ToString());
-                  cIngEleTyp.Add(connPE.RelatingStructure.GetType().Name.ToUpper());
-                  cEdEle.Add(elem.GlobalId.ToString());
-                  cEdEleTyp.Add(elem.GetType().Name.ToUpper());
-                  cIngAttrN.Add(string.Empty);
-                  cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cIngAttrV.Add(string.Empty);
-                  cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrN.Add(string.Empty);
-                  cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrV.Add(string.Empty);
-                  cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrN.Add(string.Empty);
-                  cAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrV.Add(string.Empty);
-                  cAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  realEl.Add(string.Empty);
-                  realElBS.Add(OracleParameterStatus.NullInsert);
-                  realElTyp.Add(string.Empty);
-                  realElTBS.Add(OracleParameterStatus.NullInsert);
-                  relTyp.Add(connPE.GetType().Name.ToUpper());
+#if ORACLE
+                  insRelConnect(ref cIngEle, connPE.RelatingStructure.GlobalId.ToString(), ref cIngEleTyp, connPE.RelatingStructure.GetType().Name.ToUpper(),
+                                 ref cIngAttrN, ref cIngAttrNBS, null, ref cIngAttrV, ref cIngAttrVBS, null,
+                                 ref cEdEle, elem.GlobalId.ToString(), ref cEdEleTyp, elem.GetType().Name.ToUpper(),
+                                 ref cEdAttrN, ref cEdAttrNBS, null, ref cEdAttrV, ref cEdAttrVBS, null,
+                                 ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null,
+                                 ref realEl, ref realElBS, null, ref realElTyp, ref realElTBS, null,
+                                 ref relTyp, connPE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+                  insRelConnect(command, connPE.RelatingStructure.GlobalId.ToString(), connPE.RelatingStructure.GetType().Name.ToUpper(),
+                                 null, null,
+                                 elem.GlobalId.ToString(), elem.GetType().Name.ToUpper(),
+                                 null, null,
+                                 null, null,
+                                 null, null,
+                                 connPE.GetType().Name.ToUpper());
+#endif
                }
             }
 
@@ -694,57 +648,51 @@ namespace BIMRL
 
                foreach (IIfcSpatialStructureElement bldg in connPE.RelatedBuildings)
                {
-                  cIngEle.Add(connPE.RelatingSystem.GlobalId.ToString());
-                  cIngEleTyp.Add(connPE.RelatingSystem.GetType().Name.ToUpper());
-                  cEdEle.Add(bldg.GlobalId.ToString());
-                  cEdEleTyp.Add(bldg.GetType().Name.ToUpper());
-                  cIngAttrN.Add(string.Empty);
-                  cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cIngAttrV.Add(string.Empty);
-                  cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrN.Add(string.Empty);
-                  cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cEdAttrV.Add(string.Empty);
-                  cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrN.Add(string.Empty);
-                  cAttrNBS.Add(OracleParameterStatus.NullInsert);
-                  cAttrV.Add(string.Empty);
-                  cAttrVBS.Add(OracleParameterStatus.NullInsert);
-                  realEl.Add(string.Empty);
-                  realElBS.Add(OracleParameterStatus.NullInsert);
-                  realElTyp.Add(string.Empty);
-                  realElTBS.Add(OracleParameterStatus.NullInsert);
-                  relTyp.Add(connPE.GetType().Name.ToUpper());
+#if ORACLE
+                  insRelConnect(ref cIngEle, connPE.RelatingSystem.GlobalId.ToString(), ref cIngEleTyp, connPE.RelatingSystem.GetType().Name.ToUpper(),
+                                 ref cIngAttrN, ref cIngAttrNBS, null, ref cIngAttrV, ref cIngAttrVBS, null,
+                                 ref cEdEle, bldg.GlobalId.ToString(), ref cEdEleTyp, bldg.GetType().Name.ToUpper(),
+                                 ref cEdAttrN, ref cEdAttrNBS, null, ref cEdAttrV, ref cEdAttrVBS, null,
+                                 ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null,
+                                 ref realEl, ref realElBS, null, ref realElTyp, ref realElTBS, null,
+                                 ref relTyp, connPE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+                  insRelConnect(command, connPE.RelatingSystem.GlobalId.ToString(), connPE.RelatingSystem.GetType().Name.ToUpper(),
+                                 null, null,
+                                 bldg.GlobalId.ToString(), bldg.GetType().Name.ToUpper(),
+                                 null, null,
+                                 null, null,
+                                 null, null,
+                                 connPE.GetType().Name.ToUpper());
+#endif
                }
             }
             else if (conn is Xbim.Ifc2x3.StructuralAnalysisDomain.IfcRelConnectsStructuralElement)
             {
-            Xbim.Ifc2x3.Interfaces.IIfcRelConnectsStructuralElement connPE = conn as Xbim.Ifc2x3.Interfaces.IIfcRelConnectsStructuralElement;
-            if (_refBIMRLCommon.getLineNoFromMapping(connPE.RelatingElement.GlobalId.ToString()) == null)
-                  continue;       // skip "non" element guid in the relationship object
+               Xbim.Ifc2x3.Interfaces.IIfcRelConnectsStructuralElement connPE = conn as Xbim.Ifc2x3.Interfaces.IIfcRelConnectsStructuralElement;
+               if (_refBIMRLCommon.getLineNoFromMapping(connPE.RelatingElement.GlobalId.ToString()) == null)
+                     continue;       // skip "non" element guid in the relationship object
 
                IIfcStructuralMember stru = connPE.RelatedStructuralMember as IIfcStructuralMember;
-               cIngEle.Add(connPE.RelatingElement.GlobalId.ToString());
-               cIngEleTyp.Add(connPE.RelatingElement.GetType().Name.ToUpper());
-               cEdEle.Add(stru.GlobalId.ToString());
-               cEdEleTyp.Add(stru.GetType().Name.ToUpper());
-               cIngAttrN.Add(string.Empty);
-               cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cIngAttrV.Add(string.Empty);
-               cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
-               cEdAttrN.Add(string.Empty);
-               cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cEdAttrV.Add(string.Empty);
-               cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
-               cAttrN.Add(string.Empty);
-               cAttrNBS.Add(OracleParameterStatus.NullInsert);
-               cAttrV.Add(string.Empty);
-               cAttrVBS.Add(OracleParameterStatus.NullInsert);
-               realEl.Add(string.Empty);
-               realElBS.Add(OracleParameterStatus.NullInsert);
-               realElTyp.Add(string.Empty);
-               realElTBS.Add(OracleParameterStatus.NullInsert);
-               relTyp.Add(connPE.GetType().Name.ToUpper());
+#if ORACLE
+               insRelConnect(ref cIngEle, connPE.RelatingElement.GlobalId.ToString(), ref cIngEleTyp, connPE.RelatingElement.GetType().Name.ToUpper(),
+                              ref cIngAttrN, ref cIngAttrNBS, null, ref cIngAttrV, ref cIngAttrVBS, null,
+                              ref cEdEle, stru.GlobalId.ToString(), ref cEdEleTyp, stru.GetType().Name.ToUpper(),
+                              ref cEdAttrN, ref cEdAttrNBS, null, ref cEdAttrV, ref cEdAttrVBS, null,
+                              ref cAttrN, ref cAttrNBS, null, ref cAttrV, ref cAttrVBS, null,
+                              ref realEl, ref realElBS, null, ref realElTyp, ref realElTBS, null,
+                              ref relTyp, connPE.GetType().Name.ToUpper());
+#endif
+#if POSTGRES
+               insRelConnect(command, connPE.RelatingElement.GlobalId.ToString(), connPE.RelatingElement.GetType().Name.ToUpper(),
+                              null, null,
+                              stru.GlobalId.ToString(), stru.GetType().Name.ToUpper(),
+                              null, null,
+                              null, null,
+                              null, null,
+                              connPE.GetType().Name.ToUpper());
+#endif
             }
 
             else
@@ -752,6 +700,7 @@ namespace BIMRL
                // Unsupported type!
             }
 
+#if ORACLE
             if (cIngEle.Count >= DBOperation.commitInterval)
             {
                Param[0].Value = cIngEle.ToArray();
@@ -851,63 +800,66 @@ namespace BIMRL
                   throw;
                }
             }
+#endif
          }
 
+#if ORACLE
          if (cIngEle.Count > 0)
          {
-               Param[0].Value = cIngEle.ToArray();
-               Param[0].Size = cIngEle.Count;
-               Param[1].Value = cIngEleTyp.ToArray();
-               Param[1].Size = cIngEleTyp.Count;
-               Param[2].Value = cIngAttrN.ToArray();
-               Param[2].Size = cIngAttrN.Count;
-               Param[2].ArrayBindStatus = cIngAttrNBS.ToArray();
-               Param[3].Value = cIngAttrV.ToArray();
-               Param[3].Size = cIngAttrV.Count;
-               Param[3].ArrayBindStatus = cIngAttrVBS.ToArray();
-               Param[4].Value = cEdEle.ToArray();
-               Param[4].Size = cEdEle.Count;
-               Param[5].Value = cEdEleTyp.ToArray();
-               Param[5].Size = cEdEleTyp.Count;
-               Param[6].Value = cEdAttrN.ToArray();
-               Param[6].Size = cEdAttrN.Count;
-               Param[6].ArrayBindStatus = cEdAttrNBS.ToArray();
-               Param[7].Value = cEdAttrV.ToArray();
-               Param[7].Size = cEdAttrV.Count;
-               Param[7].ArrayBindStatus = cEdAttrVBS.ToArray();
-               Param[8].Value = cAttrN.ToArray();
-               Param[8].Size = cAttrN.Count;
-               Param[8].ArrayBindStatus = cAttrNBS.ToArray();
-               Param[9].Value = cAttrV.ToArray();
-               Param[9].Size = cAttrV.Count;
-               Param[9].ArrayBindStatus = cAttrVBS.ToArray();
-               Param[10].Value = realEl.ToArray();
-               Param[10].Size = realEl.Count;
-               Param[10].ArrayBindStatus = realElBS.ToArray();
-               Param[11].Value = realElTyp.ToArray();
-               Param[11].Size = realElTyp.Count;
-               Param[11].ArrayBindStatus = realElTBS.ToArray();
-               Param[12].Value = relTyp.ToArray();
-               Param[12].Size = relTyp.Count;
+            Param[0].Value = cIngEle.ToArray();
+            Param[0].Size = cIngEle.Count;
+            Param[1].Value = cIngEleTyp.ToArray();
+            Param[1].Size = cIngEleTyp.Count;
+            Param[2].Value = cIngAttrN.ToArray();
+            Param[2].Size = cIngAttrN.Count;
+            Param[2].ArrayBindStatus = cIngAttrNBS.ToArray();
+            Param[3].Value = cIngAttrV.ToArray();
+            Param[3].Size = cIngAttrV.Count;
+            Param[3].ArrayBindStatus = cIngAttrVBS.ToArray();
+            Param[4].Value = cEdEle.ToArray();
+            Param[4].Size = cEdEle.Count;
+            Param[5].Value = cEdEleTyp.ToArray();
+            Param[5].Size = cEdEleTyp.Count;
+            Param[6].Value = cEdAttrN.ToArray();
+            Param[6].Size = cEdAttrN.Count;
+            Param[6].ArrayBindStatus = cEdAttrNBS.ToArray();
+            Param[7].Value = cEdAttrV.ToArray();
+            Param[7].Size = cEdAttrV.Count;
+            Param[7].ArrayBindStatus = cEdAttrVBS.ToArray();
+            Param[8].Value = cAttrN.ToArray();
+            Param[8].Size = cAttrN.Count;
+            Param[8].ArrayBindStatus = cAttrNBS.ToArray();
+            Param[9].Value = cAttrV.ToArray();
+            Param[9].Size = cAttrV.Count;
+            Param[9].ArrayBindStatus = cAttrVBS.ToArray();
+            Param[10].Value = realEl.ToArray();
+            Param[10].Size = realEl.Count;
+            Param[10].ArrayBindStatus = realElBS.ToArray();
+            Param[11].Value = realElTyp.ToArray();
+            Param[11].Size = realElTyp.Count;
+            Param[11].ArrayBindStatus = realElTBS.ToArray();
+            Param[12].Value = relTyp.ToArray();
+            Param[12].Size = relTyp.Count;
 
-               try
-               {
-                  command.ArrayBindCount = cIngEle.Count;    // No of values in the array to be inserted
-                  commandStatus = command.ExecuteNonQuery();
-                  DBOperation.commitTransaction();
-               }
-               catch (OracleException e)
-               {
-                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                  _refBIMRLCommon.StackPushIgnorableError(excStr);
-               }
-               catch (SystemException e)
-               {
-                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                  _refBIMRLCommon.StackPushError(excStr);
-                  throw;
-               }
+            try
+            {
+               command.ArrayBindCount = cIngEle.Count;    // No of values in the array to be inserted
+               commandStatus = command.ExecuteNonQuery();
+               DBOperation.commitTransaction();
+            }
+            catch (OracleException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushIgnorableError(excStr);
+            }
+            catch (SystemException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushError(excStr);
+               throw;
+            }
          }
+#endif
          DBOperation.commitTransaction();
          command.Dispose();
       }
@@ -919,34 +871,37 @@ namespace BIMRL
       /// </summary>
       private void processRelSpaceBoundary()
       {
-         string SqlStmt;
+         string sqlStmt;
          string currStep = string.Empty;
+         var spBIndex = new Dictionary<Tuple<string, string>, int>();    // Keep the index pair in the dictionary to avoid duplicate
 
          DBOperation.beginTransaction();
-
-         int commandStatus = -1;
-
-         OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
-
-         SqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELSPACEBOUNDARY")
+#if ORACLE
+         sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELSPACEBOUNDARY")
                      + " (SPACEELEMENTID, BOUNDARYELEMENTID, BOUNDARYELEMENTTYPE, BOUNDARYTYPE, INTERNALOREXTERNAL) values (:1, :2, :3, :4, :5)";
-         command.CommandText = SqlStmt;
-         currStep = SqlStmt;
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
 
          OracleParameter[] Param = new OracleParameter[5];
          for (int i = 0; i < 5; i++)
          {
-               Param[i] = command.Parameters.Add((i + 1).ToString(), OracleDbType.Varchar2);
-               Param[i].Direction = ParameterDirection.Input;
+            Param[i] = command.Parameters.Add((i + 1).ToString(), OracleDbType.Varchar2);
+            Param[i].Direction = ParameterDirection.Input;
          }
 
-         var spBIndex = new Dictionary<Tuple<string, string>, int>();    // Keep the index pair in the dictionary to avoid duplicate
 
          List<string> arrSpaceGuids = new List<string>();
          List<string> arrBoundGuids = new List<string>();
          List<string> arrBoundEleTypes = new List<string>();
          List<string> arrBoundTypes = new List<string>();
          List<string> arrIntOrExt = new List<string>();
+#endif
+#if POSTGRES
+         sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELSPACEBOUNDARY")
+                     + " (SPACEELEMENTID, BOUNDARYELEMENTID, BOUNDARYELEMENTTYPE, BOUNDARYTYPE, INTERNALOREXTERNAL) values (@1, @2, @3, @4, @5)";
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         command.Prepare();
+#endif
+         currStep = sqlStmt;
 
          IEnumerable<IIfcRelSpaceBoundary> rels = _model.Instances.OfType<IIfcRelSpaceBoundary>();
          foreach (IIfcRelSpaceBoundary spb in rels)
@@ -981,12 +936,13 @@ namespace BIMRL
                   if (spBIndex.TryGetValue(Tuple.Create(spaceGuid, space2Guid), out lineNo))
                         continue;       // existing pair found, skip this pair
 
-                  arrSpaceGuids.Add(spaceGuid);
-                  arrBoundGuids.Add(space2Guid);
-                  arrBoundEleTypes.Add(space2Type);
-                  arrBoundTypes.Add(spb.PhysicalOrVirtualBoundary.ToString());
-                  arrIntOrExt.Add(spb.InternalOrExternalBoundary.ToString());
-
+#if ORACLE
+                  insSpaceBoundary(ref arrSpaceGuids, spaceGuid, ref arrBoundGuids, space2Guid, ref arrBoundEleTypes, space2Type,
+                     ref arrBoundTypes, spb.PhysicalOrVirtualBoundary.ToString(), ref arrIntOrExt, spb.InternalOrExternalBoundary.ToString());
+#endif
+#if POSTGRES
+                  insSpaceBoundary(command, spaceGuid, space2Guid, space2Type, spb.PhysicalOrVirtualBoundary.ToString(), spb.InternalOrExternalBoundary.ToString());
+#endif
                   spBIndex.Add(Tuple.Create(spaceGuid, space2Guid), spb.EntityLabel);
                }
             }
@@ -999,15 +955,18 @@ namespace BIMRL
                if (spBIndex.TryGetValue(Tuple.Create(spaceGuid, boundGuid), out lineNo))
                   continue;       // existing pair found, skip this pair
 
-               arrSpaceGuids.Add(spaceGuid);
-               arrBoundGuids.Add(boundGuid);
-               arrBoundEleTypes.Add(boundType);
-               arrBoundTypes.Add(spb.PhysicalOrVirtualBoundary.ToString());
-               arrIntOrExt.Add(spb.InternalOrExternalBoundary.ToString());
+#if ORACLE
+               insSpaceBoundary(ref arrSpaceGuids, spaceGuid, ref arrBoundGuids, boundGuid, ref arrBoundEleTypes, boundType,
+                  ref arrBoundTypes, spb.PhysicalOrVirtualBoundary.ToString(), ref arrIntOrExt, spb.InternalOrExternalBoundary.ToString());
+#endif
+#if POSTGRES
+               insSpaceBoundary(command, spaceGuid, boundGuid, boundType, spb.PhysicalOrVirtualBoundary.ToString(), spb.InternalOrExternalBoundary.ToString());
+#endif
 
                spBIndex.Add(Tuple.Create(spaceGuid, boundGuid), spb.EntityLabel);
             }
 
+#if ORACLE
             if (arrSpaceGuids.Count >= DBOperation.commitInterval)
             {
                Param[0].Size = arrSpaceGuids.Count();
@@ -1023,7 +982,7 @@ namespace BIMRL
                try
                {
                   command.ArrayBindCount = arrSpaceGuids.Count;    // No of values in the array to be inserted
-                  commandStatus = command.ExecuteNonQuery();
+                  command.ExecuteNonQuery();
                   //Do commit at interval but keep the long transaction (reopen)
                   DBOperation.commitTransaction();
                   arrSpaceGuids.Clear();
@@ -1051,141 +1010,152 @@ namespace BIMRL
                   throw;
                }
             }
+#endif
          }
 
+#if ORACLE
          if (arrSpaceGuids.Count > 0)
          {
-               Param[0].Size = arrSpaceGuids.Count();
-               Param[0].Value = arrSpaceGuids.ToArray();
-               Param[1].Size = arrBoundGuids.Count();
-               Param[1].Value = arrBoundGuids.ToArray();
-               Param[2].Size = arrBoundEleTypes.Count();
-               Param[2].Value = arrBoundEleTypes.ToArray();
-               Param[3].Size = arrBoundTypes.Count();
-               Param[3].Value = arrBoundTypes.ToArray();
-               Param[4].Size = arrIntOrExt.Count();
-               Param[4].Value = arrIntOrExt.ToArray();
+            Param[0].Size = arrSpaceGuids.Count();
+            Param[0].Value = arrSpaceGuids.ToArray();
+            Param[1].Size = arrBoundGuids.Count();
+            Param[1].Value = arrBoundGuids.ToArray();
+            Param[2].Size = arrBoundEleTypes.Count();
+            Param[2].Value = arrBoundEleTypes.ToArray();
+            Param[3].Size = arrBoundTypes.Count();
+            Param[3].Value = arrBoundTypes.ToArray();
+            Param[4].Size = arrIntOrExt.Count();
+            Param[4].Value = arrIntOrExt.ToArray();
 
-               try
-               {
-                  command.ArrayBindCount = arrSpaceGuids.Count;    // No of values in the array to be inserted
-                  commandStatus = command.ExecuteNonQuery();
-                  //Do commit at interval but keep the long transaction (reopen)
-                  DBOperation.commitTransaction();
-               }
-               catch (OracleException e)
-               {
-                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                  _refBIMRLCommon.StackPushIgnorableError(excStr);
-               }
-               catch (SystemException e)
-               {
-                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                  _refBIMRLCommon.StackPushError(excStr);
-                  throw;
-               }
+            try
+            {
+               command.ArrayBindCount = arrSpaceGuids.Count;    // No of values in the array to be inserted
+               command.ExecuteNonQuery();
+               //Do commit at interval but keep the long transaction (reopen)
+               DBOperation.commitTransaction();
+            }
+            catch (OracleException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushIgnorableError(excStr);
+            }
+            catch (SystemException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushError(excStr);
+               throw;
+            }
          }
+#endif
+
          DBOperation.commitTransaction();
          command.Dispose();
       }
 
+#if ORACLE
+      private void insSpaceBoundary(ref List<string> arrSpaceGuids, string spaceGuid, ref List<string> arrBoundGuids, string boundGuid, ref List<string> arrBoundEleTypes, string boundElemType,
+                                    ref List<string> arrBoundTypes, string boundaryType, ref List<string> arrIntOrExt, string internalOrExternal)
+      {
+         arrSpaceGuids.Add(spaceGuid);
+         arrBoundGuids.Add(boundGuid);
+         arrBoundEleTypes.Add(boundElemType);
+         arrBoundTypes.Add(boundaryType);
+         arrIntOrExt.Add(internalOrExternal);
+      }
+#endif
+#if POSTGRES
+      private void insSpaceBoundary(NpgsqlCommand command, string spaceGuid, string boundGuid, string BoundElemType, string boundaryType, string internalOrExternal)
+      {
+         command.Parameters.Clear();
+         command.Parameters.AddWithValue("1", spaceGuid);
+         command.Parameters.AddWithValue("2", boundGuid);
+         command.Parameters.AddWithValue("3", BoundElemType);
+         command.Parameters.AddWithValue("4", boundaryType);
+         command.Parameters.AddWithValue("5", internalOrExternal);
+
+         try
+         {
+            command.ExecuteNonQuery();
+            //Do commit at interval but keep the long transaction (reopen)
+            DBOperation.commitTransaction();
+         }
+         catch (NpgsqlException e)
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+            _refBIMRLCommon.StackPushIgnorableError(excStr);
+         }
+         catch (SystemException e)
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+            _refBIMRLCommon.StackPushError(excStr);
+            throw;
+         }
+      }
+#endif
+
       private void processRelGroup()
       {
-         string SqlStmt;
+         string sqlStmt;
          string currStep = string.Empty;
 
          DBOperation.beginTransaction();
 
          int commandStatus = -1;
 
-         OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
-
-         SqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELGROUP")
+#if ORACLE
+         sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELGROUP")
                      + " (GROUPELEMENTID, GROUPELEMENTTYPE, MEMBERELEMENTID, MEMBERELEMENTTYPE) values (:1, :2, :3, :4)";
-         command.CommandText = SqlStmt;
-         currStep = SqlStmt;
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
 
          OracleParameter[] Param = new OracleParameter[4];
          for (int i = 0; i < 4; i++)
          {
-               Param[i] = command.Parameters.Add((i + 1).ToString(), OracleDbType.Varchar2);
-               Param[i].Direction = ParameterDirection.Input;
+            Param[i] = command.Parameters.Add((i + 1).ToString(), OracleDbType.Varchar2);
+            Param[i].Direction = ParameterDirection.Input;
          }
 
          List<string> arrGroupGuids = new List<string>();
          List<string> arrGroupTypes = new List<string>();
          List<string> arrMemberGuids = new List<string>();
          List<string> arrMemberTypes = new List<string>();
+#endif
+#if POSTGRES
+         sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELGROUP")
+                     + " (GROUPELEMENTID, GROUPELEMENTTYPE, MEMBERELEMENTID, MEMBERELEMENTTYPE) values (@1, @2, @3, @4)";
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         command.Prepare();
+#endif
+         currStep = sqlStmt;
 
          // IEnumerable<IfcRelAssignsToGroup> rels = _model.InstancesLocal.OfType<IfcRelAssignsToGroup>(true).Where(gr => gr.RelatingGroup is IfcSystem || gr.RelatingGroup is IfcZone);
          // Handle other types of Group too
          IEnumerable<IIfcRelAssignsToGroup> rels = _model.Instances.OfType<IIfcRelAssignsToGroup>();
          foreach (IIfcRelAssignsToGroup rGr in rels)
          {
-               string grpGuid = rGr.RelatingGroup.GlobalId.ToString();
-               if (_refBIMRLCommon.getLineNoFromMapping(grpGuid) == null)
-                  continue;   // skip relationship if the Group GUID does not exist
+            string grpGuid = rGr.RelatingGroup.GlobalId.ToString();
+            if (_refBIMRLCommon.getLineNoFromMapping(grpGuid) == null)
+               continue;   // skip relationship if the Group GUID does not exist
 
-               string grType = rGr.RelatingGroup.GetType().Name.ToUpper();
+            string grType = rGr.RelatingGroup.GetType().Name.ToUpper();
 
-               IEnumerable<IIfcObjectDefinition> members = rGr.RelatedObjects;
+            IEnumerable<IIfcObjectDefinition> members = rGr.RelatedObjects;
 
-               foreach (IIfcObjectDefinition oDef in members)
-               {
-                  string memberGuid = oDef.GlobalId.ToString();
-                  string memberType = oDef.GetType().Name.ToUpper();
-                  if (_refBIMRLCommon.getLineNoFromMapping(memberGuid) == null)
-                     continue;       // Skip if member is not loaded into BIMRL_ELEMENT already
+#if ORACLE
+            foreach (IIfcObjectDefinition oDef in members)
+            {
+               string memberGuid = oDef.GlobalId.ToString();
+               string memberType = oDef.GetType().Name.ToUpper();
+               if (_refBIMRLCommon.getLineNoFromMapping(memberGuid) == null)
+                  continue;       // Skip if member is not loaded into BIMRL_ELEMENT already
 
-                  arrGroupGuids.Add(grpGuid);
-                  arrGroupTypes.Add(grType);
-                  arrMemberGuids.Add(memberGuid);
-                  arrMemberTypes.Add(memberType);
-               }
+               arrGroupGuids.Add(grpGuid);
+               arrGroupTypes.Add(grType);
+               arrMemberGuids.Add(memberGuid);
+               arrMemberTypes.Add(memberType);
+            }
 
-               if (arrGroupGuids.Count >= DBOperation.commitInterval)
-               {
-                  Param[0].Size = arrGroupGuids.Count();
-                  Param[0].Value = arrGroupGuids.ToArray();
-                  Param[1].Size = arrGroupTypes.Count();
-                  Param[1].Value = arrGroupTypes.ToArray();
-                  Param[2].Size = arrMemberGuids.Count();
-                  Param[2].Value = arrMemberGuids.ToArray();
-                  Param[3].Size = arrMemberTypes.Count();
-                  Param[3].Value = arrMemberTypes.ToArray();
-                  try
-                  {
-                     command.ArrayBindCount = arrGroupGuids.Count;    // No of values in the array to be inserted
-                     commandStatus = command.ExecuteNonQuery();
-                     //Do commit at interval but keep the long transaction (reopen)
-                     DBOperation.commitTransaction();
-                     arrGroupGuids.Clear();
-                     arrGroupTypes.Clear();
-                     arrMemberGuids.Clear();
-                     arrMemberTypes.Clear();
-                  }
-                  catch (OracleException e)
-                  {
-                     string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                     _refBIMRLCommon.StackPushIgnorableError(excStr);
-                     // Ignore any error
-                     arrGroupGuids.Clear();
-                     arrGroupTypes.Clear();
-                     arrMemberGuids.Clear();
-                     arrMemberTypes.Clear();
-                     continue;
-                  }
-                  catch (SystemException e)
-                  {
-                     string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                     _refBIMRLCommon.StackPushError(excStr);
-                     throw;
-                  }
-               }
-         }
-
-         if (arrGroupGuids.Count > 0)
-         {
+            if (arrGroupGuids.Count >= DBOperation.commitInterval)
+            {
                Param[0].Size = arrGroupGuids.Count();
                Param[0].Value = arrGroupGuids.ToArray();
                Param[1].Size = arrGroupTypes.Count();
@@ -1194,18 +1164,27 @@ namespace BIMRL
                Param[2].Value = arrMemberGuids.ToArray();
                Param[3].Size = arrMemberTypes.Count();
                Param[3].Value = arrMemberTypes.ToArray();
-
                try
                {
                   command.ArrayBindCount = arrGroupGuids.Count;    // No of values in the array to be inserted
                   commandStatus = command.ExecuteNonQuery();
                   //Do commit at interval but keep the long transaction (reopen)
                   DBOperation.commitTransaction();
+                  arrGroupGuids.Clear();
+                  arrGroupTypes.Clear();
+                  arrMemberGuids.Clear();
+                  arrMemberTypes.Clear();
                }
                catch (OracleException e)
                {
                   string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
                   _refBIMRLCommon.StackPushIgnorableError(excStr);
+                  // Ignore any error
+                  arrGroupGuids.Clear();
+                  arrGroupTypes.Clear();
+                  arrMemberGuids.Clear();
+                  arrMemberTypes.Clear();
+                  continue;
                }
                catch (SystemException e)
                {
@@ -1213,7 +1192,77 @@ namespace BIMRL
                   _refBIMRLCommon.StackPushError(excStr);
                   throw;
                }
+            }
+#endif
+#if POSTGRES
+            foreach (IIfcObjectDefinition oDef in members)
+            {
+               string memberGuid = oDef.GlobalId.ToString();
+               string memberType = oDef.GetType().Name.ToUpper();
+               if (_refBIMRLCommon.getLineNoFromMapping(memberGuid) == null)
+                  continue;       // Skip if member is not loaded into BIMRL_ELEMENT already
+
+               command.Parameters.Clear();
+               command.Parameters.AddWithValue("1", grpGuid);
+               command.Parameters.AddWithValue("2", grType);
+               command.Parameters.AddWithValue("3", memberGuid);
+               command.Parameters.AddWithValue("4", memberType);
+
+               try
+               {
+                  commandStatus = command.ExecuteNonQuery();
+                  //Do commit at interval but keep the long transaction (reopen)
+                  DBOperation.commitTransaction();
+               }
+               catch (NpgsqlException e)
+               {
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+                  _refBIMRLCommon.StackPushIgnorableError(excStr);
+                  // Ignore any error
+                  continue;
+               }
+               catch (SystemException e)
+               {
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+                  _refBIMRLCommon.StackPushError(excStr);
+                  throw;
+               }
+            }
+#endif
          }
+
+#if ORACLE
+         if (arrGroupGuids.Count > 0)
+         {
+            Param[0].Size = arrGroupGuids.Count();
+            Param[0].Value = arrGroupGuids.ToArray();
+            Param[1].Size = arrGroupTypes.Count();
+            Param[1].Value = arrGroupTypes.ToArray();
+            Param[2].Size = arrMemberGuids.Count();
+            Param[2].Value = arrMemberGuids.ToArray();
+            Param[3].Size = arrMemberTypes.Count();
+            Param[3].Value = arrMemberTypes.ToArray();
+
+            try
+            {
+               command.ArrayBindCount = arrGroupGuids.Count;    // No of values in the array to be inserted
+               commandStatus = command.ExecuteNonQuery();
+               //Do commit at interval but keep the long transaction (reopen)
+               DBOperation.commitTransaction();
+            }
+            catch (OracleException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushIgnorableError(excStr);
+            }
+            catch (SystemException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushError(excStr);
+               throw;
+            }
+         }
+#endif
          DBOperation.commitTransaction();
          command.Dispose();
       }
@@ -1316,15 +1365,14 @@ namespace BIMRL
          cDepTyp.Clear();
       }
 
+#if ORACLE
       private void InsertDependencyRecords(List<string> cEleId, List<string> cEleTyp, List<string> cDepend, List<string> cDependTyp, List<string> cDepTyp)
       {
-         OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
-
-         string SqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_ELEMENTDEPENDENCY")
+         string sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_ELEMENTDEPENDENCY")
                      + " (ELEMENTID, ELEMENTTYPE, DEPENDENTELEMENTID, DEPENDENTELEMENTTYPE, DEPENDENCYTYPE) "
                      + "VALUES (:1, :2, :3, :4, :5)";
-         command.CommandText = SqlStmt;
-         string currStep = SqlStmt;
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+         string currStep = sqlStmt;
          int commandStatus = -1;
 
          DBOperation.beginTransaction();
@@ -1371,5 +1419,197 @@ namespace BIMRL
             command.Dispose();
          }
       }
+#endif
+#if POSTGRES
+      private void InsertDependencyRecords(List<string> cEleId, List<string> cEleTyp, List<string> cDepend, List<string> cDependTyp, List<string> cDepTyp)
+      {
+         string sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_ELEMENTDEPENDENCY")
+                     + " (ELEMENTID, ELEMENTTYPE, DEPENDENTELEMENTID, DEPENDENTELEMENTTYPE, DEPENDENCYTYPE) "
+                     + "VALUES (@1, @2, @3, @4, @5)";
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         command.Prepare();
+         string currStep = sqlStmt;
+         int commandStatus = -1;
+
+         DBOperation.beginTransaction();
+
+         for (int i = 0; i < cEleId.Count; ++i)
+         {
+            command.Parameters.Clear();
+            command.Parameters.AddWithValue("1", cEleId[i]);
+            command.Parameters.AddWithValue("2", cEleTyp[i]);
+            command.Parameters.AddWithValue("3", cDepend[i]);
+            command.Parameters.AddWithValue("4", cDependTyp[i]);
+            command.Parameters.AddWithValue("5", cDepTyp[i]);
+            try
+            {
+               commandStatus = command.ExecuteNonQuery();
+               DBOperation.commitTransaction();
+            }
+            catch (NpgsqlException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushIgnorableError(excStr);
+               // Ignore any error
+            }
+            catch (SystemException e)
+            {
+               string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+               _refBIMRLCommon.StackPushError(excStr);
+               throw;
+            }
+         }
+
+         DBOperation.commitTransaction();
+         command.Dispose();
+      }
+#endif
+
+#if ORACLE
+      void insRelConnect(ref List<string> cIngEle, string connectingId, ref List<string> cIngEleTyp, string connectingType, 
+                           ref List<string> cIngAttrN, ref List<OracleParameterStatus> cIngAttrNBS, string connectingAttr,
+                           ref List<string> cIngAttrV, ref List<OracleParameterStatus> cIngAttrVBS, string connectingAttrVal,
+                           ref List<string> cEdEle, string connectedId, ref List<string> cEdEleTyp, string connectedType,
+                           ref List<string> cEdAttrN, ref List<OracleParameterStatus> cEdAttrNBS, string connectedAttr,
+                           ref List<string> cEdAttrV, ref List<OracleParameterStatus> cEdAttrVBS, string connectedAttrVal,
+                           ref List<string> cAttrN, ref List<OracleParameterStatus> cAttrNBS, string connectionAttr,
+                           ref List<string> cAttrV, ref List<OracleParameterStatus> cAttrVBS, string connectionAttrVal, 
+                           ref List<string> realEl, ref List<OracleParameterStatus> realElBS, string realizingElId,
+                           ref List<string> realElTyp, ref List<OracleParameterStatus> realElTBS, string realizingElType, 
+                           ref List<string> relTyp, string relationshipType)
+      {
+         cIngEle.Add(connectingId);
+         cIngEleTyp.Add(connectingType);
+         cEdEle.Add(connectedId);
+         cEdEleTyp.Add(connectedType);
+
+         if (!string.IsNullOrEmpty(connectingAttr))
+         {
+            cIngAttrN.Add("RELATINGCONNECTIONTYPE");
+            cIngAttrNBS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {
+            cIngAttrN.Add(string.Empty);
+            cIngAttrNBS.Add(OracleParameterStatus.NullInsert);
+         }
+
+         if (!string.IsNullOrEmpty(connectingAttrVal))
+         {
+            cIngAttrV.Add(connectingAttrVal);
+            cIngAttrVBS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {
+            cIngAttrV.Add(string.Empty);
+            cIngAttrVBS.Add(OracleParameterStatus.NullInsert);
+         }
+
+         if (!string.IsNullOrEmpty(connectedAttr))
+         {
+            cEdAttrN.Add(connectedAttr);
+            cEdAttrNBS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {
+            cEdAttrN.Add(string.Empty);
+            cEdAttrNBS.Add(OracleParameterStatus.NullInsert);
+         }
+
+         if (!string.IsNullOrEmpty(connectedAttrVal))
+         {
+            cEdAttrV.Add(connectingAttrVal);
+            cEdAttrVBS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {
+            cEdAttrV.Add(string.Empty);
+            cEdAttrVBS.Add(OracleParameterStatus.NullInsert);
+         }
+
+         if (!string.IsNullOrEmpty(connectionAttr))
+         {
+            cAttrN.Add(connectionAttr);
+            cAttrNBS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {
+            cAttrN.Add(string.Empty);
+            cAttrNBS.Add(OracleParameterStatus.NullInsert);
+         }
+
+         if (!string.IsNullOrEmpty(connectionAttrVal))
+         {
+            cAttrV.Add(connectionAttrVal);
+            cAttrVBS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {
+            cAttrV.Add(string.Empty);
+            cAttrVBS.Add(OracleParameterStatus.NullInsert);
+         }
+
+         if (!string.IsNullOrEmpty(realizingElId))
+         {
+            realEl.Add(realizingElId);
+            realElBS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {
+            realEl.Add(string.Empty);
+            realElBS.Add(OracleParameterStatus.NullInsert);
+         }
+
+         if (!string.IsNullOrEmpty(realizingElType))
+         {
+            realElTyp.Add(realizingElType);
+            realElTBS.Add(OracleParameterStatus.Success);
+         }
+         else
+         {
+            realElTyp.Add(string.Empty);
+            realElTBS.Add(OracleParameterStatus.NullInsert);
+         }
+
+         relTyp.Add(relationshipType);
+      }
+#endif
+#if POSTGRES
+      void insRelConnect(NpgsqlCommand command, string connectingId, string connectingType, string connectingAttr, string connectingAttrVal,
+                           string connectedId, string connectedType, string connectedAttr, string connectedAttrVal,
+                           string connectionAttr, string connectionAttrVal, string realizingElId, string realizingElType, string relationshipType)
+      {
+         command.Parameters.Clear();
+         command.Parameters.AddWithValue("1", connectingId);
+         command.Parameters.AddWithValue("2", connectingType);
+         command.Parameters.AddWithValue("3", connectingAttr);
+         command.Parameters.AddWithValue("4", connectingAttrVal);
+         command.Parameters.AddWithValue("5", connectedId);
+         command.Parameters.AddWithValue("6", connectedType);
+         command.Parameters.AddWithValue("7", connectedAttr);
+         command.Parameters.AddWithValue("8", connectedAttrVal);
+         command.Parameters.AddWithValue("9", connectionAttr);
+         command.Parameters.AddWithValue("10", connectionAttrVal);
+         command.Parameters.AddWithValue("11", realizingElId);
+         command.Parameters.AddWithValue("12", realizingElType);
+         command.Parameters.AddWithValue("13", relationshipType);
+         try
+         {
+            command.ExecuteNonQuery();
+         }
+         catch (NpgsqlException e)
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+            _refBIMRLCommon.StackPushIgnorableError(excStr);
+            // Ignore any error
+         }
+         catch (SystemException e)
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+            _refBIMRLCommon.StackPushError(excStr);
+            throw;
+         }
+      }
+#endif
    }
 }

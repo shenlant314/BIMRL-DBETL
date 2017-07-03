@@ -28,286 +28,319 @@ using System.Threading;
 using System.Diagnostics;
 using Xbim.Ifc;
 using Xbim.Ifc4.Interfaces;
+#if ORACLE
 using Oracle.DataAccess.Types;
 using Oracle.DataAccess.Client;
-using NetSdoGeometry;
+#endif
+#if POSTGRES
+using Npgsql;
+using NpgsqlTypes;
+#endif
 using BIMRL.Common;
 
 namespace BIMRL
 {
-    public class BIMRLTypeObject
-    {
-        BIMRLCommon _refBIMRLCommon;
-        IfcStore _model;
+   public class BIMRLTypeObject
+   {
+      BIMRLCommon _refBIMRLCommon;
+      IfcStore _model;
 
-        public BIMRLTypeObject(IfcStore m, BIMRLCommon refBIMRLCommon)
-        {
-            _refBIMRLCommon = refBIMRLCommon;
-            _model = m;
-        }
+      public BIMRLTypeObject(IfcStore m, BIMRLCommon refBIMRLCommon)
+      {
+         _refBIMRLCommon = refBIMRLCommon;
+         _model = m;
+      }
 
-        public void processTypeObject()
-        {
-            IEnumerable<IIfcTypeProduct> types = _model.Instances.OfType<IIfcTypeProduct>();
-            foreach (IIfcTypeProduct typ in types)
+      public void processTypeObject()
+      {
+#if ORACLE
+         string sqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_TYPE") + "(ElementId, IfcType, Name, Description, ApplicableOccurrence"
+                           + ", Tag, ElementType, PredefinedType, AssemblyPlace, OperationType, ConstructionType, OwnerHistoryID, ModelID)"
+                           + " Values (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, :13)";
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+
+         string currStep = sqlStmt;
+
+         IEnumerable<IIfcTypeProduct> types = _model.Instances.OfType<IIfcTypeProduct>();
+         foreach (IIfcTypeProduct typ in types)
+         {
+            string guid = typ.GlobalId.ToString();
+            string ifcType = typ.GetType().Name.ToUpper();
+
+            string name = "Default Type";
+            if (typ.Name.HasValue)
+               name = typ.Name.Value;
+
+            string desc = null;
+            if (typ.Description.HasValue)
+               desc = typ.Description.Value;
+
+            string appO = null;
+            if (typ.ApplicableOccurrence.HasValue)
+               appO = typ.ApplicableOccurrence.Value;
+
+            string tag = null;
+            if (typ.Tag.HasValue)
+               tag = typ.Tag.Value;
+
+            string eType = null;
+            string PDType = null;
+            string APl = null;
+            string opType = null;
+            string consType = null;
+            int ownerHist = -1;
+            int modelID = -1;
+
+            dynamic dynTyp = typ;
+            if (!(typ is IIfcDoorStyle || typ is IIfcWindowStyle))
             {
-                OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
-
-                string SqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_TYPE") + "(ElementId, IfcType, Name, Description, ApplicableOccurrence"
-                                    + ", Tag, ElementType, PredefinedType, AssemblyPlace, OperationType, ConstructionType, OwnerHistoryID, ModelID)"
-                                    + " Values (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, :13)";
-                command.CommandText = SqlStmt;
-                string currStep = SqlStmt;
-
-                OracleParameter[] Param = new OracleParameter[13];
-                for (int i = 0; i < 11; i++)
-                {
-                    Param[i] = command.Parameters.Add(i.ToString(), OracleDbType.Varchar2);
-                    Param[i].Direction = ParameterDirection.Input;
-                    Param[i].Size = 1;
-                }
-                Param[11] = command.Parameters.Add("11", OracleDbType.Int32);
-                Param[11].Direction = ParameterDirection.Input;
-                Param[11].Size = 1;
-                Param[12] = command.Parameters.Add("12", OracleDbType.Int32);
-                Param[12].Direction = ParameterDirection.Input;
-                Param[12].Size = 1;
-
-                List<OracleParameterStatus> arrBStatN = new List<OracleParameterStatus>();
-                List<OracleParameterStatus> arrBStatS = new List<OracleParameterStatus>();
-                arrBStatN.Add(OracleParameterStatus.NullInsert);
-                arrBStatS.Add(OracleParameterStatus.Success);
-
-                List<string> arrGuid = new List<string>();
-                List<string> IfcType = new List<string>();
-                List<string> arrName = new List<string>();
-                List<string> arrDesc = new List<string>();
-                List<string> arrAppO = new List<string>();
-                List<string> arrTag = new List<string>();
-                List<string> arrETyp = new List<string>();
-                List<string> arrPDTyp = new List<string>();
-                List<string> arrAPl = new List<string>();
-                List<string> arrOpTyp = new List<string>();
-                List<string> arrConsTyp = new List<string>();
-                List<int> arrOwnH = new List<int>();
-                List<OracleParameterStatus> arrOwnHPS = new List<OracleParameterStatus>();
-                List<int> arrModelID = new List<int>();
-
-                arrGuid.Add(typ.GlobalId.ToString());
-                Param[0].Value = arrGuid.ToArray();
-
-                IfcType.Add(typ.GetType().Name.ToUpper());
-                Param[1].Value = IfcType.ToArray();
-
-                if (typ.Name == null)
-                {
-                    arrName.Add(string.Empty);
-                    Param[2].ArrayBindStatus = arrBStatN.ToArray();
-                }
-                else
-                {
-                    arrName.Add(typ.Name);
-                    Param[2].ArrayBindStatus = arrBStatS.ToArray();
-                }
-                Param[2].Value = arrName.ToArray();
-
-                if (typ.Description == null)
-                {
-                    arrDesc.Add(string.Empty);
-                    Param[3].ArrayBindStatus = arrBStatN.ToArray();
-                }
-                else
-                {
-                    arrDesc.Add(typ.Description);
-                    Param[3].ArrayBindStatus = arrBStatS.ToArray();
-                }
-                Param[3].Value = arrDesc.ToArray();
-
-                if (typ.ApplicableOccurrence == null)
-                {
-                    arrAppO.Add(string.Empty);
-                    Param[4].ArrayBindStatus = arrBStatN.ToArray();
-                }
-                else
-                {
-                    arrAppO.Add(typ.ApplicableOccurrence);
-                    Param[4].ArrayBindStatus = arrBStatS.ToArray();
-                }
-                Param[4].Value = arrAppO.ToArray();
-
-                if (typ.Tag == null)
-                {
-                    arrTag.Add(string.Empty);
-                    Param[5].ArrayBindStatus = arrBStatN.ToArray();
-                }
-                else
-                {
-                    arrTag.Add(typ.Tag);
-                    Param[5].ArrayBindStatus = arrBStatS.ToArray();
-                } 
-                Param[5].Value = arrTag.ToArray();
-
-
-                dynamic dynTyp = typ;
-                if (!(typ is IIfcDoorStyle || typ is IIfcWindowStyle))
-                {
-                    if (dynTyp.ElementType == null)
-                    {
-                        arrETyp.Add(string.Empty);
-                        Param[6].ArrayBindStatus = arrBStatN.ToArray();
-                    }
-                    else
-                    {
-                        arrETyp.Add(dynTyp.ElementType);
-                        Param[6].ArrayBindStatus = arrBStatS.ToArray();
-                    }
-                    Param[6].Value = arrETyp.ToArray();
-                }
-
-                if (typ is IIfcFurnitureType)
-                {
-                    // these entities do not have PredefinedType
-                    arrPDTyp.Add(string.Empty);
-                    Param[7].Value = arrPDTyp.ToArray();
-                    Param[7].ArrayBindStatus = arrBStatN.ToArray();
-                    // This entity has a different attribute: AssemblyPlace. This must be placed ahead of its supertype IfcFurnishingElementType
-                    IIfcFurnitureType ftyp = typ as IIfcFurnitureType;
-                    arrAPl.Add(ftyp.AssemblyPlace.ToString());
-                    Param[8].Value = arrAPl.ToArray();
-                    if (String.IsNullOrEmpty(ftyp.AssemblyPlace.ToString()))
-                        Param[8].ArrayBindStatus = arrBStatN.ToArray();
-                    else
-                        Param[8].ArrayBindStatus = arrBStatS.ToArray();
-
-                    arrOpTyp.Add(string.Empty);
-                    Param[9].Value = arrOpTyp.ToArray();
-                    Param[9].ArrayBindStatus = arrBStatN.ToArray();
-                    arrConsTyp.Add(string.Empty);
-                    Param[10].Value = arrConsTyp.ToArray();
-                    Param[10].ArrayBindStatus = arrBStatN.ToArray();
-                }
-                else if (typ is IIfcFastenerType || typ is IIfcMechanicalFastenerType || typ is IIfcFurnishingElementType || typ is IIfcSystemFurnitureElementType
-                    || typ is IIfcDiscreteAccessoryType || typ is IIfcCurtainWallType)
-                {
-                    // these entities do not have PredefinedType. Xbim also has not implemented IfcCurtainWallType and therefore no PredefinedType yet!!
-                    arrPDTyp.Add(string.Empty);
-                    Param[7].Value = arrPDTyp.ToArray();
-                    Param[7].ArrayBindStatus = arrBStatN.ToArray();
-                    arrAPl.Add(string.Empty);
-                    Param[8].Value = arrAPl.ToArray();
-                    Param[8].ArrayBindStatus = arrBStatN.ToArray();
-                    arrOpTyp.Add(string.Empty);
-                    Param[9].Value = arrOpTyp.ToArray();
-                    Param[9].ArrayBindStatus = arrBStatN.ToArray();
-                    arrConsTyp.Add(string.Empty);
-                    Param[10].Value = arrConsTyp.ToArray();
-                    Param[10].ArrayBindStatus = arrBStatN.ToArray();
-                }
-
-                // These entities do not have predefinedtype, but OperationType and ConstructionType
-                // We ignore ParameterTakesPrecedence and Sizeable are only useful for object construction
-                else if (typ is IIfcDoorStyle)
-                {
-                    // these entities do not have PredefinedType
-                    arrETyp.Add(string.Empty);
-                    Param[6].Value = arrETyp.ToArray();
-                    Param[6].ArrayBindStatus = arrBStatN.ToArray(); 
-                    arrPDTyp.Add(string.Empty);
-                    Param[7].Value = arrPDTyp.ToArray();
-                    Param[7].ArrayBindStatus = arrBStatN.ToArray();
-                    arrAPl.Add(string.Empty);
-                    Param[8].Value = arrAPl.ToArray();
-                    Param[8].ArrayBindStatus = arrBStatN.ToArray();
-
-                    IIfcDoorStyle dst = typ as IIfcDoorStyle;
-                     arrOpTyp.Add(dst.OperationType.ToString());
-                     Param[9].Value = arrOpTyp.ToArray();
-                     Param[9].ArrayBindStatus = arrBStatS.ToArray();
-
-                     arrConsTyp.Add(dst.OperationType.ToString());
-                     Param[10].Value = arrConsTyp.ToArray();
-                     Param[10].ArrayBindStatus = arrBStatS.ToArray();
-                }
-                else if (typ is IIfcWindowStyle)
-                {
-                    // these entities do not have PredefinedType
-                    arrETyp.Add(string.Empty);
-                    Param[6].Value = arrETyp.ToArray();
-                    Param[6].ArrayBindStatus = arrBStatN.ToArray();
-                    arrPDTyp.Add(string.Empty);
-                    Param[7].Value = arrPDTyp.ToArray();
-                    Param[7].ArrayBindStatus = arrBStatN.ToArray();
-                    arrAPl.Add(string.Empty);
-                    Param[8].Value = arrAPl.ToArray();
-                    Param[8].ArrayBindStatus = arrBStatN.ToArray();
-                    
-                    IIfcWindowStyle wst = typ as IIfcWindowStyle;
-                     arrOpTyp.Add(wst.OperationType.ToString());
-                     Param[9].Value = arrOpTyp.ToArray();
-                     Param[9].ArrayBindStatus = arrBStatS.ToArray();
-
-                     arrConsTyp.Add(wst.OperationType.ToString());
-                     Param[10].Value = arrConsTyp.ToArray();
-                     Param[10].ArrayBindStatus = arrBStatS.ToArray();
-                }
-                else
-                {
-                    arrPDTyp.Add(dynTyp.PredefinedType.ToString());
-                    Param[7].Value = arrPDTyp.ToArray();
-                    if (String.IsNullOrEmpty(dynTyp.PredefinedType.ToString()))
-                        Param[7].ArrayBindStatus = arrBStatN.ToArray();
-                    else
-                        Param[7].ArrayBindStatus = arrBStatS.ToArray();
-                    arrAPl.Add(string.Empty);
-                    arrOpTyp.Add(string.Empty);
-                    arrConsTyp.Add(string.Empty);
-                    // These are specific attributes only for specific types handled below
-                    Param[8].Value = arrAPl.ToArray();
-                    Param[8].ArrayBindStatus = arrBStatN.ToArray();
-                    Param[9].Value = arrOpTyp.ToArray();
-                    Param[9].ArrayBindStatus = arrBStatN.ToArray();
-                    Param[10].Value = arrConsTyp.ToArray();
-                    Param[10].ArrayBindStatus = arrBStatN.ToArray();
-                }
-
-                Tuple<int, int> ownHEntry = new Tuple<int, int>(Math.Abs(typ.OwnerHistory.EntityLabel), BIMRLProcessModel.currModelID);
-                if (_refBIMRLCommon.OwnerHistoryExist(ownHEntry))
-                {
-                    arrOwnH.Add(Math.Abs(typ.OwnerHistory.EntityLabel));
-                    arrOwnHPS.Add(OracleParameterStatus.Success);
-                }
-                else
-                {
-                    arrOwnH.Add(0);
-                    arrOwnHPS.Add(OracleParameterStatus.NullInsert);
-                }
-                Param[11].Value = arrOwnH.ToArray();
-                Param[11].ArrayBindStatus = arrOwnHPS.ToArray();
-
-                arrModelID.Add(BIMRLProcessModel.currModelID);
-                Param[12].Value = arrModelID.ToArray();
-                           
-                command.ArrayBindCount = 1;
-                try
-                {
-                    int commandStatus = command.ExecuteNonQuery();
-                }
-                catch (OracleException e)
-                {
-                    string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                    _refBIMRLCommon.StackPushIgnorableError(excStr);
-                }
-                catch (SystemException e)
-                {
-                    string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
-                    _refBIMRLCommon.StackPushError(excStr);
-                    throw;
-                }
-
-                BIMRLProperties tProps = new BIMRLProperties(_refBIMRLCommon);
-                tProps.processTypeProperties(typ);
-
+               if (dynTyp.ElementType != null)
+                  eType = dynTyp.ElementType;
             }
-        }
-    }
+
+            if (typ is IIfcFurnitureType)
+            {
+               // these entities do not have PredefinedType
+               // This entity has a different attribute: AssemblyPlace. This must be placed ahead of its supertype IfcFurnishingElementType
+               IIfcFurnitureType ftyp = typ as IIfcFurnitureType;
+               APl = ftyp.AssemblyPlace.ToString();
+               if (ftyp.PredefinedType.HasValue)
+                  PDType = ftyp.PredefinedType.Value.ToString();
+            }
+            else if (typ is IIfcSystemFurnitureElementType)
+            {
+               IIfcSystemFurnitureElementType fstyp = typ as IIfcSystemFurnitureElementType;
+               if (fstyp.PredefinedType.HasValue)
+                  PDType = fstyp.PredefinedType.Value.ToString();
+            }
+            else if (typ is IIfcFurnishingElementType)
+            {
+               // these entities do not have PredefinedType. Xbim also has not implemented IfcCurtainWallType and therefore no PredefinedType yet!!
+            }
+
+            // These entities do not have predefinedtype, but OperationType and ConstructionType
+            // We ignore ParameterTakesPrecedence and Sizeable are only useful for object construction
+            else if (typ is IIfcDoorStyle)
+            {
+               IIfcDoorStyle dst = typ as IIfcDoorStyle;
+               opType = dst.OperationType.ToString();
+               consType = dst.OperationType.ToString();
+            }
+            else if (typ is IIfcWindowStyle)
+            {
+               // these entities do not have PredefinedType
+               IIfcWindowStyle wst = typ as IIfcWindowStyle;
+               opType = wst.OperationType.ToString();
+               consType = wst.OperationType.ToString();
+            }
+            else
+            {
+               PDType = dynTyp.PredefinedType.ToString();
+            }
+
+            Tuple<int, int> ownHEntry = new Tuple<int, int>(Math.Abs(typ.OwnerHistory.EntityLabel), BIMRLProcessModel.currModelID);
+            if (_refBIMRLCommon.OwnerHistoryExist(ownHEntry))
+               ownerHist = Math.Abs(typ.OwnerHistory.EntityLabel);
+
+            modelID = BIMRLProcessModel.currModelID;
+
+            insType(command, guid, ifcType, name, desc, appO, tag, eType, PDType, APl, opType, consType, ownerHist, modelID);
+#endif
+#if POSTGRES
+         string sqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_TYPE") + "(ElementId, IfcType, Name, Description, ApplicableOccurrence"
+                           + ", Tag, ElementType, PredefinedType, AssemblyPlace, OperationType, ConstructionType, OwnerHistoryID, ModelID)"
+                           + " Values (@1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13)";
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         command.Prepare();
+
+         IEnumerable<IIfcTypeProduct> types = _model.Instances.OfType<IIfcTypeProduct>();
+         foreach (IIfcTypeProduct typ in types)
+         {
+            string guid = typ.GlobalId.ToString();
+            string ifcType = typ.GetType().Name.ToUpper();
+
+            string name = "Default Type";
+            if (typ.Name.HasValue)
+               name = typ.Name.Value;
+
+            string desc = null;
+            if (typ.Description.HasValue)
+               desc = typ.Description.Value;
+
+            string appO = null;
+            if (typ.ApplicableOccurrence.HasValue)
+               appO = typ.ApplicableOccurrence.Value;
+
+            string tag = null;
+            if (typ.Tag.HasValue)
+               tag = typ.Tag.Value;
+
+            string eType = null;
+            string PDType = null;
+            string APl = null;
+            string opType = null;
+            string consType = null;
+            int ownerHist = -1;
+            int modelID = -1;
+
+            dynamic dynTyp = typ;
+            if (!(typ is IIfcDoorStyle || typ is IIfcWindowStyle))
+            {
+               if (dynTyp.ElementType != null)
+                  eType = dynTyp.ElementType;
+            }
+
+            if (typ is IIfcFurnitureType)
+            {
+               // these entities do not have PredefinedType
+               // This entity has a different attribute: AssemblyPlace. This must be placed ahead of its supertype IfcFurnishingElementType
+               IIfcFurnitureType ftyp = typ as IIfcFurnitureType;
+               APl = ftyp.AssemblyPlace.ToString();
+               if (ftyp.PredefinedType.HasValue)
+                  PDType = ftyp.PredefinedType.Value.ToString();
+            }
+            else if (typ is IIfcSystemFurnitureElementType)
+            {
+               IIfcSystemFurnitureElementType fstyp = typ as IIfcSystemFurnitureElementType;
+               if (fstyp.PredefinedType.HasValue)
+                  PDType = fstyp.PredefinedType.Value.ToString();
+            }
+            else if (typ is IIfcFurnishingElementType)
+            {
+               // these entities do not have PredefinedType. Xbim also has not implemented IfcCurtainWallType and therefore no PredefinedType yet!!
+            }
+
+            // These entities do not have predefinedtype, but OperationType and ConstructionType
+            // We ignore ParameterTakesPrecedence and Sizeable are only useful for object construction
+            else if (typ is IIfcDoorStyle)
+            {
+               IIfcDoorStyle dst = typ as IIfcDoorStyle;
+               opType = dst.OperationType.ToString();
+               consType = dst.OperationType.ToString();
+            }
+            else if (typ is IIfcWindowStyle)
+            {
+               // these entities do not have PredefinedType
+               IIfcWindowStyle wst = typ as IIfcWindowStyle;
+               opType = wst.OperationType.ToString();
+               consType = wst.OperationType.ToString();
+            }
+            else
+            {
+               PDType = dynTyp.PredefinedType.ToString();
+            }
+
+            Tuple<int, int> ownHEntry = new Tuple<int, int>(Math.Abs(typ.OwnerHistory.EntityLabel), BIMRLProcessModel.currModelID);
+            if (_refBIMRLCommon.OwnerHistoryExist(ownHEntry))
+               ownerHist = Math.Abs(typ.OwnerHistory.EntityLabel);
+
+            modelID = BIMRLProcessModel.currModelID;
+
+            insType(command, guid, ifcType, name, desc, appO, tag, eType, PDType, APl, opType, consType, ownerHist, modelID);
+
+#endif
+            DBOperation.commitTransaction();
+            BIMRLProperties tProps = new BIMRLProperties(_refBIMRLCommon);
+            tProps.processTypeProperties(typ);
+         }
+      }
+
+#if ORACLE
+      private void insType(OracleCommand command, string guid, string ifcType, string name, string desc, string appO, string tag, string eType,
+                        string PDType, string APl, string opType, string consType, int ownerHist, int modelID)
+      {
+         OracleParameter[] Param = new OracleParameter[13];
+         for (int i = 0; i < 11; i++)
+         {
+            Param[i] = command.Parameters.Add(i.ToString(), OracleDbType.Varchar2);
+            Param[i].Direction = ParameterDirection.Input;
+         }
+         Param[11] = command.Parameters.Add("11", OracleDbType.Int32);
+         Param[11].Direction = ParameterDirection.Input;
+         Param[12] = command.Parameters.Add("12", OracleDbType.Int32);
+         Param[12].Direction = ParameterDirection.Input;
+
+         Param[0].Value = guid;
+         Param[1].Value = ifcType;
+         Param[2].Value = name;
+         Param[3].Value = desc;
+         Param[4].Value = appO;
+         Param[5].Value = tag;
+         Param[6].Value = eType;
+         Param[7].Value = PDType;
+         Param[8].Value = APl;
+         Param[9].Value = opType;
+         Param[10].Value = consType;
+         if (ownerHist >= 0)
+            Param[11].Value = ownerHist;
+         else
+            Param[11].Value = DBNull.Value;
+
+         if (modelID >= 0)
+            Param[12].Value = modelID;
+         else
+            Param[12].Value = DBNull.Value;
+
+         try
+         {
+            int commandStatus = command.ExecuteNonQuery();
+         }
+         catch (OracleException e)
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+            _refBIMRLCommon.StackPushIgnorableError(excStr);
+         }
+         catch (SystemException e)
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+            _refBIMRLCommon.StackPushError(excStr);
+            throw;
+         }
+      }
+#endif
+#if POSTGRES
+      private void insType(NpgsqlCommand command, string guid, string ifcType, string name, string desc, string appO, string tag, string eType,
+                        string PDType, string APl, string opType, string consType, int ownerHist, int modelID)
+      {
+         command.Parameters.Clear();
+         command.Parameters.AddWithValue("1", guid);
+         command.Parameters.AddWithValue("2", ifcType);
+         command.Parameters.AddWithValue("3", name);
+         command.Parameters.AddWithValue("4", desc);
+         command.Parameters.AddWithValue("5", appO);
+         command.Parameters.AddWithValue("6", tag);
+         command.Parameters.AddWithValue("7", eType);
+         command.Parameters.AddWithValue("8", PDType);
+         command.Parameters.AddWithValue("9", APl);
+         command.Parameters.AddWithValue("10", opType);
+         command.Parameters.AddWithValue("11", consType);
+
+         if (ownerHist >= 0)
+            command.Parameters.AddWithValue("12", ownerHist);
+         else
+            command.Parameters.AddWithValue("12", DBNull.Value);
+
+         if (modelID >= 0)
+            command.Parameters.AddWithValue("13", modelID);
+         else
+            command.Parameters.AddWithValue("12", DBNull.Value);
+
+         try
+         {
+            int commandStatus = command.ExecuteNonQuery();
+         }
+         catch (NpgsqlException e)
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+            _refBIMRLCommon.StackPushIgnorableError(excStr);
+         }
+         catch (SystemException e)
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+            _refBIMRLCommon.StackPushError(excStr);
+            throw;
+         }
+      }
+#endif
+   }
 }

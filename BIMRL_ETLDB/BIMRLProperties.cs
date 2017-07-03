@@ -27,9 +27,15 @@ using System.Threading.Tasks;
 using System.Threading;
 using Xbim.Common.Exceptions;
 using System.Diagnostics;
+#if ORACLE
 using Oracle.DataAccess.Types;
 using Oracle.DataAccess.Client;
 using NetSdoGeometry;
+#endif
+#if POSTGRES
+using Npgsql;
+using NpgsqlTypes;
+#endif
 using BIMRL.Common;
 using Xbim.Ifc4.Interfaces;
 using Xbim.Ifc;
@@ -122,12 +128,13 @@ namespace BIMRL
 
       private void processPropertyDefinitions(string guid, IEnumerable<IIfcPropertySetDefinition> psdefs, string tableName)
       {
-         OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
+         string sqlStmt;
 
-         string SqlStmt = "Insert into " + DBOperation.formatTabName(tableName) + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
+#if ORACLE
+         sqlStmt = "Insert into " + DBOperation.formatTabName(tableName) + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
             + ", PropertyUnit) Values (:1, :2, :3, :4, :5, :6)";
-         command.CommandText = SqlStmt;
-         string currStep = SqlStmt;
+         string currStep = sqlStmt;
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
 
          OracleParameter[] Param = new OracleParameter[6];
          for (int i = 0; i < 6; i++)
@@ -144,7 +151,13 @@ namespace BIMRL
          List<string> arrPDatatyp = new List<string>();
          List<string> arrPUnit = new List<string>();
          List<OracleParameterStatus> arrPUnitBS = new List<OracleParameterStatus>();
-
+#endif
+#if POSTGRES
+         sqlStmt = "Insert into " + DBOperation.formatTabName(tableName) + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
+            + ", PropertyUnit) Values (@0, @1, @2, @3, @4, @5)";
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         command.Prepare();
+#endif
          foreach (IIfcPropertySetDefinition p in psdefs)
          {
             if (p is IIfcDoorLiningProperties)
@@ -153,102 +166,112 @@ namespace BIMRL
 
                if (dl.LiningDepth != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("LININGDEPTH");
-                  arrPropVal.Add(dl.LiningDepth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dl.LiningDepth.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORLININGPROPERTIES", ref arrPropName, "LININGDEPTH",
+                     ref arrPropVal, ref arrPropValBS, dl.LiningDepth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dl.LiningDepth.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORLININGPROPERTIES", "LININGDEPTH", dl.LiningDepth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dl.LiningDepth.GetType()));
+#endif
                }
                else if (dl.LiningThickness != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("LININGTHICKNESS");
-                  arrPropVal.Add(dl.LiningThickness.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dl.LiningThickness.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORLININGPROPERTIES", ref arrPropName, "LININGTHICKNESS",
+                     ref arrPropVal, ref arrPropValBS, dl.LiningThickness.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dl.LiningThickness.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORLININGPROPERTIES", "LININGTHICKNESS", dl.LiningThickness.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dl.LiningThickness.GetType()));
+#endif
                }
                else if (dl.ThresholdDepth != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("THRESHOLDDEPTH");
-                  arrPropVal.Add(dl.ThresholdDepth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dl.ThresholdDepth.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORLININGPROPERTIES", ref arrPropName, "THRESHOLDDEPTH",
+                     ref arrPropVal, ref arrPropValBS, dl.ThresholdDepth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dl.ThresholdDepth.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORLININGPROPERTIES", "THRESHOLDDEPTH", dl.ThresholdDepth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dl.ThresholdDepth.GetType()));
+#endif
                }
                else if (dl.ThresholdThickness != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("THRESHOLDTHICKNESS");
-                  arrPropVal.Add(dl.ThresholdThickness.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dl.ThresholdThickness.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORLININGPROPERTIES", ref arrPropName, "THRESHOLDTHICKNESS",
+                     ref arrPropVal, ref arrPropValBS, dl.ThresholdThickness.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dl.ThresholdThickness.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORLININGPROPERTIES", "THRESHOLDTHICKNESS", dl.ThresholdThickness.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dl.ThresholdThickness.GetType()));
+#endif
                }
                else if (dl.TransomThickness != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("TRANSOMTHICKNESS");
-                  arrPropVal.Add(dl.TransomThickness.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dl.TransomThickness.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORLININGPROPERTIES", ref arrPropName, "TRANSOMTHICKNESS",
+                     ref arrPropVal, ref arrPropValBS, dl.TransomThickness.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dl.TransomThickness.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORLININGPROPERTIES", "TRANSOMTHICKNESS", dl.TransomThickness.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dl.TransomThickness.GetType()));
+#endif
                }
                else if (dl.TransomOffset != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("TRANSOMOFFSET");
-                  arrPropVal.Add(dl.TransomOffset.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dl.TransomOffset.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORLININGPROPERTIES", ref arrPropName, "TRANSOMOFFSET",
+                     ref arrPropVal, ref arrPropValBS, dl.TransomOffset.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dl.TransomOffset.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORLININGPROPERTIES", "TRANSOMOFFSET", dl.TransomOffset.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dl.TransomOffset.GetType()));
+#endif
                }
                else if (dl.CasingThickness != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("CASINGTHICKNESS");
-                  arrPropVal.Add(dl.CasingThickness.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dl.CasingThickness.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORLININGPROPERTIES", ref arrPropName, "CASINGTHICKNESS",
+                     ref arrPropVal, ref arrPropValBS, dl.CasingThickness.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dl.CasingThickness.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORLININGPROPERTIES", "CASINGTHICKNESS", dl.CasingThickness.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dl.CasingThickness.GetType()));
+#endif
                }
                else if (dl.CasingDepth != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("CASINGDEPTH");
-                  arrPropVal.Add(dl.CasingDepth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dl.CasingDepth.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORLININGPROPERTIES", ref arrPropName, "CASINGDEPTH",
+                     ref arrPropVal, ref arrPropValBS, dl.CasingDepth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dl.CasingDepth.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORLININGPROPERTIES", "CASINGDEPTH", dl.CasingDepth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dl.CasingDepth.GetType()));
+#endif
                }
                else if (dl.ShapeAspectStyle != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("SHAPEASPECTSTYLE");
-                  arrPropVal.Add(dl.ShapeAspectStyle.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dl.ShapeAspectStyle.GetType().Name.ToUpper());
+                  string shapeAspectStyleStr = getShapeAspectString(dl.ShapeAspectStyle);
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORLININGPROPERTIES", ref arrPropName, "SHAPEASPECTSTYLE",
+                     ref arrPropVal, ref arrPropValBS, shapeAspectStyleStr, ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, 
+                     string.Empty);
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORLININGPROPERTIES", "SHAPEASPECTSTYLE", shapeAspectStyleStr,
+                     "STRING", string.Empty);
+#endif
                }
             }
             else if (p is IIfcDoorPanelProperties)
@@ -257,54 +280,58 @@ namespace BIMRL
 
                if (dp.PanelDepth != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORPANELPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("PANELDEPTH");
-                  arrPropVal.Add(dp.PanelDepth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dp.PanelDepth.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORPANELPROPERTIES", ref arrPropName, "PANELDEPTH",
+                     ref arrPropVal, ref arrPropValBS, dp.PanelDepth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dp.PanelDepth.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORPANELPROPERTIES", "PANELDEPTH", dp.PanelDepth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dp.PanelDepth.GetType()));
+#endif
                }
                if (dp.PanelWidth != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORPANELPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("PANELWIDTH");
-                  arrPropVal.Add(dp.PanelWidth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dp.PanelWidth.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORPANELPROPERTIES", ref arrPropName, "PANELWIDTH",
+                     ref arrPropVal, ref arrPropValBS, dp.PanelWidth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(dp.PanelWidth.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORPANELPROPERTIES", "PANELWIDTH", dp.PanelWidth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(dp.PanelWidth.GetType()));
+#endif
                }
                else if (dp.ShapeAspectStyle != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCDOORPANELPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("SHAPEASPECTSTYLE");
-                  arrPropVal.Add(dp.ShapeAspectStyle.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(dp.ShapeAspectStyle.GetType().Name.ToUpper());
+                  string shapeAspectStyleStr = getShapeAspectString(dp.ShapeAspectStyle);
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORPANELPROPERTIES", ref arrPropName, "SHAPEASPECTSTYLE",
+                     ref arrPropVal, ref arrPropValBS, shapeAspectStyleStr, ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, 
+                     string.Empty);
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCDOORPANELPROPERTIES", "SHAPEASPECTSTYLE", shapeAspectStyleStr,
+                     "STRING", string.Empty);
+#endif
                }
-               arrEleGuid.Add(guid);
-               arrPGrpName.Add("IFCDOORPANELPROPERTIES");
-               arrPUnit.Add(string.Empty);
-               arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               arrPropName.Add("PANELOPERATION");
-               arrPropVal.Add(dp.PanelOperation.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPDatatyp.Add(dp.PanelOperation.GetType().Name.ToUpper());
 
-               arrEleGuid.Add(guid);
-               arrPGrpName.Add("IFCDOORPANELPROPERTIES");
-               arrPUnit.Add(string.Empty);
-               arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               arrPropName.Add("PANELPOSITION");
-               arrPropVal.Add(dp.PanelPosition.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPDatatyp.Add(dp.PanelPosition.GetType().Name.ToUpper());
+#if ORACLE
+               insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORPANELPROPERTIES", ref arrPropName, "PANELOPERATION",
+                  ref arrPropVal, ref arrPropValBS, dp.PanelOperation.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, 
+                  string.Empty);
+
+               insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCDOORPANELPROPERTIES", ref arrPropName, "PANELPOSITION",
+                  ref arrPropVal, ref arrPropValBS, dp.PanelPosition.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, 
+                  string.Empty);
+#endif
+#if POSTGRES
+               insertProperty(command, guid, "IFCDOORPANELPROPERTIES", "PANELOPERATION", dp.PanelOperation.ToString(),
+                  "STRING", string.Empty);
+
+               insertProperty(command, guid, "IFCDOORPANELPROPERTIES", "PANELPOSITION", dp.PanelPosition.ToString(),
+                  "STRING", string.Empty);
+#endif
             }
                 
             if (p is IIfcWindowLiningProperties)
@@ -313,102 +340,112 @@ namespace BIMRL
 
                if (wl.LiningDepth != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("LININGDEPTH");
-                  arrPropVal.Add(wl.LiningDepth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wl.LiningDepth.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWLININGPROPERTIES", ref arrPropName, "LININGDEPTH",
+                     ref arrPropVal, ref arrPropValBS, wl.LiningDepth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wl.LiningDepth.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWLININGPROPERTIES", "LININGDEPTH", wl.LiningDepth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wl.LiningDepth.GetType()));
+#endif
                }
                else if (wl.LiningThickness != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("LININGTHICKNESS");
-                  arrPropVal.Add(wl.LiningThickness.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wl.LiningThickness.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWLININGPROPERTIES", ref arrPropName, "LININGTHICKNESS",
+                     ref arrPropVal, ref arrPropValBS, wl.LiningThickness.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wl.LiningThickness.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWLININGPROPERTIES", "LININGTHICKNESS", wl.LiningThickness.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wl.LiningThickness.GetType()));
+#endif
                }
                else if (wl.TransomThickness != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("TRANSOMTHICKNESS");
-                  arrPropVal.Add(wl.TransomThickness.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wl.TransomThickness.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWLININGPROPERTIES", ref arrPropName, "TRANSOMTHICKNESS",
+                     ref arrPropVal, ref arrPropValBS, wl.TransomThickness.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wl.TransomThickness.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWLININGPROPERTIES", "TRANSOMTHICKNESS", wl.TransomThickness.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wl.TransomThickness.GetType()));
+#endif
                }
                else if (wl.MullionThickness != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("MULLIONTHICKNESS");
-                  arrPropVal.Add(wl.MullionThickness.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wl.MullionThickness.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWLININGPROPERTIES", ref arrPropName, "MULLIONTHICKNESS",
+                     ref arrPropVal, ref arrPropValBS, wl.MullionThickness.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wl.MullionThickness.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWLININGPROPERTIES", "MULLIONTHICKNESS", wl.MullionThickness.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wl.MullionThickness.GetType()));
+#endif
                }
                else if (wl.FirstTransomOffset != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("FIRSTTRANSOMOFFSET");
-                  arrPropVal.Add(wl.FirstTransomOffset.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wl.FirstTransomOffset.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWLININGPROPERTIES", ref arrPropName, "FIRSTTRANSOMOFFSET",
+                     ref arrPropVal, ref arrPropValBS, wl.FirstTransomOffset.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wl.FirstTransomOffset.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWLININGPROPERTIES", "FIRSTTRANSOMOFFSET", wl.FirstTransomOffset.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wl.FirstTransomOffset.GetType()));
+#endif
                }
                else if (wl.SecondTransomOffset != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("SECONDTRANSOMOFFSET");
-                  arrPropVal.Add(wl.SecondTransomOffset.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wl.SecondTransomOffset.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWLININGPROPERTIES", ref arrPropName, "SECONDTRANSOMOFFSET",
+                     ref arrPropVal, ref arrPropValBS, wl.SecondTransomOffset.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wl.SecondTransomOffset.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWLININGPROPERTIES", "SECONDTRANSOMOFFSET", wl.SecondTransomOffset.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wl.SecondTransomOffset.GetType()));
+#endif
                }
                else if (wl.FirstMullionOffset != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("FIRSTMULLIONOFFSET");
-                  arrPropVal.Add(wl.FirstMullionOffset.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wl.FirstMullionOffset.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWLININGPROPERTIES", ref arrPropName, "FIRSTMULLIONOFFSET",
+                     ref arrPropVal, ref arrPropValBS, wl.FirstMullionOffset.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wl.FirstMullionOffset.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWLININGPROPERTIES", "FIRSTMULLIONOFFSET", wl.FirstMullionOffset.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wl.FirstMullionOffset.GetType()));
+#endif
                }
                else if (wl.SecondMullionOffset != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("SECONDMULLIONOFFSET");
-                  arrPropVal.Add(wl.SecondMullionOffset.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wl.SecondMullionOffset.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWLININGPROPERTIES", ref arrPropName, "SECONDMULLIONOFFSET",
+                     ref arrPropVal, ref arrPropValBS, wl.SecondMullionOffset.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wl.SecondMullionOffset.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWLININGPROPERTIES", "SECONDMULLIONOFFSET", wl.SecondMullionOffset.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wl.SecondMullionOffset.GetType()));
+#endif
                }
                else if (wl.ShapeAspectStyle != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWLININGPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("SHAPEASPECTSTYLE");
-                  arrPropVal.Add(wl.ShapeAspectStyle.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wl.ShapeAspectStyle.GetType().Name.ToUpper());
+                  string shapeAspectStyleStr = getShapeAspectString(wl.ShapeAspectStyle);
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWLININGPROPERTIES", ref arrPropName, "SHAPEASPECTSTYLE",
+                     ref arrPropVal, ref arrPropValBS, shapeAspectStyleStr, ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, 
+                     string.Empty);
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWLININGPROPERTIES", "SHAPEASPECTSTYLE", shapeAspectStyleStr,
+                     "STRING", string.Empty);
+#endif
                }
             }
             else if (p is IIfcWindowPanelProperties)
@@ -417,54 +454,57 @@ namespace BIMRL
 
                if (wp.FrameDepth != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWPANELPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("FRAMEDEPTH");
-                  arrPropVal.Add(wp.FrameDepth.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wp.FrameDepth.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWPANELPROPERTIES", ref arrPropName, "FRAMEDEPTH",
+                     ref arrPropVal, ref arrPropValBS, wp.FrameDepth.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wp.FrameDepth.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWPANELPROPERTIES", "FRAMEDEPTH", wp.FrameDepth.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wp.FrameDepth.GetType()));
+#endif
                }
                if (wp.FrameThickness != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWPANELPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("PANELWIDTH");
-                  arrPropVal.Add(wp.FrameThickness.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wp.FrameThickness.GetType().Name.ToUpper());
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWPANELPROPERTIES", ref arrPropName, "FRAMETHICKNESS",
+                     ref arrPropVal, ref arrPropValBS, wp.FrameThickness.ToString(), ref arrPDatatyp, "DOUBLE", ref arrPUnit, ref arrPUnitBS, 
+                     BIMRLUtils.getDefaultIfcUnitStr(wp.FrameThickness.GetType()));
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWPANELPROPERTIES", "FRAMETHICKNESS", wp.FrameThickness.ToString(),
+                     "DOUBLE", BIMRLUtils.getDefaultIfcUnitStr(wp.FrameThickness.GetType()));
+#endif
                }
                else if (wp.ShapeAspectStyle != null)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add("IFCWINDOWPANELPROPERTIES");
-                  arrPUnit.Add(string.Empty);
-                  arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  arrPropName.Add("SHAPEASPECTSTYLE");
-                  arrPropVal.Add(wp.ShapeAspectStyle.ToString());
-                  arrPropValBS.Add(OracleParameterStatus.Success);
-                  arrPDatatyp.Add(wp.ShapeAspectStyle.GetType().Name.ToUpper());
+                  string shapeAspectStyleStr = getShapeAspectString(wp.ShapeAspectStyle);
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWPANELPROPERTIES", ref arrPropName, "SHAPEASPECTSTYLE",
+                     ref arrPropVal, ref arrPropValBS, shapeAspectStyleStr, ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, 
+                     string.Empty);
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, "IFCWINDOWPANELPROPERTIES", "SHAPEASPECTSTYLE", shapeAspectStyleStr,
+                     "STRING", string.Empty);
+#endif
                }
-               arrEleGuid.Add(guid);
-               arrPGrpName.Add("IFCWINDOWPANELPROPERTIES");
-               arrPUnit.Add(string.Empty);
-               arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               arrPropName.Add("OPERATIONTYPE");
-               arrPropVal.Add(wp.OperationType.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPDatatyp.Add(wp.OperationType.GetType().Name.ToUpper());
+#if ORACLE
+               insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWPANELPROPERTIES", ref arrPropName, "OPERATIONTYPE",
+                  ref arrPropVal, ref arrPropValBS, wp.OperationType.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, 
+                  string.Empty);
 
-               arrEleGuid.Add(guid);
-               arrPGrpName.Add("IFCWINDOWPANELPROPERTIES");
-               arrPUnit.Add(string.Empty);
-               arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-               arrPropName.Add("PANELPOSITION");
-               arrPropVal.Add(wp.PanelPosition.ToString());
-               arrPropValBS.Add(OracleParameterStatus.Success);
-               arrPDatatyp.Add(wp.PanelPosition.GetType().Name.ToUpper());
+               insertProperty(ref arrEleGuid, guid, ref arrPGrpName, "IFCWINDOWPANELPROPERTIES", ref arrPropName, "PANELPOSITION",
+                  ref arrPropVal, ref arrPropValBS, wp.PanelPosition.ToString(), ref arrPDatatyp, "STRING", ref arrPUnit, ref arrPUnitBS, 
+                  string.Empty);
+#endif
+#if POSTGRES
+               insertProperty(command, guid, "IFCWINDOWPANELPROPERTIES", "OPERATIONTYPE", wp.OperationType.ToString(),
+                  "STRING", string.Empty);
+
+               insertProperty(command, guid, "IFCWINDOWPANELPROPERTIES", "PANELPOSITION", wp.PanelPosition.ToString(),
+                  "STRING", string.Empty);
+#endif
             }
 
             if (p is IIfcElementQuantity)
@@ -480,79 +520,72 @@ namespace BIMRL
                   string unitOfMeasure = string.Empty;
                   if (pQ is IIfcPhysicalSimpleQuantity)
                   {
-                     arrEleGuid.Add(guid);
-                     arrPGrpName.Add(pGrpName);
-                     arrPDatatyp.Add(pQ.GetType().Name.ToUpper());
+                     string pName;
                      if (!string.IsNullOrEmpty(pQ.Name))
-                        arrPropName.Add(pQ.Name);
+                        pName = pQ.Name;
                      else
-                        arrPropName.Add(pQ.GetType().Name.ToUpper());       // Set default to the type if name is not defined
+                        pName = pQ.GetType().Name.ToUpper();       // Set default to the type if name is not defined
+
+                     string pDatatype = pQ.GetType().Name.ToUpper();
                      if (((IIfcPhysicalSimpleQuantity)pQ).Unit != null)
                      {
                         IIfcPhysicalSimpleQuantity pQSimple = pQ as IIfcPhysicalSimpleQuantity;
                         unitOfMeasure = BIMRLUtils.getIfcUnitStr(pQSimple.Unit);
                      }
 
+                     string pValue = string.Empty;
                      if (pQ is IIfcQuantityLength)
                      {
                         IIfcQuantityLength quant = pQ as IIfcQuantityLength;
-                        arrPropVal.Add(quant.LengthValue.ToString());
-                        arrPropValBS.Add(OracleParameterStatus.Success);
+                        pValue = quant.LengthValue.ToString();
                         if (string.IsNullOrEmpty(unitOfMeasure))
                            unitOfMeasure = BIMRLUtils.getDefaultIfcUnitStr(quant.LengthValue);
                      }
                      else if (pQ is IIfcQuantityArea)
                      {
                         IIfcQuantityArea quant = pQ as IIfcQuantityArea;
-                        arrPropVal.Add(quant.AreaValue.ToString());
-                        arrPropValBS.Add(OracleParameterStatus.Success);
+                        pValue = quant.AreaValue.ToString();
                         if (string.IsNullOrEmpty(unitOfMeasure))
                            unitOfMeasure = BIMRLUtils.getDefaultIfcUnitStr(quant.AreaValue);
                      }
                      else if (pQ is IIfcQuantityVolume)
                      {
                         IIfcQuantityVolume quant = pQ as IIfcQuantityVolume;
-                        arrPropVal.Add(quant.VolumeValue.ToString());
-                        arrPropValBS.Add(OracleParameterStatus.Success);
+                        pValue = quant.VolumeValue.ToString();
                         if (string.IsNullOrEmpty(unitOfMeasure))
                            unitOfMeasure = BIMRLUtils.getDefaultIfcUnitStr(quant.VolumeValue);
                      }
                      else if (pQ is IIfcQuantityCount)
                      {
                         IIfcQuantityCount quant = pQ as IIfcQuantityCount;
-                        arrPropVal.Add(quant.CountValue.ToString());
-                        arrPropValBS.Add(OracleParameterStatus.Success);
+                        pValue = quant.CountValue.ToString();
                         if (string.IsNullOrEmpty(unitOfMeasure))
                            unitOfMeasure = BIMRLUtils.getDefaultIfcUnitStr(quant.CountValue);
                      }
                      else if (pQ is IIfcQuantityWeight)
                      {
                         IIfcQuantityWeight quant = pQ as IIfcQuantityWeight;
-                        arrPropVal.Add(quant.WeightValue.ToString());
-                        arrPropValBS.Add(OracleParameterStatus.Success);
+                        pValue = quant.WeightValue.ToString();
                         if (string.IsNullOrEmpty(unitOfMeasure))
                            unitOfMeasure = BIMRLUtils.getDefaultIfcUnitStr(quant.WeightValue);
                      }
                      else if (pQ is IIfcQuantityTime)
                      {
                         IIfcQuantityTime quant = pQ as IIfcQuantityTime;
-                        arrPropVal.Add(quant.TimeValue.ToString());
-                        arrPropValBS.Add(OracleParameterStatus.Success);
+                        pValue = quant.TimeValue.ToString();
                         if (string.IsNullOrEmpty(unitOfMeasure))
                            unitOfMeasure = BIMRLUtils.getDefaultIfcUnitStr(quant.TimeValue);
                      }
 
-                     if (!string.IsNullOrEmpty(unitOfMeasure))
-                     {
-                        arrPUnit.Add(unitOfMeasure);
-                        arrPUnitBS.Add(OracleParameterStatus.Success);
-                     }
-                     else
-                     {
-                        arrPUnit.Add(string.Empty);
-                        arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                     }
-
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, pGrpName, ref arrPropName, pName,
+                     ref arrPropVal, ref arrPropValBS, pValue, ref arrPDatatyp, pDataType, ref arrPUnit, ref arrPUnitBS, 
+                     unitOfMeasure);
+#endif
+#if POSTGRES
+                     insertProperty(command, guid, pGrpName, pName, pValue,
+                        pDatatype, unitOfMeasure);
+#endif
                   }
                   else if (pQ is IIfcPhysicalComplexQuantity)
                   {
@@ -561,6 +594,7 @@ namespace BIMRL
                }
             }
 
+#if ORACLE
             if (arrEleGuid.Count >= DBOperation.commitInterval)
             {
 
@@ -614,8 +648,10 @@ namespace BIMRL
                   throw;
                }
             }
+#endif
          }
 
+#if ORACLE
          if (arrEleGuid.Count > 0)
          {
             Param[0].Value = arrEleGuid.ToArray();
@@ -652,7 +688,7 @@ namespace BIMRL
                throw;
             }
          }
-
+#endif
          DBOperation.commitTransaction();
          command.Dispose();
       }
@@ -663,12 +699,14 @@ namespace BIMRL
       /// <param name="el"></param>
       private void processProperties(string guid, IEnumerable<IIfcPropertySet> elPsets, string tableName)
       {
-         OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
+         string sqlStmt;
 
-         string SqlStmt = "Insert into " + DBOperation.formatTabName(tableName) + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
+#if ORACLE
+         sqlStmt = "Insert into " + DBOperation.formatTabName(tableName) + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
             + ", PropertyUnit) Values (:1, :2, :3, :4, :5, :6)";
-         command.CommandText = SqlStmt;
-         string currStep = SqlStmt;
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+
+         string currStep = sqlStmt;
 
          OracleParameter[] Param = new OracleParameter[6];
          for (int i = 0; i < 6; i++)
@@ -685,7 +723,14 @@ namespace BIMRL
          List<string> arrPDatatyp = new List<string>();
          List<string> arrPUnit = new List<string>();
          List<OracleParameterStatus> arrPUnitBS = new List<OracleParameterStatus>();
-
+#endif
+#if POSTGRES
+         sqlStmt = "Insert into " + DBOperation.formatTabName(tableName) + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
+            + ", PropertyUnit) Values (@0, @1, @2, @3, @4, @5)";
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         command.Prepare();
+         string currStep = sqlStmt;
+#endif
          // IEnumerable<IfcPropertySet> elPsets = el.PropertySets;
          foreach (IIfcPropertySet pset in elPsets)
          {
@@ -694,31 +739,19 @@ namespace BIMRL
             {
                if (prop is IIfcSimpleProperty)
                {
-                  arrEleGuid.Add(guid);
-                  arrPGrpName.Add(pset.Name);
-                  //string[] propStr = new string[4];
-
-                  //processSimpleProperty(prop, out propStr);
-                  //arrPropName.Add(propStr[0]); 
-                  //if (string.IsNullOrEmpty(propStr[1]))
-                  //      continue;               // property not supported (only for Reference property)
                   Tuple<string, string, string, string> propVal = processSimpleProperty(prop);
                   if (string.IsNullOrEmpty(propVal.Item1))
                      continue;               // property not supported (only for Reference property)
 
-                  arrPropName.Add(propVal.Item1);
-                  arrPropVal.Add(propVal.Item2);
-                  if (string.IsNullOrEmpty(propVal.Item2))
-                        arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                  else
-                        arrPropValBS.Add(OracleParameterStatus.Success);
-
-                  arrPDatatyp.Add(propVal.Item3);
-                  arrPUnit.Add(propVal.Item4);
-                  if (string.IsNullOrEmpty(propVal.Item4))
-                        arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                  else
-                        arrPUnitBS.Add(OracleParameterStatus.Success);
+#if ORACLE
+                  insertProperty(ref arrEleGuid, guid, ref arrPGrpName, pset.Name, ref arrPropName, propVal.Item1,
+                     ref arrPropVal, ref arrPropValBS, propVal.Item2, ref arrPDatatyp, propVal.Item3, ref arrPUnit, ref arrPUnitBS, 
+                     propVal.Item4);
+#endif
+#if POSTGRES
+                  insertProperty(command, guid, pset.Name, propVal.Item1, propVal.Item2,
+                     propVal.Item3, propVal.Item4);
+#endif
                }
                else if (prop is IIfcComplexProperty)
                {
@@ -727,21 +760,16 @@ namespace BIMRL
 
                   for (int i = 0; i < compList.Count; i++)
                   {
-                     arrEleGuid.Add(guid);
-                     arrPGrpName.Add(pset.Name + "." + compList[i].Item1);
-                     arrPropName.Add(compList[i].Item2.Item1);
-                     arrPropVal.Add(compList[i].Item2.Item2);
-                     if (string.IsNullOrEmpty(compList[i].Item2.Item2))
-                        arrPropValBS.Add(OracleParameterStatus.NullInsert);
-                     else
-                        arrPropValBS.Add(OracleParameterStatus.Success);
+#if ORACLE
+                     insertProperty(ref arrEleGuid, guid, ref arrPGrpName, pset.Name + "." + compList[i].Item1, ref arrPropName, compList[i].Item2.Item1,
+                        ref arrPropVal, ref arrPropValBS, compList[i].Item2.Item2, ref arrPDatatyp, compList[i].Item2.Item3, ref arrPUnit, ref arrPUnitBS, 
+                        compList[i].Item2.Item4);
+#endif
+#if POSTGRES
+                     insertProperty(command, guid, pset.Name + "." + compList[i].Item1, compList[i].Item2.Item1, compList[i].Item2.Item2,
+                        compList[i].Item2.Item3, compList[i].Item2.Item4);
+#endif
 
-                     arrPDatatyp.Add(compList[i].Item2.Item3);
-                     arrPUnit.Add(compList[i].Item2.Item4);
-                     if (string.IsNullOrEmpty(compList[i].Item2.Item4))
-                        arrPUnitBS.Add(OracleParameterStatus.NullInsert);
-                     else
-                        arrPUnitBS.Add(OracleParameterStatus.Success);
                   }
                }
                else
@@ -751,6 +779,7 @@ namespace BIMRL
             }
          }
 
+#if ORACLE
          if (arrEleGuid.Count >= DBOperation.commitInterval)
          {
             Param[0].Value = arrEleGuid.ToArray();
@@ -803,7 +832,6 @@ namespace BIMRL
                throw;
             }
          }
-            
 
          if (arrEleGuid.Count > 0)
          {
@@ -841,7 +869,7 @@ namespace BIMRL
                throw;
             }
          }
-
+#endif
          DBOperation.commitTransaction();
          command.Dispose();
       }
@@ -1075,6 +1103,66 @@ namespace BIMRL
          }
 
          return tmpList;
+      }
+
+#if ORACLE
+      private void insertProperty(ref List<string> arrGUID, string elementid, ref List<string> arrPGroup, string propGroup, 
+                                 ref List<string> arrPName, string propName, ref List<string> arrPValue, ref List<OracleParameterStatus> arrPropValBS, string propValue, 
+                                 ref List<string> arrPDataType, string propDataType, ref List<string> arrUOM, ref List<OracleParameterStatus> arrPUnitBS, string uom)
+      {
+         arrGUID.Add(elementid);
+         arrPGroup.Add(propGroup);
+         arrPName.Add(propName);
+         arrPValue.Add(propValue);
+         if (string.IsNullOrEmpty(propValue))
+            arrPropValBS.Add(OracleParameterStatus.NullInsert);
+         else
+            arrPropValBS.Add(OracleParameterStatus.Success);
+         arrPDataType.Add(propDataType);
+         arrUOM.Add(uom);
+         if (string.IsNullOrEmpty(uom))
+            arrPUnitBS.Add(OracleParameterStatus.NullInsert);
+         else
+            arrPUnitBS.Add(OracleParameterStatus.Success);
+      }
+#endif
+#if POSTGRES
+      private void insertProperty(NpgsqlCommand command, string elementid, string propGroup, string propName, string propValue, string propDataType, string uom)
+      {
+         command.Parameters.Clear();
+         command.Parameters.AddWithValue("0", elementid);
+         command.Parameters.AddWithValue("1", propGroup);
+         command.Parameters.AddWithValue("2", propName);
+         command.Parameters.AddWithValue("3", propValue);
+         command.Parameters.AddWithValue("4", propDataType);
+         command.Parameters.AddWithValue("5", uom);
+         try
+         {
+            int commandStatus = command.ExecuteNonQuery();
+         }
+         catch (NpgsqlException e)
+         {
+            // Ignore error and continue
+            _refBIMRLCommon.StackPushIgnorableError(string.Format("Error inserting (\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\"); {6})", elementid, propGroup, propName,
+               propValue, propDataType, uom, e.Message));
+         }
+      }
+#endif
+
+      /// <summary>
+      /// It handles only the name/description part and not the geometry/representation
+      /// </summary>
+      /// <param name="shapeAspect">the shapeAspect</param>
+      /// <returns>return the string containing the name and description</returns>
+      string getShapeAspectString(IIfcShapeAspect shapeAspect)
+      {
+         string shapeAspectStyleStr = string.Empty;
+         if (shapeAspect.Name.HasValue)
+            BIMRLCommon.appendToString(shapeAspect.Name.Value, "; ", ref shapeAspectStyleStr);
+         if (shapeAspect.Description.HasValue)
+            BIMRLCommon.appendToString(shapeAspect.Description.Value, "; ", ref shapeAspectStyleStr);
+         BIMRLCommon.appendToString(shapeAspect.ProductDefinitional.ToString(), "; ", ref shapeAspectStyleStr);
+         return shapeAspectStyleStr;
       }
    }
 }

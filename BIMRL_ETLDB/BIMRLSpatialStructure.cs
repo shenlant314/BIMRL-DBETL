@@ -27,8 +27,14 @@ using System.Threading.Tasks;
 using System.Threading;
 using Xbim.Ifc;
 using Xbim.Ifc4.Interfaces;
+#if ORACLE
 using Oracle.DataAccess.Types;
 using Oracle.DataAccess.Client;
+#endif
+#if POSTGRES
+using Npgsql;
+using NpgsqlTypes;
+#endif
 using BIMRL.Common;
 
 namespace BIMRL
@@ -58,8 +64,12 @@ namespace BIMRL
          int commandStatus = -1;
          int currInsertCount = 0;
 
+#if ORACLE
          OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
-
+#endif
+#if POSTGRES
+         NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
+#endif
          try
          {
             IEnumerable<IIfcSpatialStructureElement> spatialStructure = _model.Instances.OfType<IIfcSpatialStructureElement>();
@@ -121,7 +131,12 @@ namespace BIMRL
                }
             }
          }
+#if ORACLE
          catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
             _refBIMRLCommon.StackPushError(excStr);
@@ -145,7 +160,12 @@ namespace BIMRL
          string parentGuid = string.Empty;
          string parentType = string.Empty;
 
+#if ORACLE
          OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
+#endif
+#if POSTGRES
+         NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
+#endif
 
          try
          {
@@ -218,7 +238,12 @@ namespace BIMRL
                }
             }
          }
+#if ORACLE
          catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
             _refBIMRLCommon.StackPushError(excStr);

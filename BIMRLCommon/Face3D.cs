@@ -67,26 +67,8 @@ namespace BIMRL.Common
       public Face3D (List<Point3D> vertices)
       {
          _vertices = vertices;
-         //for (int i = 0; i < vertices.Count; i++)
-         //{
-         //    LineSegment3D edge;
-         //    if (i == vertices.Count - 1)
-         //        edge = new LineSegment3D(vertices[i], vertices[0]);
-         //    else
-         //        edge = new LineSegment3D(vertices[i], vertices[i + 1]);
-         //    _boundaryLines.Add(edge);
-         //    if (i > 0 && i < vertices.Count) 
-         //    {
-         //        if (_boundaryLines[i].baseLine.direction != _boundaryLines[i-1].baseLine.direction)
-         //            _nonColinearEdgesIdx.Add(i-1);
-         //    }
-         //    if (i == vertices.Count -1 )
-         //        if (_boundaryLines[i].baseLine.direction != _boundaryLines[0].baseLine.direction)
-         //            _nonColinearEdgesIdx.Add(i);
-         //}
          generateEdges(vertices, out _boundaryLines, out _nonColinearEdgesIdx);
 
-         //_basePlane = new Plane3D(_vertices[0], _boundaryLines[_nonColinearEdgesIdx[0]].baseLine.direction, _boundaryLines[_nonColinearEdgesIdx[1]].baseLine.direction);
          // Use Newell's method to calculate normal because any vertices > 3 can be concave
          Vector3D faceNormal = normalByNewellMethod(_vertices);
          _basePlane = new Plane3D(_vertices[0], faceNormal);
@@ -109,8 +91,6 @@ namespace BIMRL.Common
          // Initialize the outer boundary information
          _vertices = vertices[0];
          generateEdges(vertices[0], out _boundaryLines, out _nonColinearEdgesIdx);
-
-         //_basePlane = new Plane3D(_vertices[0], _boundaryLines[_nonColinearEdgesIdx[0]].baseLine.direction, _boundaryLines[_nonColinearEdgesIdx[1]].baseLine.direction);
 
          // Use Newell's method to calculate normal because any vertices > 3 can be concave
          Vector3D faceNormal = normalByNewellMethod(_vertices);
