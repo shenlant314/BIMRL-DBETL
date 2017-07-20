@@ -429,7 +429,6 @@ namespace BIMRL
                         fIdx += 3;
                      }
                   }
-               }
 #endif
 #if POSTGRES
                string geomJStr = reader.GetString(2);

@@ -149,7 +149,12 @@ namespace BIMRL.Common
          // default connection
          string defaultUser = "BIMRL";
          string defaultPassword = "bimrl";
+#if ORACLE
          string defaultConnecstring = "pdborcl";
+#endif
+#if POSTGRES
+         string defaultConnecstring = "server=localhost; port=5432; database=postgres";
+#endif
 
          try
          {

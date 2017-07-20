@@ -41,7 +41,8 @@ namespace BIMRLGraph
 {
     public class BuildGraph
     {
-        BIMRLCommon refBimrlCommon;
+#if ORACLE
+      BIMRLCommon refBimrlCommon;
         Dictionary<int, Tuple<string, string, string, Point3D>> NodeDict;
         Dictionary<string, int> ElemIDToNodeIDDict;
         UndirectedGraph<int, TaggedEdge<int, int>> graph;
@@ -278,5 +279,6 @@ namespace BIMRLGraph
             var graphviz = new GraphvizAlgorithm<int, TaggedEdge<int, int>>(graph);
             //string output = graphviz.Generate(new FileDotEngine(), "graph");
         }
+#endif
     }
 }

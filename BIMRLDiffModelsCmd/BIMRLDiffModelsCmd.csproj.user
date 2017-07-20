@@ -4,4 +4,12 @@
     <StartArguments>bimrl/bimrl%40pdborcl -o test.json -r 1 "bimrl office_model_v3.ifc"</StartArguments>
     <StartWorkingDirectory>D:\Wawan\User Models</StartWorkingDirectory>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'RelWPDB_Postgres|AnyCPU'">
+    <StartWorkingDirectory>D:\Wawan\User Models</StartWorkingDirectory>
+    <StartArguments>bimrl/bimrl%40pdborcl -o test.json -r 1 "bimrl office_model_v3.ifc"</StartArguments>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Rel_Postgres|AnyCPU'">
+    <StartWorkingDirectory>D:\Wawan\User Models</StartWorkingDirectory>
+    <StartArguments>bimrl/bimrl%40pdborcl -o test.json -r 1 "bimrl office_model_v3.ifc"</StartArguments>
+  </PropertyGroup>
 </Project>

@@ -62,8 +62,8 @@ namespace GraphTest
                 return;
 
             GraphData graphData = new GraphData();
-            //graphData.createCirculationGraph(fedID);
-            graphData.createCirculationGraph(fedID);
+#if ORACLE
+         graphData.createCirculationGraph(fedID);
             if (GraphData.refBimrlCommon.BIMRLErrorStackCount > 0)
             {
                 TextBox_Output.Clear();
@@ -75,7 +75,7 @@ namespace GraphTest
                 }
                 TextBox_Output.Text = wholeStack;
             }
-
+#endif
             if (graph != null)
                 graph = null;
 
@@ -92,8 +92,9 @@ namespace GraphTest
 
         private void Button_ShortestPath_Click(object sender, RoutedEventArgs e)
         {
-            // Generate the graph using Quickgraph first if it is not yet created
-            if (graph == null)
+#if ORACLE
+         // Generate the graph using Quickgraph first if it is not yet created
+         if (graph == null)
             {
                 if (fedID < 0)
                     if (!int.TryParse(TextBox_FedModelID.Text, out fedID))
@@ -111,6 +112,7 @@ namespace GraphTest
                     TextBox_Output.Text += res + "\n";
             }
             else
+#endif
             {
                 TextBox_Output.Text = "No result!";
             }
@@ -144,8 +146,9 @@ namespace GraphTest
 
         private void Button_kShortestPath_Click(object sender, RoutedEventArgs e)
         {
-            // Generate the graph using Quickgraph first if it is not yet created
-            if (graph == null)
+         // Generate the graph using Quickgraph first if it is not yet created
+#if ORACLE
+         if (graph == null)
             {
                 if (fedID < 0)
                     if (!int.TryParse(TextBox_FedModelID.Text, out fedID))
@@ -168,8 +171,9 @@ namespace GraphTest
                 }
             }
             else
-            {
-                TextBox_Output.Text = "No result!";
+#endif
+         {
+            TextBox_Output.Text = "No result!";
             }
         }
     }

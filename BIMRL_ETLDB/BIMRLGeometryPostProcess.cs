@@ -1248,7 +1248,7 @@ public class BIMRLGeometryPostProcess
          Params[3].Value = ax3;
          Params[3].Size = 1;
 
-         OBB = createSDOGeomOBB(OBBVerts);
+         OBB = createGeomOBB(OBBVerts);
          Params[4].Value = OBB;
          Params[4].Size = 1;
 #endif

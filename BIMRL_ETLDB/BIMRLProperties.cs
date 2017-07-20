@@ -526,7 +526,7 @@ namespace BIMRL
                      else
                         pName = pQ.GetType().Name.ToUpper();       // Set default to the type if name is not defined
 
-                     string pDatatype = pQ.GetType().Name.ToUpper();
+                     string pDataType = pQ.GetType().Name.ToUpper();
                      if (((IIfcPhysicalSimpleQuantity)pQ).Unit != null)
                      {
                         IIfcPhysicalSimpleQuantity pQSimple = pQ as IIfcPhysicalSimpleQuantity;
@@ -584,7 +584,7 @@ namespace BIMRL
 #endif
 #if POSTGRES
                      insertProperty(command, guid, pGrpName, pName, pValue,
-                        pDatatype, unitOfMeasure);
+                        pDataType, unitOfMeasure);
 #endif
                   }
                   else if (pQ is IIfcPhysicalComplexQuantity)

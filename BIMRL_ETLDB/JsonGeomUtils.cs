@@ -10,6 +10,7 @@ namespace BIMRL
 {
    class JsonGeomUtils
    {
+#if POSTGRES
       /// <summary>
       /// Generates the proper geometry objects from jsonb data from inside Postgres
       /// </summary>
@@ -212,5 +213,6 @@ namespace BIMRL
          }
          return polyline;
       }
+#endif
    }
 }

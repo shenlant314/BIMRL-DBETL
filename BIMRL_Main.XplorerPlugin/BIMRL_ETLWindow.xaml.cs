@@ -177,15 +177,15 @@ namespace BIMRLMainXplorerPlugin
                 DataGrid_ModelInfos.AutoGenerateColumns = true;
                 DataGrid_ModelInfos.IsReadOnly = true;
                 DataGrid_ModelInfos.ItemsSource = modelInfos;
-                Button_RegenGeometry.IsEnabled = true;
-                Button_EnhanceSpB.IsEnabled = true;
-                Button_genGraph.IsEnabled = true;
                 projectUnit projectUnit = DBOperation.getProjectUnitLength(DBOperation.currFedModel.FederatedID);
                 DBOperation.currModelProjectUnitLength = projectUnit;
                 if (DBOperation.DBUserID.Equals(selFedModelsItem.Owner))
                {
                   Button_genGraph.IsEnabled = true;
-                  Button_EnhanceSpB.IsEnabled = true;
+#if POSTGRES
+                  Button_genGraph.IsEnabled = false;        // No support for Graph in Postgres yet
+#endif
+               Button_EnhanceSpB.IsEnabled = true;
                   Button_RegenGeometry.IsEnabled = true;
                }
                else
@@ -655,7 +655,8 @@ namespace BIMRLMainXplorerPlugin
                 FedID = selFedModel.FederatedID;
             }
 
-            GraphData graphData = new GraphData();
+#if ORACLE
+         GraphData graphData = new GraphData();
             graphData.createCirculationGraph(FedID);
             if (GraphData.refBimrlCommon.BIMRLErrorStackCount > 0)
             {
@@ -680,6 +681,7 @@ namespace BIMRLMainXplorerPlugin
                 }
                 return;
             }
+#endif
         }
 
         private IXbimXplorerPluginMasterWindow _parentWindow;

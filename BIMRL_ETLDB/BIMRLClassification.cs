@@ -477,7 +477,6 @@ namespace BIMRL
                   throw;
                }
             }
-         }
 #endif
 #if POSTGRES
                {

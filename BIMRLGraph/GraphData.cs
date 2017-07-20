@@ -33,7 +33,8 @@ namespace BIMRLGraph
 {
     public class GraphData
     {
-        public static BIMRLCommon refBimrlCommon;
+#if ORACLE
+      public static BIMRLCommon refBimrlCommon;
         List<int> nodeIdList = new List<int>();
         List<string> nodeNameList;
         List<string> nodeTypeList;
@@ -1111,5 +1112,6 @@ namespace BIMRLGraph
             }
             command.Dispose();
         }
+#endif
     }
 }
