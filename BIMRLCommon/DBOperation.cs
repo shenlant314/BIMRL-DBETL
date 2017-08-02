@@ -33,6 +33,7 @@ using NetSdoGeometry;
 #endif
 #if POSTGRES
 using Npgsql.PostgresTypes;
+using NpgsqlTypes;
 using Npgsql;
 #endif
 
@@ -43,10 +44,22 @@ namespace BIMRL.Common
    {
       private static string m_connStr;
 #if ORACLE
+      public static readonly string ScriptPath = "script_ora";
       private static OracleTransaction m_longTrans;
 #endif
 #if POSTGRES
+      public static readonly string ScriptPath = "script_pg";
       private static NpgsqlTransaction m_longTrans;
+      public static NpgsqlTransaction CurrTransaction
+      {
+         get
+         {
+            if (!transactionActive || m_longTrans.IsCompleted)
+               beginTransaction();
+            return m_longTrans;
+         }
+      }
+      public static string def_savepoint = "def_savepoint";
 #endif
       private static bool transactionActive = false;
       private static int currInsertCount = 0;
@@ -54,7 +67,7 @@ namespace BIMRL.Common
       public static string operatorToUse { get; set; }
       public static string DBUserID { get; set; }
       public static string DBPassword { get; set; }
-      public static string DBConnecstring { get; set; }
+      public static string DBConnectstring { get; set; }
       public static BIMRLCommon refBIMRLCommon { get; set; }
       public static projectUnit currModelProjectUnitLength = projectUnit.SIUnit_Length_Meter;
       public static Dictionary<string, bool> objectForSpaceBoundary = new Dictionary<string, bool>();
@@ -85,20 +98,32 @@ namespace BIMRL.Common
 
 #if ORACLE
       static OracleConnection Connect(string username, string password, string DBconnectstring)
+      { 
+         username = username.ToUpper();
 #endif
 #if POSTGRES
       static NpgsqlConnection Connect(string username, string password, string DBconnectstring)
-#endif
       {
-         if (!username.ToUpper().Equals(DBUserID) && m_DBconn != null)
+#endif
+         if (!username.Equals(DBUserID) && m_DBconn != null)
                Disconnect();     // Disconnected first if previously connected but with different user
 
+#if ORACLE
          DBUserID = username.ToUpper();
+#endif
+#if POSTGRES
+         DBUserID = username;
+#endif
          DBPassword = password;
-         DBConnecstring = DBconnectstring;
+         DBConnectstring = DBconnectstring;
 
          if (m_DBconn != null)
-               return m_DBconn;             // already connected
+         {
+            if (m_DBconn.State != ConnectionState.Open)
+               m_DBconn.Open();
+
+            return m_DBconn;             // already connected
+         }
 
 #if ORACLE
          string constr = "User Id=" + username + ";Password=" + password + ";Data Source=" + DBconnectstring;
@@ -117,7 +142,7 @@ namespace BIMRL.Common
 #if POSTGRES
             // This must be placed before connection is called
             NpgsqlConnection.MapCompositeGlobally<Point3D>("point3d");
-            NpgsqlConnection.MapCompositeGlobally<CoordSystem>("coordsystem");
+            //NpgsqlConnection.MapCompositeGlobally<CoordSystem>("coordsystem");
             NpgsqlConnection.MapEnumGlobally<GeometryTypeEnum>("geom3dtype");
             m_DBconn = new NpgsqlConnection(constr);
 #endif
@@ -147,13 +172,15 @@ namespace BIMRL.Common
                return ;             // already connected
 
          // default connection
-         string defaultUser = "BIMRL";
-         string defaultPassword = "bimrl";
 #if ORACLE
          string defaultConnecstring = "pdborcl";
+         string defaultUser = "BIMRL";
+         string defaultPassword = "bimrl";
 #endif
 #if POSTGRES
          string defaultConnecstring = "server=localhost; port=5432; database=postgres";
+         string defaultUser = "bimrl";
+         string defaultPassword = "bimrl";
 #endif
 
          try
@@ -181,6 +208,196 @@ namespace BIMRL.Common
       public static OracleConnection DBConn
 #endif
 #if POSTGRES
+#region arbitraryConnection
+         public static NpgsqlConnection arbitraryConnection()
+         {
+            if (!string.IsNullOrEmpty(DBUserID) && !string.IsNullOrEmpty(DBPassword) && !string.IsNullOrEmpty(DBConnectstring))
+            {
+               string constr = "User Id=" + DBUserID + ";Password=" + DBPassword + ";" + DBConnectstring;
+               try
+               {
+                  NpgsqlConnection arbConn = new NpgsqlConnection(constr);
+                  arbConn.Open();
+                  return arbConn;
+               }
+               catch (NpgsqlException e)
+               {
+                  string excStr = "%%Error - " + e.Message + "\n\t" + constr;
+                  refBIMRLCommon.StackPushError(excStr);
+                  throw;
+               }
+            }
+            else
+               return null;
+         }
+#endregion
+
+#region 2ndConnection
+         private static NpgsqlConnection m_DBconn2 = null;
+         private static NpgsqlConnection DBConn2
+         {
+            get
+            {
+               if (m_DBconn2 == null)
+               {
+                  if (!string.IsNullOrEmpty(DBUserID) && !string.IsNullOrEmpty(DBPassword) && !string.IsNullOrEmpty(DBConnectstring))
+                  {
+                     string constr = "User Id=" + DBUserID + ";Password=" + DBPassword + ";" + DBConnectstring;
+                     m_DBconn2 = new NpgsqlConnection(constr);
+                     m_DBconn2.Open();
+                  }
+               }
+               else if (m_DBconn2.State != ConnectionState.Open)
+                  m_DBconn2.Open();
+
+               return m_DBconn2;
+            }
+         }
+
+      /// <summary>
+      /// This method allows execution of a scalar statement that will be executed by a 2nd transaction (usually short duration)
+      /// </summary>
+      /// <param name="stmt">the SQL statement to be executed. If there are parameters specified, the "name" should be using the index, e.g. "@0", "@1", etc.</param>
+      /// <param name="stmtParams">parameter values</param>
+      /// <param name="commit">commit or rollback</param>
+      /// <returns></returns>
+      public static object ExecuteScalarWithTrans2(string stmt, IList<object> stmtParams = null, IList<NpgsqlDbType> paramTypeList = null, bool commit = false)
+         {
+            bool paramHasType = false;
+            NpgsqlTransaction shortTrans = DBConn2.BeginTransaction();
+            NpgsqlCommand cmdShort = new NpgsqlCommand(stmt, DBConn2);
+            if (stmtParams != null)
+            {
+               if (stmtParams.Count > 0)
+               {
+                  if (paramTypeList != null)
+                     paramHasType = (stmtParams.Count == paramTypeList.Count);
+                  for (int i = 0; i < stmtParams.Count; ++i)
+                  {
+                     if (paramHasType && paramTypeList[i] != NpgsqlDbType.Unknown)
+                        cmdShort.Parameters.AddWithValue("@" + i.ToString(), paramTypeList[i], stmtParams[i]);
+                     else
+                        cmdShort.Parameters.AddWithValue("@" + i.ToString(), stmtParams[i]);
+                  }
+               }
+            }
+            try
+            { 
+               object retVal = cmdShort.ExecuteScalar();
+               if (commit)
+                  shortTrans.Commit();
+               else
+                  shortTrans.Rollback();
+               cmdShort.Dispose();
+               return retVal;
+            }
+            catch (NpgsqlException e)
+            {
+               string excStr = "%%Error - " + e.Message + "\n\t" + stmt;
+               refBIMRLCommon.StackPushError(excStr);
+               cmdShort.Dispose();
+               throw;
+            }
+         }
+
+      /// <summary>
+      /// This method allows execution of an atomic statement (non query) that will be executed by a 2nd transaction (usually short duration)
+      /// </summary>
+      /// <param name="stmt">the SQL statement to be executed. If there are parameters specified, the "name" should be using the index, e.g. "@0", "@1", etc.</param>
+      /// <param name="stmtParams">parameter values</param>
+      /// <returns>success or fail</returns>
+      public static void ExecuteNonQueryWithTrans2(string stmt, IList<object> stmtParams=null, IList<NpgsqlDbType> paramTypeList=null, bool commit=true)
+      {
+         NpgsqlTransaction shortTrans = DBConn2.BeginTransaction();
+         NpgsqlCommand cmdShort = new NpgsqlCommand(stmt, DBConn2);
+         bool paramHasType = false;
+
+         if (stmtParams != null)
+         {
+            if (stmtParams.Count > 0)
+            {
+               if (paramTypeList != null)
+                  paramHasType = (stmtParams.Count == paramTypeList.Count);
+                 
+               for (int i=0; i<stmtParams.Count; ++i)
+               {
+                  if (paramHasType && paramTypeList[i] != NpgsqlDbType.Unknown)
+                     cmdShort.Parameters.AddWithValue("@" + i.ToString(), paramTypeList[i] ,stmtParams[i]);
+                  else
+                     cmdShort.Parameters.AddWithValue("@" + i.ToString(), stmtParams[i]);
+               }
+            }
+         }
+         try
+         {
+            int cmdStatus = cmdShort.ExecuteNonQuery();
+            if (commit)
+               shortTrans.Commit();
+            else
+               shortTrans.Rollback();
+            cmdShort.Dispose();
+            return;
+         }
+         catch (NpgsqlException e)
+         {
+            string excStr = "%%Error - " + e.Message + "\n\t" + stmt;
+            refBIMRLCommon.StackPushError(excStr);
+            cmdShort.Dispose();
+            throw;
+         }
+      }
+
+      /// <summary>
+      /// This method allows execution of an atomic statement that will be executed by a 2nd transaction (usually short duration)
+      /// </summary>
+      /// <param name="stmt">the SQL statement to be executed. If there are parameters specified, the "name" should be using the index, e.g. "@0", "@1", etc.</param>
+      /// <param name="stmtParams">parameter values</param>
+      /// <returns>return DataTable or null</returns>
+      public static DataTable ExecuteToDataTableWithTrans2(string stmt, IList<object> stmtParams = null, IList<NpgsqlDbType> paramTypeList=null)
+      {
+         bool paramHasType = false;
+         NpgsqlTransaction shortTrans = DBConn2.BeginTransaction();
+         DataTable qResult = new DataTable();
+         NpgsqlCommand cmdShort = new NpgsqlCommand(stmt, DBOperation.DBConn2);
+         if (stmtParams != null)
+         {
+            if (stmtParams.Count > 0)
+            {
+               if (paramTypeList != null)
+                  paramHasType = (stmtParams.Count == paramTypeList.Count);
+
+               for (int i = 0; i < stmtParams.Count; ++i)
+               {
+                  if (paramHasType && paramTypeList[i] != NpgsqlDbType.Unknown)
+                     cmdShort.Parameters.AddWithValue("@" + i.ToString(), paramTypeList[i], stmtParams[i]);
+                  else
+                     cmdShort.Parameters.AddWithValue("@" + i.ToString(), stmtParams[i]);
+               }
+            }
+         }
+         try
+         {
+            cmdShort.Prepare();
+            NpgsqlDataAdapter qAdapter = new NpgsqlDataAdapter(cmdShort);
+            qAdapter.Fill(qResult);
+            shortTrans.Rollback();
+            cmdShort.Dispose();
+            if (qResult != null)
+               if (qResult.Rows.Count > 0)
+                  return qResult;
+            return null;
+         }
+         catch (NpgsqlException e)
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + stmt;
+            refBIMRLCommon.StackPushError(excStr);
+            shortTrans.Rollback();
+            cmdShort.Dispose();
+            return null;
+         }
+      }
+#endregion
+
       private static NpgsqlConnection m_DBconn;
       public static NpgsqlConnection DBConn
 #endif
@@ -189,6 +406,8 @@ namespace BIMRL.Common
          {
             if (m_DBconn == null)
                ExistingOrDefaultConnection();
+            if (m_DBconn.State != ConnectionState.Open)
+               m_DBconn.Open();
 
             return m_DBconn; 
          }
@@ -242,9 +461,14 @@ namespace BIMRL.Common
       // these 3 methods must be done in series of 3: start with beginTransaction and ends with endTransaction
       public static void beginTransaction()
       {
+#if ORACLE
          if (!transactionActive)
+#endif
+#if POSTGRES
+         if (!transactionActive || m_longTrans.IsCompleted)
+#endif
          {
-               m_longTrans = DBConn.BeginTransaction();
+            m_longTrans = DBConn.BeginTransaction();
                transactionActive = true;
          }
          currInsertCount = 0;    // reset the insert count
@@ -252,7 +476,12 @@ namespace BIMRL.Common
 
       public static void commitTransaction()
       {
+#if ORACLE
          if (transactionActive)
+#endif
+#if POSTGRES
+         if (transactionActive && !m_longTrans.IsCompleted)
+#endif
          {
                m_longTrans.Commit();
                m_longTrans = DBConn.BeginTransaction();
@@ -261,18 +490,29 @@ namespace BIMRL.Common
 
       public static void rollbackTransaction()
       {
+#if ORACLE
          if (transactionActive)
+#endif
+#if POSTGRES
+         if (transactionActive && !m_longTrans.IsCompleted)
+#endif
          {
-               m_longTrans.Rollback();
+            m_longTrans.Rollback();
                m_longTrans = DBConn.BeginTransaction();
          }
       }
 
       public static int insertRow(string sqlStmt)
       {
+#if ORACLE
          if (!transactionActive)
+#endif
+#if POSTGRES
+         if (!transactionActive || m_longTrans.IsCompleted)
+#endif
          {
-               return -1;
+            beginTransaction();
+               //return -1;
                // no transaction opened
          }
          int commandStatus = -1;
@@ -313,7 +553,12 @@ namespace BIMRL.Common
 
       public static void endTransaction(bool commit)
       {
+#if ORACLE
          if (transactionActive)
+#endif
+#if POSTGRES
+         if (transactionActive && !m_longTrans.IsCompleted)
+#endif
          {
             if (commit)
                m_longTrans.Commit();
@@ -343,67 +588,87 @@ namespace BIMRL.Common
 
          string sqlStmt = "Select FEDERATEDID federatedID, ModelName, ProjectNumber, ProjectName, WORLDBBOX, MAXOCTREELEVEL, LastUpdateDate, Owner, DBConnection from BIMRL_FEDERATEDMODEL where FederatedID=" + FedID.ToString();
 #if ORACLE
-         OracleCommand command = new OracleCommand(sqlStmt, DBConn);
-         OracleDataReader reader = command.ExecuteReader();
-#endif
-#if POSTGRES
-         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBConn);
-         NpgsqlDataReader reader = command.ExecuteReader();
-#endif
+         OracleCommand fidCmd = new OracleCommand(sqlStmt, DBConn);
+         OracleDataReader fidreader = fidCmd.ExecuteReader();
 
          try
          {
-            if (!reader.Read())
+            if (!fidreader.Read())
             {
-               reader.Close();
+               fidreader.Close();
                return null;
             }
 
-            fedModel.FederatedID = reader.GetInt32(0);
-            fedModel.ModelName = reader.GetString(1);
-            fedModel.ProjectNumber = reader.GetString(2);
-            fedModel.ProjectName = reader.GetString(3);
-            if (!reader.IsDBNull(4))
+            fedModel.FederatedID = fidreader.GetInt32(0);
+            fedModel.ModelName = fidreader.GetString(1);
+            fedModel.ProjectNumber = fidreader.GetString(2);
+            fedModel.ProjectName = fidreader.GetString(3);
+            if (!fidreader.IsDBNull(4))
             {
-#if ORACLE
-               SdoGeometry worldBB = reader.GetValue(4) as SdoGeometry;
+               SdoGeometry worldBB = fidreader.GetValue(4) as SdoGeometry;
                Point3D LLB = new Point3D(worldBB.OrdinatesArrayOfDoubles[0], worldBB.OrdinatesArrayOfDoubles[1], worldBB.OrdinatesArrayOfDoubles[2]);
                Point3D URT = new Point3D(worldBB.OrdinatesArrayOfDoubles[3], worldBB.OrdinatesArrayOfDoubles[4], worldBB.OrdinatesArrayOfDoubles[5]);
                fedModel.WorldBoundingBox = LLB.ToString() + " " + URT.ToString();
-#endif
-#if POSTGRES
-               Point3D[] worldBBPntArray = reader.GetFieldValue<Point3D[]>(4);
-               Point3D LLB = worldBBPntArray[0];
-               Point3D URT = worldBBPntArray[1];
-               fedModel.WorldBoundingBox = LLB.ToString() + " " + URT.ToString();
-#endif
             }
-            if (!reader.IsDBNull(5))
-               fedModel.OctreeMaxDepth = reader.GetInt16(5);
-            if (!reader.IsDBNull(6))
-               fedModel.LastUpdateDate = reader.GetDateTime(6);
-            if (!reader.IsDBNull(7))
-               fedModel.Owner = reader.GetString(7);
-            if (!reader.IsDBNull(8))
-               fedModel.DBConnection = reader.GetString(8);
+            if (!fidreader.IsDBNull(5))
+               fedModel.OctreeMaxDepth = fidreader.GetInt16(5);
+            if (!fidreader.IsDBNull(6))
+               fedModel.LastUpdateDate = fidreader.GetDateTime(6);
+            if (!fidreader.IsDBNull(7))
+               fedModel.Owner = fidreader.GetString(7);
+            if (!fidreader.IsDBNull(8))
+               fedModel.DBConnection = fidreader.GetString(8);
 
-            reader.Close();
+            fidreader.Close();
          }
-#if ORACLE
          catch (OracleException e)
-#endif
-#if POSTGRES
-         catch (NpgsqlException e)
-#endif
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
             refBIMRLCommon.StackPushError(excStr);
-            command.Dispose();
+            fidCmd.Dispose();
             throw;
          }
 
-         command.Dispose();
+         fidreader.Dispose();
+         fidCmd.Dispose();
          return fedModel;
+#endif
+#if POSTGRES
+         try
+         {
+            DataTable dt = ExecuteToDataTableWithTrans2(sqlStmt);
+            if (dt.Rows.Count == 0)
+               return null;
+
+            fedModel.FederatedID = (int) dt.Rows[0]["federatedid"];
+            fedModel.ModelName = (string) dt.Rows[0]["modelname"];
+            fedModel.ProjectNumber = (string) dt.Rows[0]["projectnumber"];
+            fedModel.ProjectName = (string) dt.Rows[0]["projectname"];
+            if (!(dt.Rows[0]["worldbbox"] is DBNull))
+            {
+               Point3D[] worldBB = (Point3D[]) dt.Rows[0]["worldbbox"];
+               Point3D LLB = worldBB[0];
+               Point3D URT = worldBB[1];
+               fedModel.WorldBoundingBox = LLB.ToString() + " " + URT.ToString();
+            }
+            if (!(dt.Rows[0]["maxoctreelevel"] is DBNull))
+               fedModel.OctreeMaxDepth = (int) dt.Rows[0]["maxoctreelevel"];
+            if (!(dt.Rows[0]["lastupdatedate"] is DBNull))
+               fedModel.LastUpdateDate = (DateTime) dt.Rows[0]["lastupdatedate"];
+            if (!(dt.Rows[0]["owner"] is DBNull))
+               fedModel.Owner = (string) dt.Rows[0]["owner"];
+            if (!(dt.Rows[0]["dbconnection"] is DBNull))
+               fedModel.DBConnection = (string) dt.Rows[0]["dbconnection"];
+
+            return fedModel;
+         }
+         catch (NpgsqlException e)
+         {
+            string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
+            refBIMRLCommon.StackPushError(excStr);
+            throw;
+         }
+#endif
       }
 
       public static FedIDStatus getFederatedModel (string modelName, string projName, string projNumber, out FederatedModelInfo fedModel)
@@ -434,11 +699,11 @@ namespace BIMRL.Common
                command.ExecuteNonQuery();
                DBOperation.commitTransaction();
                stat = FedIDStatus.FedIDNew;
-            }
 
-            command.CommandText = sqlStmt;
-            reader = command.ExecuteReader();
-            reader.Read();
+               command.CommandText = sqlStmt;
+               reader = command.ExecuteReader();
+               reader.Read();
+            }
 
             fedModel.FederatedID = reader.GetInt32(0);
             fedModel.ModelName = reader.GetString(1);
@@ -489,11 +754,12 @@ namespace BIMRL.Common
 
       public static int getModelID (int fedID)
       {
-         string sqlStmt = "Select " + DBOperation.formatTabName("SEQ_BIMRL_MODELINFO", fedID) + ".nextval from dual";
 #if ORACLE
+         string sqlStmt = "Select " + DBOperation.formatTabName("SEQ_BIMRL_MODELINFO", fedID) + ".nextval from dual";
          OracleCommand command = new OracleCommand(sqlStmt, DBConn);
 #endif
 #if POSTGRES
+         string sqlStmt = "Select nextval('" + DBOperation.formatTabName("SEQ_BIMRL_MODELINFO", fedID) + "')";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBConn);
 #endif
          int newModelID = Convert.ToInt32(command.ExecuteScalar().ToString());
@@ -506,11 +772,11 @@ namespace BIMRL.Common
       {
          var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
          string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
-         string crtabScript = Path.Combine(exePath, "script", "BIMRL_crtab.sql");
+         string crtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_crtab.sql");
          return executeScript(crtabScript, ID);
       }
 
-      public static int executeScript (string filename, int ID)
+      public static int executeScript(string filename, int ID)
       {
          int cmdStat = 0;
          string line;
@@ -521,6 +787,7 @@ namespace BIMRL.Common
 #endif
 #if POSTGRES
          NpgsqlCommand cmd = new NpgsqlCommand(" ", DBConn);
+         CurrTransaction.Save(def_savepoint);
 #endif
          string currStep = string.Empty;
 
@@ -549,8 +816,14 @@ namespace BIMRL.Common
                {
                   cmd.CommandText = stmt.Remove(stmt.Length - 1);   // remove the ;
                   currStep = cmd.CommandText;
+#if POSTGRES
+                  CurrTransaction.Save(def_savepoint);
+#endif
                   cmdStat = cmd.ExecuteNonQuery();
                   stmt = string.Empty;    // reset stmt
+#if POSTGRES
+                  CurrTransaction.Release(def_savepoint);
+#endif
                }
 #if ORACLE
                catch (OracleException e)
@@ -562,12 +835,17 @@ namespace BIMRL.Common
                   string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
                   refBIMRLCommon.StackPushIgnorableError(excStr);
                   stmt = string.Empty;    // reset stmt
+#if POSTGRES
+                  CurrTransaction.Rollback(def_savepoint);
+#endif
                   continue;
                }
             }
          }
          reader.Close();
+         commitTransaction();
          cmd.Dispose();
+
          return cmdStat;
       }
 
@@ -575,7 +853,7 @@ namespace BIMRL.Common
       {
       var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
       string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
-      string drtabScript = Path.Combine(exePath, "script", "BIMRL_drtab.sql");
+      string drtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_drtab.sql");
       return executeScript(drtabScript, ID);
       }
 
@@ -677,9 +955,12 @@ namespace BIMRL.Common
                // Add the new info into the dictionary
                worldBBInfo.Add(federatedId, new Tuple<Point3D,Point3D,int>(llb,urt,maxDepth));
 
+               reader.Dispose();
+               command.Dispose();
                return true;
             }
             reader.Dispose();
+            command.Dispose();
             return false;
          }
 #if ORACLE
@@ -772,6 +1053,20 @@ namespace BIMRL.Common
          if (fedInfo == null)
             return null;
          return (fedInfo.Owner + "." + rawTabName + "_" + fedInfo.FederatedID.ToString("X4")).ToUpper();
+      }
+
+      public static void CloseActiveConnection()
+      {
+         if (m_DBconn != null)
+            if (m_DBconn.State == ConnectionState.Open)
+               m_DBconn.Close();
+#if ORACLE
+#endif
+#if POSTGRES
+         if (m_DBconn2 != null)
+            if (m_DBconn2.State == ConnectionState.Open)
+               m_DBconn2.Close();
+#endif
       }
    }
 }

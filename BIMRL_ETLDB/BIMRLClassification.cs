@@ -56,7 +56,6 @@ namespace BIMRL
       {
          string currStep = "Insert Classification records";
 
-#if ORACLE
          List<string> arrGuid = new List<string>();
          List<string> arrClName = new List<string>();
          List<string> arrClCode = new List<string>();
@@ -64,16 +63,18 @@ namespace BIMRL
          List<string> arrTClName = new List<string>();
          List<string> arrTClCode = new List<string>();
 
+#if ORACLE
          List<string> className = new List<string>();
          List<string> classSource= new List<string>();
-         List<OracleParameterStatus> classSPS = new List<OracleParameterStatus>();
          List<string> classEdition = new List<string>();
          List<string> classEdDate = new List<string>();
-         List<OracleParameterStatus> classEdDPS = new List<OracleParameterStatus>();
          List<string> classItemCode = new List<string>();
          List<string> classItemName = new List<string>();
-         List<OracleParameterStatus> classItemNPS = new List<OracleParameterStatus>();
          List<string> classItemLocation = new List<string>();
+
+         List<OracleParameterStatus> classSPS = new List<OracleParameterStatus>();
+         List<OracleParameterStatus> classEdDPS = new List<OracleParameterStatus>();
+         List<OracleParameterStatus> classItemNPS = new List<OracleParameterStatus>();
          List<OracleParameterStatus> classItemLPS = new List<OracleParameterStatus>();
 
          DBOperation.beginTransaction();
@@ -115,22 +116,16 @@ namespace BIMRL
             Param3[i] = command3.Parameters.Add(i.ToString(), OracleDbType.Varchar2);
             Param3[i].Direction = ParameterDirection.Input;
          }
+
 #endif
 #if POSTGRES
-         string arrGuid = string.Empty;
-         string arrClName = string.Empty;
-         string arrClCode = string.Empty;
-         string arrTGuid = string.Empty;
-         string arrTClName = string.Empty;
-         string arrTClCode = string.Empty;
-
-         string className = string.Empty;
-         string classSource = string.Empty;
-         string classEdition = string.Empty;
-         string classEdDate = string.Empty;
-         string classItemCode = string.Empty;
-         string classItemName = string.Empty;
-         string classItemLocation = string.Empty;
+         string className = "";
+         string classSource= "";
+         string classEdition = "";
+         string classEdDate = "";
+         string classItemCode = "";
+         string classItemName = "";
+         string classItemLocation = "";
 
          DBOperation.beginTransaction();
 
@@ -142,38 +137,39 @@ namespace BIMRL
                            + "ClassificationEdition, ClassificationEditionDate, ClassificationItemCode, ClassificationItemName, ClassificationItemLocation) Values "
                            + "(@0, @1, @2, @3, @4, @5, @6)";
          command.CommandText = sqlStmt;
-         command.Prepare();
 
          NpgsqlParameter[] Param = new NpgsqlParameter[7];
          for (int i = 0; i < 7; i++)
          {
-            Param[i] = command.Parameters.Add(i.ToString(), NpgsqlDbType.Varchar);
+            Param[i] = command.Parameters.Add("@" + i.ToString(), NpgsqlDbType.Varchar);
             Param[i].Direction = ParameterDirection.Input;
          }
+         Param[3].NpgsqlDbType = NpgsqlDbType.Date;
+         command.Prepare();
 
          string sqlStmt2 = "Insert into " + DBOperation.formatTabName("BIMRL_ELEMCLASSIFICATION") + " (ElementID, ClassificationName, ClassificationItemCode) "
                            + " Values (@0, @1, @2)";
          command2.CommandText = sqlStmt2;
-         command2.Prepare();
 
          NpgsqlParameter[] Param2 = new NpgsqlParameter[3];
          for (int i = 0; i < 3; i++)
          {
-            Param2[i] = command2.Parameters.Add(i.ToString(), NpgsqlDbType.Varchar);
+            Param2[i] = command2.Parameters.Add("@" + i.ToString(), NpgsqlDbType.Varchar);
             Param2[i].Direction = ParameterDirection.Input;
          }
+         command2.Prepare();
 
          string sqlStmt3 = "Insert into " + DBOperation.formatTabName("BIMRL_TYPCLASSIFICATION") + " (ElementID, ClassificationName, ClassificationItemCode) "
                            + " Values (@0, @1, @2)";
          command3.CommandText = sqlStmt3;
-         command3.Prepare();
 
          NpgsqlParameter[] Param3 = new NpgsqlParameter[3];
          for (int i = 0; i < 3; i++)
          {
-            Param3[i] = command3.Parameters.Add(i.ToString(), NpgsqlDbType.Varchar);
+            Param3[i] = command3.Parameters.Add("@" + i.ToString(), NpgsqlDbType.Varchar);
             Param3[i].Direction = ParameterDirection.Input;
          }
+         command3.Prepare();
 #endif
 
          IEnumerable<IIfcRelAssociatesClassification> relClasses = _model.Instances.OfType<IIfcRelAssociatesClassification>();
@@ -239,8 +235,7 @@ namespace BIMRL
             Tuple<string,string> bimrlClass = new Tuple<string,string>(refName, itemRef);   // PK for BIMRL_CLASSIFICATION
             if (!_refBIMRLCommon.ClassificationSetExist(bimrlClass))
             {
-               // Record not in DB yet, insert
-#if Oracle
+#if ORACLE
                className.Add(refName);
                classSource.Add(refSource);
                classEdition.Add(refEdition);
@@ -262,13 +257,51 @@ namespace BIMRL
                   classItemLPS.Add(OracleParameterStatus.Success);
 #endif
 #if POSTGRES
-               className = refName;
-               classSource = refSource;
-               classEdition = refEdition;
-               classEdDate = refEdDate;
-               classItemCode = itemRef;
-               classItemName = itemName;
-               classItemLocation = itemLocation;
+               //Insert into " + DBOperation.formatTabName("BIMRL_CLASSIFICATION") + "(ClassificationName, ClassificationSource, "
+               //            + "ClassificationEdition, ClassificationEditionDate, ClassificationItemCode, ClassificationItemName, ClassificationItemLocation) Values "
+               //            + "(@0, @1, @2, @3, @4, @5, @6)";
+
+               // for BIMRL_CLASSIFICATION
+               Param[0].Value = refName;
+               if (string.IsNullOrEmpty(refSource))
+                  Param[1].Value = DBNull.Value;
+               else
+                  Param[1].Value = refSource;
+
+               if (string.IsNullOrEmpty(refEdition))
+                  Param[2].Value = DBNull.Value;
+               else
+                  Param[2].Value = refEdition;
+
+               if (string.IsNullOrEmpty(refEdDate))
+                  Param[3].Value = DBNull.Value;
+               else
+                  Param[3].Value = refEdDate;
+
+               Param[4].Value = itemRef;
+
+               if (string.IsNullOrEmpty(itemName))
+                  Param[5].Value = DBNull.Value;
+               else
+                  Param[5].Value = itemName;
+
+               if (string.IsNullOrEmpty(itemLocation))
+                  Param[6].Value = DBNull.Value;
+               else
+                  Param[6].Value = itemLocation;
+
+               currStep = sqlStmt;
+               try
+               {
+                  command.ExecuteNonQuery();
+                  DBOperation.commitTransaction();
+               }
+               catch (NpgsqlException e)
+               {
+                  // Ignore error (duplicate)
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+                  _refBIMRLCommon.StackPushIgnorableError(excStr);
+               }
 #endif
                // Add into Hashset, so that we do not have to insert duplicate record
                _refBIMRLCommon.ClassificationSetAdd(bimrlClass);
@@ -480,66 +513,53 @@ namespace BIMRL
 #endif
 #if POSTGRES
                {
-                  arrTGuid = relObj.GlobalId.ToString();
-                  arrTClName = refName;
-                  arrTClCode = itemRef;
+                  arrTGuid.Add(relObj.GlobalId.ToString());
+                  arrTClName.Add(refName);
+                  arrTClCode.Add(itemRef);
                }
                else if (relObj is IIfcObject)
                {
-                  arrGuid = relObj.GlobalId.ToString();
-                  arrClName = refName;
-                  arrClCode = itemRef;
+                  arrGuid.Add(relObj.GlobalId.ToString());
+                  arrClName.Add(refName);
+                  arrClCode.Add(itemRef);
                }
             }
 
+            for (int i=0; i<arrGuid.Count; ++i)
             {
                int commandStatus;
-
                try
                {
-                  // for BIMRL_CLASSIFICATION
-                  if (!string.IsNullOrEmpty(className))
-                  {
-                     Param[0].Value = className;
-                     Param[1].Value = classSource;
-                     Param[2].Value = classEdition;
-                     Param[3].Value = classEdDate;
-                     Param[4].Value = classItemCode;
-                     Param[5].Value = classItemName;
-                     Param[6].Value = classItemLocation;
-
-                     currStep = sqlStmt;
-                     commandStatus = command.ExecuteNonQuery();
-                  }
+                  DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
 
                   // for BIMRL_ELEMCLASSIFICATION
-                  if (!string.IsNullOrEmpty(arrGuid))
+                  if (!string.IsNullOrEmpty(arrGuid[i]))
                   {
-                     Param2[0].Value = arrGuid;
-                     Param2[1].Value = arrClName;
-                     Param2[2].Value = arrClCode;
+                     Param2[0].Value = arrGuid[i];
+                     Param2[1].Value = arrClName[i];
+                     Param2[2].Value = arrClCode[i];
 
                      currStep = sqlStmt2;
                      commandStatus = command2.ExecuteNonQuery();
                   }
 
                   // for BIMRL_TYPCLASSIFICATION
-                  if (!string.IsNullOrEmpty(arrTGuid))
+                  if (!string.IsNullOrEmpty(arrTGuid[i]))
                   {
-                     Param3[0].Value = arrTGuid;
-                     Param3[1].Value = arrTClName;
-                     Param3[2].Value = arrTClCode;
+                     Param3[0].Value = arrTGuid[i];
+                     Param3[1].Value = arrTClName[i];
+                     Param3[2].Value = arrTClCode[i];
 
                      currStep = sqlStmt3;
                      commandStatus = command3.ExecuteNonQuery();
+                     DBOperation.CurrTransaction.Release(DBOperation.def_savepoint);
                   }
-
-                  DBOperation.commitTransaction();
                }
                catch (NpgsqlException e)
                {
                   string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
                   _refBIMRLCommon.StackPushIgnorableError(excStr);
+                  DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
                   continue;
                }
                catch (SystemException e)
@@ -547,6 +567,14 @@ namespace BIMRL
                   string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
                   _refBIMRLCommon.StackPushIgnorableError(excStr);
                }
+
+               DBOperation.commitTransaction();
+               arrGuid.Clear();
+               arrClName.Clear();
+               arrClCode.Clear();
+               arrTGuid.Clear();
+               arrTClName.Clear();
+               arrTClCode.Clear();
             }
          }
 #endif

@@ -152,7 +152,7 @@ namespace BIMRL.BIMRLGraph
             string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
 
             // (Re)-Create the spatial indexes
-            DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_graphview.sql"), FedID);
+            DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_graphview.sql"), FedID);
 
             // 
             sqlStmt = "SELECT ELEMENTID,CONTAINER FROM " + DBOperation.formatTabName("BIMRL_ELEMENT", FedID) + " WHERE ELEMENTTYPE IN ('IFCSPACE','IFCDOOR','IFCDOORSTANDARDCASE','IFCOPENINGELEMENT','IFCOPENINGELEMENTSTANDARDCASE','IFCSTAIR','IFCSTAIRFLIGHT','IFCRAMP','IFCRAMPFLIGHT','IFCTRANSPORTELEMENT')"

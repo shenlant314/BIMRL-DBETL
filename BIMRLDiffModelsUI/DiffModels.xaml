@@ -41,7 +41,7 @@
       <TextBox x:Name="textBox_OutputJson" HorizontalAlignment="Left" Height="23" Margin="117,361,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="548" LostFocus="textBox_OutputJson_LostFocus"/>
       <Button x:Name="button_Browse" Content="Browse ..." Margin="0,360,9.6,0" VerticalAlignment="Top" Click="button_Browse_Click" HorizontalAlignment="Right" Width="75" Height="19"/>
       <Label x:Name="label5" Content=" Database connection:" HorizontalAlignment="Left" Margin="370,0,0,0" VerticalAlignment="Top" Width="132" Height="26"/>
-      <TextBox x:Name="textBox_Username" HorizontalAlignment="Left" Height="23" Margin="396,25,0,0" TextWrapping="Wrap" Text="BIMRL" VerticalAlignment="Top" Width="92"/>
+      <TextBox x:Name="textBox_Username" HorizontalAlignment="Left" Height="23" Margin="396,25,0,0" TextWrapping="Wrap" Text="bimrl" VerticalAlignment="Top" Width="92"/>
       <TextBox x:Name="textBox_Password" HorizontalAlignment="Left" Height="23" Margin="512,25,0,0" TextWrapping="Wrap" Text="bimrl" VerticalAlignment="Top" Width="95"/>
       <TextBox x:Name="textBox_DBConnect" Height="23" Margin="630,25,9.6,0" TextWrapping="Wrap" Text="pdborcl" VerticalAlignment="Top"/>
       <Label x:Name="label6" Content="/" HorizontalAlignment="Left" Margin="493,22,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.861,-0.523" Height="26" Width="14"/>

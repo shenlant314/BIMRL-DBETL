@@ -29,7 +29,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>bin_ora\Release\</OutputPath>
     <DefineConstants>TRACE;ORACLE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -86,8 +86,8 @@
       <HintPath>..\packages\Newtonsoft.Json.10.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Npgsql, Version=3.2.2.0, Culture=neutral, PublicKeyToken=5d8b90d52f46fda7, processorArchitecture=MSIL">
-      <HintPath>..\packages\Npgsql.3.2.2\lib\net451\Npgsql.dll</HintPath>
+    <Reference Include="Npgsql, Version=3.2.5.0, Culture=neutral, PublicKeyToken=5d8b90d52f46fda7, processorArchitecture=MSIL">
+      <HintPath>..\packages\Npgsql.3.2.5\lib\net451\Npgsql.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="PropertyTools, Version=2015.1.66.0, Culture=neutral, PublicKeyToken=ea0c9f2b460934d0, processorArchitecture=MSIL">
@@ -190,8 +190,10 @@
     </PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>mkdir "$(TargetDir)script"
-copy "$(SolutionDir)script\*" "$(TargetDir)script" /y</PostBuildEvent>
+    <PostBuildEvent>mkdir "$(TargetDir)script_ora"
+mkdir "$(TargetDir)script_pg"
+copy "$(SolutionDir)script_ora\*.sql" "$(TargetDir)script_ora" /y
+copy "$(SolutionDir)script_pg\*.sql" "$(TargetDir)script_pg" /y</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -329,11 +329,9 @@ namespace BIMRL
                command.CommandText = sqlStmt;
 #endif
 #if POSTGRES
-               string sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT") + " set geometrybody_geomtype=@0, GEOMETRYBODY=@1, TRANSFORM_COL=@2, TOTAL_SURFACE_AREA=@3"
-               + " Where elementid = @4";
+               string sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT") + " set geometrybody_geomtype=@gtyp, GEOMETRYBODY=@gbody, TRANSFORM_COL=@trf, TOTAL_SURFACE_AREA=@surfa"
+               + " Where elementid = @eid";
                command.CommandText = sqlStmt;
-               // This update statement will be repeated many times for each object with geometry. Prepare the statement.
-               command.Prepare();
 #endif
                // int status = DBOperation.updateGeometry(sqlStmt, sdoGeomData);
                currStep = sqlStmt;
@@ -405,9 +403,9 @@ namespace BIMRL
 #endif
 #if POSTGRES
                   command.Parameters.Clear();
-                  command.Parameters.AddWithValue("0", NpgsqlDbType.Enum, GeometryTypeEnum.geomsolid3d);
+                  command.Parameters.AddWithValue("@gtyp", NpgsqlDbType.Enum, GeometryTypeEnum.geomsolid3d);
                   string geomJson = JsonConvert.SerializeObject(ProdGeometries);
-                  command.Parameters.AddWithValue("1", NpgsqlDbType.Jsonb, geomJson);
+                  command.Parameters.AddWithValue("@gbody", NpgsqlDbType.Jsonb, geomJson);
                   // Organized the data according to 
                   //            | Xaxis-x Xaxis-y Xaxis-z Offset-x |
                   //            | Yaxis-x Yaxis-y Yaxis-z Offset-y |
@@ -431,9 +429,11 @@ namespace BIMRL
                   trf[3, 1] = 0;
                   trf[3, 2] = 0;
                   trf[3, 3] = 1;
-                  command.Parameters.AddWithValue("2", NpgsqlDbType.Array | NpgsqlDbType.Double, trf);
-                  command.Parameters.AddWithValue("3", totalSurfArea);
-                  command.Parameters.AddWithValue("4", prodGuid);
+                  command.Parameters.AddWithValue("@trf", NpgsqlDbType.Array | NpgsqlDbType.Double, trf);
+                  command.Parameters.AddWithValue("@surfa", NpgsqlDbType.Double, totalSurfArea);
+                  command.Parameters.AddWithValue("@eid", NpgsqlDbType.Text, prodGuid);
+                  // This update statement will be repeated many times for each object with geometry. Prepare the statement.
+                  command.Prepare();
 #endif
                   commandStatus = command.ExecuteNonQuery();
                   command.Parameters.Clear();
@@ -471,11 +471,11 @@ namespace BIMRL
                   throw;
                }
             }
-
-            DBOperation.commitTransaction();
-            command.Dispose();
          }
-      }
+
+         DBOperation.commitTransaction();
+         command.Dispose();
+      }  
 
       private double CalculateAreaOfTriangle(IList<Point3D> triangleCoords)
       {
@@ -753,10 +753,17 @@ namespace BIMRL
          NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
 
          string SqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_ElementProperties") + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
-            + ", PropertyUnit) Values (@0, @1, @2, @3, @4, @5)";
+            + ", PropertyUnit) Values (@eid, @gname, @pname, @pvalue, @pdtyp, @punit)";
          command.CommandText = SqlStmt;
-         command.Prepare();
          string currStep = SqlStmt;
+
+         command.Parameters.Add("@eid", NpgsqlDbType.Text);
+         command.Parameters.Add("@gname", NpgsqlDbType.Text);
+         command.Parameters.Add("@pname", NpgsqlDbType.Text);
+         command.Parameters.Add("@pvalue", NpgsqlDbType.Text);
+         command.Parameters.Add("@pdtyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@punit", NpgsqlDbType.Text);
+         command.Prepare();
 
          // Process Project "properties"
          IEnumerable<IIfcProject> projects = _model.Instances.OfType<IIfcProject>();
@@ -1934,22 +1941,34 @@ namespace BIMRL
 #if POSTGRES
       private void insertProperty(NpgsqlCommand command, string elementid, string propGroup, string propName, string propValue, string propDataType, string uom)
       {
-         command.Parameters.Clear();
-         command.Parameters.AddWithValue("0", elementid);
-         command.Parameters.AddWithValue("1", propGroup);
-         command.Parameters.AddWithValue("2", propName);
-         command.Parameters.AddWithValue("3", propValue);
-         command.Parameters.AddWithValue("4", propDataType);
-         command.Parameters.AddWithValue("5", uom);
+         command.Parameters["@eid"].Value = elementid;
+         command.Parameters["@gname"].Value = propGroup;
+         command.Parameters["@pname"].Value = propName;
+         if (string.IsNullOrEmpty(propValue))
+            command.Parameters["@pvalue"].Value = DBNull.Value;
+         else
+            command.Parameters["@pvalue"].Value = propValue;
+         if (string.IsNullOrEmpty(propDataType))
+            command.Parameters["@pdtyp"].Value = DBNull.Value;
+         else
+            command.Parameters["@pdtyp"].Value = propDataType;
+         if (string.IsNullOrEmpty(uom))
+            command.Parameters["@punit"].Value = DBNull.Value;
+         else
+            command.Parameters["@punit"].Value = uom;
+
          try
          {
+            DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
             int commandStatus = command.ExecuteNonQuery();
+            DBOperation.CurrTransaction.Release(DBOperation.def_savepoint);
          }
          catch (NpgsqlException e)
          {
             // Ignore error and continue
             _refBIMRLCommon.StackPushIgnorableError(string.Format("Error inserting (\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\"); {6})", elementid, propGroup, propName,
                propValue, propDataType, uom, e.Message));
+            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
          }
       }
 #endif

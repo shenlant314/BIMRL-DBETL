@@ -95,12 +95,11 @@ public class BIMRLGeometryPostProcess
                sqlStmt = "Select PROPERTYVALUE FROM " + DBOperation.formatTabName("BIMRL_PROPERTIES", _currFedID) + " WHERE PROPERTYGROUPNAME='IFCATTRIBUTES' AND PROPERTYNAME='TRUENORTH'";
 #if ORACLE
                OracleCommand cmd = new OracleCommand(sqlStmt, DBOperation.DBConn);
+               object ret = cmd.ExecuteScalar();
 #endif
 #if POSTGRES
-               NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
-               cmd.Prepare();
+               object ret = DBOperation.ExecuteScalarWithTrans2(sqlStmt);
 #endif
-               object ret = cmd.ExecuteScalar();
                if (ret != null)
                {
                   string trueNorthStr = ret as string;
@@ -127,7 +126,9 @@ public class BIMRLGeometryPostProcess
                {
                   _trueNorth = new Vector3D(0.0, 1.0, 0.0);   // if not defined, default is the project North = +Y of the coordinate system
                }
+#if ORACLE
                cmd.Dispose();
+#endif
             }
          }
 #if ORACLE
@@ -139,6 +140,9 @@ public class BIMRLGeometryPostProcess
          {
             string excStr = "%%Insert Error - " + e.Message + "\n\t" + sqlStmt;
             _refBIMRLCommon.StackPushIgnorableError(excStr);
+#if POSTGRES
+            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
+#endif
             // Ignore any error
          }
          catch (SystemException e)
@@ -146,7 +150,7 @@ public class BIMRLGeometryPostProcess
             string excStr = "%%Insert Error - " + e.Message + "\n\t" + sqlStmt;
             _refBIMRLCommon.StackPushError(excStr);
             throw;
-         }
+         }	
       }
 
       public List<Face3D> MergedFaceList
@@ -867,12 +871,26 @@ public class BIMRLGeometryPostProcess
          string sqlStmt;
          if (forUserDict)
             sqlStmt = "INSERT INTO USERGEOM_TOPO_FACE (ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID) "
-                        + "VALUES (@eid, @id, @typ, @polyg, @norm, @angle, @cent)";
+                        + "VALUES (@eid, @id, @ftyp, @polyg, @norm, @angle, @cent)";
          else
             sqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + "(ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID) "
-                        + "VALUES (@eid, @id, @typ, @polyg, @norm, @angle, @cent)";
-         NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
-         cmd.Prepare();
+                        + "VALUES (@eid, @id, @ftyp, @polyg, @norm, @angle, @cent)";
+         NpgsqlConnection arbConn = DBOperation.arbitraryConnection();
+         NpgsqlTransaction arbTrans = arbConn.BeginTransaction();
+         NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt, arbConn);
+
+         // Npgsql has problem with Prepare() for Composite type. It insists that the specific type has to be specified when the composite may mean many different items and types
+         // Use AddWithValue instead without the need to specify the type explicitly
+         //cmd.Parameters.Add("@eid", NpgsqlDbType.Text);
+         //cmd.Parameters.Add("@id", NpgsqlDbType.Text);
+         //cmd.Parameters.Add("@ftyp", NpgsqlDbType.Text);
+         //cmd.Parameters.Add("@norm", NpgsqlDbType.Composite | NpgsqlDbType.Double);
+         //cmd.Parameters.Add("@angle", NpgsqlDbType.Double);
+         //cmd.Parameters.Add("@cent", NpgsqlDbType.Composite | NpgsqlDbType.Double);
+         //cmd.Parameters.Add("@polyg", NpgsqlDbType.Jsonb);
+         //cmd.Prepare();
+
+         int insRec = 0;
 #endif
          foreach (int fIdx in _mergedFaceList)
          {
@@ -1092,24 +1110,31 @@ public class BIMRLGeometryPostProcess
 #endif
 #if POSTGRES
             cmd.Parameters.Clear();
-            cmd.Parameters.AddWithValue("eid", _elementid);
-            cmd.Parameters.AddWithValue("id", faceID.ToString());
-            cmd.Parameters.AddWithValue("typ", _faceCategory);
-            Point3D normal = new Point3D(face.basePlane.normalVector.X, face.basePlane.normalVector.Y, face.basePlane.normalVector.Z);
-            cmd.Parameters.AddWithValue("norm", normal);
+            cmd.Parameters.AddWithValue("@eid", _elementid);
+            cmd.Parameters.AddWithValue("@id", faceID.ToString());
+            cmd.Parameters.AddWithValue("@ftyp", _faceCategory);
 
+            Point3D normal = new Point3D(face.basePlane.normalVector.X, face.basePlane.normalVector.Y, face.basePlane.normalVector.Z);
+            cmd.Parameters.AddWithValue("@norm", normal);
             Vector3D normal2D = new Vector3D(normal.X, normal.Y, 0.0);
             double angleRad = Math.Atan2(normal2D.Y, normal2D.X) - Math.Atan2(_trueNorth.Y, _trueNorth.X);
-            cmd.Parameters.AddWithValue("angle", angleRad);
-            cmd.Parameters.AddWithValue("cent", face.boundingBox.Center);
+            cmd.Parameters.AddWithValue("@angle", angleRad);
+
+            cmd.Parameters.AddWithValue("@cent", face.boundingBox.Center);
 
             string polygonStr = JsonConvert.SerializeObject(face);
-            cmd.Parameters.AddWithValue("polyg", NpgsqlDbType.Jsonb, polygonStr);
+            cmd.Parameters.AddWithValue("@polyg", NpgsqlDbType.Jsonb, polygonStr);
 
             try
             {
                int commandStatus = cmd.ExecuteNonQuery();
-               DBOperation.commitTransaction();
+               insRec++;
+               if (insRec > DBOperation.commitInterval)
+               {
+                  arbTrans.Commit();
+                  arbTrans = arbConn.BeginTransaction();
+                  insRec = 0;
+               }
             }
             catch (NpgsqlException e)
             {
@@ -1123,10 +1148,14 @@ public class BIMRLGeometryPostProcess
                _refBIMRLCommon.StackPushError(excStr);
                throw;
             }
-#endif
          }
-
+         if (insRec > 0)
+            arbTrans.Commit();
+         cmd.Dispose();
+         arbConn.Close();
+#endif
 #if ORACLE
+         }
          if (arrElementID.Count > 0)
          {
 
@@ -1164,9 +1193,10 @@ public class BIMRLGeometryPostProcess
                throw;
             }
          }
-#endif
+
          DBOperation.commitTransaction();
          cmd.Dispose();
+#endif
          return true;
       }
 
@@ -1251,37 +1281,49 @@ public class BIMRLGeometryPostProcess
          OBB = createGeomOBB(OBBVerts);
          Params[4].Value = OBB;
          Params[4].Size = 1;
-#endif
-#if POSTGRES
-         string sqlStmt = "UPDATE " + DBOperation.formatTabName("BIMRL_ELEMENT") + " SET obb_ecs=@ecs, OBB=@obb WHERE ELEMENTID=@eid";
-         NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
-         cmd.Prepare();
-         CoordSystem ecs = new CoordSystem();
-         ecs.XAxis = new Point3D(majorAxes[0].X, majorAxes[0].Y, majorAxes[0].Z);
-         ecs.YAxis = new Point3D(majorAxes[1].X, majorAxes[1].Y, majorAxes[1].Z);
-         ecs.ZAxis = new Point3D(majorAxes[2].X, majorAxes[2].Y, majorAxes[2].Z);
-         ecs.Origin = centroid;
-         cmd.Parameters.AddWithValue("ecs", ecs);
-         OBB = createGeomOBB(OBBVerts);
-         string obb = OBB.ToJsonString();
-         cmd.Parameters.AddWithValue("obb", NpgsqlDbType.Jsonb, obb);
-         cmd.Parameters.AddWithValue("eid", _elementid);
-#endif
          try
          {
                int commandStatus = cmd.ExecuteNonQuery();
                DBOperation.commitTransaction();
          }
-#if ORACLE
          catch (OracleException e)
 #endif
 #if POSTGRES
+         string sqlStmt = "UPDATE " + DBOperation.formatTabName("BIMRL_ELEMENT") + " SET obb_ecs=@0, OBB=@1 WHERE ELEMENTID=@2";
+         IList<object> paramList = new List<object>();
+         IList<NpgsqlDbType> typeList = new List<NpgsqlDbType>();
+
+         //CoordSystem ecs = new CoordSystem();
+         //ecs.XAxis = new Point3D(majorAxes[0].X, majorAxes[0].Y, majorAxes[0].Z);
+         //ecs.YAxis = new Point3D(majorAxes[1].X, majorAxes[1].Y, majorAxes[1].Z);
+         //ecs.ZAxis = new Point3D(majorAxes[2].X, majorAxes[2].Y, majorAxes[2].Z);
+         //ecs.Origin = centroid;
+         Point3D[] ecs = new Point3D[4];
+         ecs[0] = new Point3D(majorAxes[0].X, majorAxes[0].Y, majorAxes[0].Z);
+         ecs[1] = new Point3D(majorAxes[1].X, majorAxes[1].Y, majorAxes[1].Z);
+         ecs[2] = new Point3D(majorAxes[2].X, majorAxes[2].Y, majorAxes[2].Z);
+         ecs[3] = centroid;
+         paramList.Add(ecs);
+         typeList.Add(NpgsqlDbType.Unknown);
+
+         OBB = createGeomOBB(OBBVerts);
+         string obb = OBB.ToJsonString();
+         paramList.Add(obb);
+         typeList.Add(NpgsqlDbType.Jsonb);
+
+         paramList.Add(_elementid);
+         typeList.Add(NpgsqlDbType.Text);
+
+         try
+         {
+            DBOperation.ExecuteNonQueryWithTrans2(sqlStmt, paramList, typeList, commit: true);
+         }
          catch (NpgsqlException e)
 #endif
          {
             string excStr = "%%Insert Error - " + e.Message + "\n\t" + sqlStmt;
                _refBIMRLCommon.StackPushIgnorableError(excStr);
-               // Ignore any error
+            // Ignore any error
          }
          catch (SystemException e)
          {
@@ -1290,8 +1332,10 @@ public class BIMRLGeometryPostProcess
                throw;
          }
 
+#if ORACLE
          DBOperation.commitTransaction();
          cmd.Dispose();
+#endif
       }
 
       public void writeToX3D()
@@ -1401,47 +1445,46 @@ public class BIMRLGeometryPostProcess
          expVertList.Add(OBBVerts[1]);
          Face3D f = new Face3D(expVertList);
          faceList.Add(f);
-         expVertList.Clear();
 
+         expVertList = new List<Point3D>();
          expVertList.Add(OBBVerts[0]);
          expVertList.Add(OBBVerts[1]);
          expVertList.Add(OBBVerts[5]);
          expVertList.Add(OBBVerts[4]);
          f = new Face3D(expVertList);
          faceList.Add(f);
-         expVertList.Clear();
 
+         expVertList = new List<Point3D>();
          expVertList.Add(OBBVerts[1]);
          expVertList.Add(OBBVerts[2]);
          expVertList.Add(OBBVerts[6]);
          expVertList.Add(OBBVerts[5]);
          f = new Face3D(expVertList);
          faceList.Add(f);
-         expVertList.Clear();
 
+         expVertList = new List<Point3D>();
          expVertList.Add(OBBVerts[2]);
          expVertList.Add(OBBVerts[3]);
          expVertList.Add(OBBVerts[7]);
          expVertList.Add(OBBVerts[6]);
          f = new Face3D(expVertList);
          faceList.Add(f);
-         expVertList.Clear();
 
+         expVertList = new List<Point3D>();
          expVertList.Add(OBBVerts[3]);
          expVertList.Add(OBBVerts[0]);
          expVertList.Add(OBBVerts[4]);
          expVertList.Add(OBBVerts[7]);
          f = new Face3D(expVertList);
          faceList.Add(f);
-         expVertList.Clear();
 
+         expVertList = new List<Point3D>();
          expVertList.Add(OBBVerts[4]);
          expVertList.Add(OBBVerts[5]);
          expVertList.Add(OBBVerts[6]);
          expVertList.Add(OBBVerts[7]);
          f = new Face3D(expVertList);
          faceList.Add(f);
-         expVertList.Clear();
 
          Polyhedron pH = new Polyhedron(faceList);
          return pH;

@@ -327,24 +327,25 @@ namespace BIMRL
 #if ORACLE
          OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
             OracleDataReader reader;
+         string sqlStmt = "select elementid, elementtype, geometrybody from " + DBOperation.formatTabName("BIMRL_ELEMENT", fedModelID) + " where geometrybody is not null ";
+         if (!string.IsNullOrEmpty(whereCond))
+            sqlStmt += " AND " + whereCond;
 #endif
 #if POSTGRES
          NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
          NpgsqlDataReader reader;
+         string sqlStmt = "select elementid, elementtype, geometrybody_geomtype, geometrybody from " + DBOperation.formatTabName("BIMRL_ELEMENT", fedModelID) 
+                           + " where geometrybody is not null ";
+         if (!string.IsNullOrEmpty(whereCond))
+            sqlStmt += " AND " + whereCond;
 #endif
-         string sqlStmt;
-
+         currStep = sqlStmt;
          try
          {
 #if ORACLE
             SdoGeometry sdoGeomData = new SdoGeometry();
             command.FetchSize = 20;
 #endif
-            sqlStmt = "select elementid, elementtype, geometrybody from " + DBOperation.formatTabName("BIMRL_ELEMENT", fedModelID) + " where geometrybody is not null ";
-                if (!string.IsNullOrEmpty(whereCond))
-                    sqlStmt += " AND " + whereCond;
-            currStep = sqlStmt;
-
             command.CommandText = sqlStmt;
 
             reader = command.ExecuteReader();
@@ -431,13 +432,18 @@ namespace BIMRL
                   }
 #endif
 #if POSTGRES
-               string geomJStr = reader.GetString(2);
-               IList<Polyhedron> polyHs = JsonConvert.DeserializeObject<IList<Polyhedron>>(geomJStr);
+               GeometryTypeEnum geomType = reader.GetFieldValue<GeometryTypeEnum>(2);
+               string geomJStr = reader.GetString(3);
+               //IList<Polyhedron> polyHs = JsonConvert.DeserializeObject<IList<Polyhedron>>(geomJStr);
+               object geomObj = JsonGeomUtils.generateGeometryFromJson(geomType, geomJStr);
+               List<Polyhedron> geomList = geomObj as List<Polyhedron>;
+               if (geomObj == null || geomList == null || geomList.Count == 0)
+                  continue;
                Point3D v = new Point3D();
                Point3D v1 = new Point3D();
                int vertIdx = 0;
 
-               foreach (Polyhedron polyH in polyHs)
+               foreach (Polyhedron polyH in geomList)
                { 
                   foreach (Face3D face in polyH.Faces)
                   {
@@ -707,15 +713,17 @@ namespace BIMRL
 #endif
 #if POSTGRES
                string geomData = reader.GetString(2);
-               Face3D face = JsonConvert.DeserializeObject<Face3D>(geomData);
+               //Face3D face = JsonConvert.DeserializeObject<Face3D>(geomData);
+               Face3D face = (Face3D)JsonGeomUtils.generateGeometryFromJson(GeometryTypeEnum.geomface3d, geomData);
                string type = reader.GetString(3);
 
                StringBuilder coordStr = new StringBuilder();
                StringBuilder vertIdxStr = new StringBuilder();
-               foreach (Point3D vtx in face.outerAndInnerVertices)
+               for (int v=0; v < face.outerAndInnerVertices.Count; ++v)
                {
-                  Point3D pt = transformToX3D.Transform(vtx);
+                  Point3D pt = transformToX3D.Transform(face.outerAndInnerVertices[v]);
                   coordStr.Append(string.Format("{0:0.##########} {1:0.##########} {2:0.##########} ", pt.X, pt.Y, pt.Z));
+                  vertIdxStr.Append(string.Format("{0} ", v));
                }
                vertIdxStr.Append("-1 ");
 #endif
@@ -1172,12 +1180,18 @@ namespace BIMRL
                Point3D mjAxis2 = reader.GetValue(3) as Point3D;
                Point3D mjAxis3 = reader.GetValue(4) as Point3D;
                GeometryTypeEnum gType = (GeometryTypeEnum) reader.GetValue(5);
+               object geomObj = JsonGeomUtils.generateGeometryFromJson(gType, geomData);
 
                if (gType == GeometryTypeEnum.geomsolid3d || gType == GeometryTypeEnum.geomsurface3d)
                {
                   int vertIdx = 0;     // new Index for the X3D index to the vertex coordinate lists
 
-                  Polyhedron pH = JsonConvert.DeserializeObject<Polyhedron>(geomData);
+                  //Polyhedron pH = JsonConvert.DeserializeObject<Polyhedron>(geomData);
+                  List<Polyhedron> geomList = geomObj as List<Polyhedron>;
+                  if (geomObj == null || geomList == null || geomList.Count == 0)
+                     continue;
+                  Polyhedron pH = Polyhedron.UnionPolyhedronList(geomList);
+
                   foreach (Face3D face in pH.Faces)
                   {
                      foreach(Point3D vtx in face.outerAndInnerVertices)
@@ -1225,7 +1239,11 @@ namespace BIMRL
                }
                else if (gType == GeometryTypeEnum.geomface3d)
                {
-                  Face3D face = JsonConvert.DeserializeObject<Face3D>(geomData);
+                  //Face3D face = JsonConvert.DeserializeObject<Face3D>(geomData);
+                  Face3D face = (Face3D)geomObj;
+                  if (face == null)
+                     continue;
+
                   int vertIdx = 0;     // new Index for the X3D index to the vertex coordinate lists
 
                   foreach (Point3D vtx in face.outerAndInnerVertices)
@@ -1295,7 +1313,11 @@ namespace BIMRL
                }
                else if (gType == GeometryTypeEnum.geomline3d)
                {
-                  LineSegment3D l3D = JsonConvert.DeserializeObject<LineSegment3D>(geomData);
+                  //LineSegment3D l3D = JsonConvert.DeserializeObject<LineSegment3D>(geomData);
+                  LineSegment3D l3D = (LineSegment3D)geomObj;
+                  if (l3D == null)
+                     continue;
+
                   /****** For a line *****/
                   vertIdxStr.Append(string.Format("{0} ", 0));
                   Point3D pt = transformToX3D.Transform(l3D.startPoint);
@@ -1329,7 +1351,10 @@ namespace BIMRL
                }
                else if (gType == GeometryTypeEnum.geompolyline3d)
                {
-                  IList<Point3D> polyL = JsonConvert.DeserializeObject<IList<Point3D>>(geomData);
+                  //IList<Point3D> polyL = JsonConvert.DeserializeObject<IList<Point3D>>(geomData);
+                  IList<Point3D> polyL = (List<Point3D>)geomObj;
+                  if (polyL == null)
+                     continue;
 
                   vertIdxStr.Clear();
                   coordStr.Clear();

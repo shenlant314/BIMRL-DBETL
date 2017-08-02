@@ -95,8 +95,8 @@ namespace BIMRL
                   fedModel.WorldBoundingBox = LLB.ToString() + " " + URT.ToString();
 #endif
 #if POSTGRES
-                  string worldBBstr = reader.GetString(4);
-                  BoundingBox3D worldBB = JsonConvert.DeserializeObject<BoundingBox3D>(worldBBstr);
+                  Point3D[] wBbox = reader.GetFieldValue<Point3D[]>(4);
+                  BoundingBox3D worldBB = new BoundingBox3D(wBbox[0], wBbox[1]);
                   fedModel.WorldBoundingBox = worldBB.LLB.ToString() + " " + worldBB.URT.ToString();
 #endif
                }

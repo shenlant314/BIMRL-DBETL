@@ -63,20 +63,34 @@ namespace BIMRL
          string container = string.Empty;
          int commandStatus = -1;
          int currInsertCount = 0;
+         string sqlStmt;
 
 #if ORACLE
          OracleCommand command = new OracleCommand(" ", DBOperation.DBConn);
 #endif
 #if POSTGRES
          NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
+         sqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_Element") + "(Elementid, LineNo, ElementType, ModelID, Name, LongName, Description, ObjectType, Container, TypeID) "
+            + "Values (@eid, @line, @etyp, @modid, @name, @lname, @desc, @otyp, @cont, @typid)";
+         command.CommandText = sqlStmt;
+
+         command.Parameters.Add("@eid", NpgsqlDbType.Text);
+         command.Parameters.Add("@line", NpgsqlDbType.Integer);
+         command.Parameters.Add("@etyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@modid", NpgsqlDbType.Integer);
+         command.Parameters.Add("@name", NpgsqlDbType.Text);
+         command.Parameters.Add("@lname", NpgsqlDbType.Text);
+         command.Parameters.Add("@desc", NpgsqlDbType.Text);
+         command.Parameters.Add("@otyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@cont", NpgsqlDbType.Text);
+         command.Parameters.Add("@typid", NpgsqlDbType.Text);
+         command.Prepare();
 #endif
          try
          {
             IEnumerable<IIfcSpatialStructureElement> spatialStructure = _model.Instances.OfType<IIfcSpatialStructureElement>();
             foreach (IIfcSpatialStructureElement sse in spatialStructure)
             {
-               string SqlStmt;
-
                // do something
                string guid = sse.GlobalId.ToString();
                int IfcLineNo = sse.EntityLabel;
@@ -111,13 +125,49 @@ namespace BIMRL
 
                // Keep a mapping between IFC guid used as a key in BIMRL and the IFC line no of the entity
                _refBIMRLCommon.guidLineNoMappingAdd(BIMRLProcessModel.currModelID, IfcLineNo, guid);
-
-               SqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_Element") + "(Elementid, LineNo, ElementType, ModelID, Name, LongName, Description, ObjectType, Container, TypeID) Values ('"
+#if ORACLE
+               sqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_Element") + "(Elementid, LineNo, ElementType, ModelID, Name, LongName, Description, ObjectType, Container, TypeID) Values ('"
                            + guid + "'," + IfcLineNo + ", '" + elementtype + "', " + BIMRLProcessModel.currModelID.ToString() + ", '" + sseName + "', '" + sseLongName + "','" + sseDescription + "', '" + sseObjectType 
                            + "', '" + container + "', '" + typeID + "')";
-               // status = DBOperation.insertRow(SqlStmt);
-               command.CommandText = SqlStmt;
-               currStep = SqlStmt;
+               command.CommandText = sqlStmt;
+#endif
+#if POSTGRES
+               command.Parameters["@eid"].Value = guid;
+               command.Parameters["@line"].Value = IfcLineNo;
+               command.Parameters["@etyp"].Value = elementtype;
+               command.Parameters["@modid"].Value = BIMRLProcessModel.currModelID;
+
+               if (string.IsNullOrEmpty(sseName))
+                  command.Parameters["@name"].Value = DBNull.Value;
+               else
+                  command.Parameters["@name"].Value = sseName;
+
+               if (string.IsNullOrEmpty(sseLongName))
+                  command.Parameters["@lname"].Value = DBNull.Value;
+               else
+                  command.Parameters["@lname"].Value = sseLongName;
+
+               if (string.IsNullOrEmpty(sseDescription))
+                  command.Parameters["@desc"].Value = DBNull.Value;
+               else
+                  command.Parameters["@desc"].Value = sseDescription;
+
+               if (string.IsNullOrEmpty(sseObjectType))
+                  command.Parameters["@otyp"].Value = DBNull.Value;
+               else
+                  command.Parameters["@otyp"].Value = sseObjectType;
+
+               if (string.IsNullOrEmpty(container))
+                  command.Parameters["@cont"].Value = DBNull.Value;
+               else
+                  command.Parameters["@cont"].Value = container;
+
+               if (string.IsNullOrEmpty(typeID))
+                  command.Parameters["@typid"].Value = DBNull.Value;
+               else
+                  command.Parameters["@typid"].Value = typeID;
+#endif
+               currStep = sqlStmt;
                commandStatus = command.ExecuteNonQuery();
 
                // Add intormation of the product label (LineNo into a List for the use later to update the Geometry 
@@ -200,10 +250,33 @@ namespace BIMRL
                      parentGuid = parent.GlobalId.ToString();
                      parentType = parent.GetType().Name.ToUpper();
                   }
+#if ORACLE
                   SqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_SPATIALSTRUCTURE") + "(SPATIALELEMENTID, SPATIALELEMENTTYPE, PARENTID, PARENTTYPE, LEVELREMOVED)"
                               + " values ('" + sse.GlobalId.ToString() + "','" + sse.GetType().Name.ToUpper() + "','"
                               + parentGuid + "','" + parentType + "'," + levelRemoved + ")";
                   command.CommandText = SqlStmt;
+#endif
+#if POSTGRES
+                  SqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_SPATIALSTRUCTURE") + "(SPATIALELEMENTID, SPATIALELEMENTTYPE, PARENTID, PARENTTYPE, LEVELREMOVED)"
+                           + " values (@sid, @setyp, @pid, @ptyp, @lvrm)";
+                  command.CommandText = SqlStmt;
+                  command.Parameters.Clear();
+                  command.Parameters.AddWithValue("@sid", NpgsqlDbType.Text, sse.GlobalId.ToString());
+                  command.Parameters.AddWithValue("@setyp", NpgsqlDbType.Text, sse.GetType().Name.ToUpper());
+
+                  if (string.IsNullOrEmpty(parentGuid))
+                     command.Parameters.AddWithValue("@pid", NpgsqlDbType.Text, DBNull.Value);
+                  else
+                     command.Parameters.AddWithValue("@pid", NpgsqlDbType.Text, parentGuid);
+
+                  if (string.IsNullOrEmpty(parentType))
+                     command.Parameters.AddWithValue("@ptyp", NpgsqlDbType.Text, DBNull.Value);
+                  else
+                     command.Parameters.AddWithValue("@ptyp", NpgsqlDbType.Text, parentType);
+
+                  command.Parameters.AddWithValue("@lvrm", NpgsqlDbType.Integer, levelRemoved);
+
+#endif
                   currStep = SqlStmt;
                   commandStatus = command.ExecuteNonQuery();
 

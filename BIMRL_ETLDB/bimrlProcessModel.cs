@@ -172,18 +172,18 @@ namespace BIMRL
                doModel(modelStore);
                BIMRLUtils.ResetIfcUnitDicts();
             }
-         }
-         catch (Exception e)
-         {
-            string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
-            _bimrlCommon.StackPushError(excStr);
-            DBOperation.endTransaction(false);  // rollback
-         }
+         //}
+         //catch (Exception e)
+         //{
+         //   string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
+         //   _bimrlCommon.StackPushError(excStr);
+         //   DBOperation.endTransaction(false);  // rollback
+         //}
 
-         DBOperation.endTransaction(true);     // Commit = true
+            DBOperation.endTransaction(true);     // Commit = true
 
-         try
-         {
+         //try
+         //{
             DBOperation.beginTransaction();
 #if ORACLE
             OracleCommand cmd = new OracleCommand("", DBOperation.DBConn);
@@ -318,14 +318,14 @@ namespace BIMRL
             currStep = sqlStmt;
             cmd.CommandText = sqlStmt;
             cmd.ExecuteNonQuery();
+
+            sqlStmt = "Update BIMRL_FEDERATEDMODEL SET LastUpdateDate=sysdate WHERE FederatedID=" + DBOperation.currFedModel.FederatedID.ToString();
 #endif
 #if POSTGRES
             NpgsqlCommand cmd = new NpgsqlCommand("", DBOperation.DBConn);
-            NpgsqlConnection.MapCompositeGlobally<Point3D>("point3d");
-            NpgsqlConnection.MapCompositeGlobally<GeometryTypeEnum>("geom3dtype");
+            sqlStmt = "Update BIMRL_FEDERATEDMODEL SET LastUpdateDate=now() WHERE FederatedID=" + DBOperation.currFedModel.FederatedID.ToString();
 #endif
 
-            sqlStmt = "Update BIMRL_FEDERATEDMODEL SET LastUpdateDate=sysdate WHERE FederatedID=" + DBOperation.currFedModel.FederatedID.ToString();
             currStep = sqlStmt;
             cmd.CommandText = sqlStmt;
             cmd.ExecuteNonQuery();
@@ -367,16 +367,18 @@ namespace BIMRL
             sdoGeom2[1].Size = 1;
 #endif
 #if POSTGRES
-            sqlStmt = "update BIMRL_FEDERATEDMODEL SET WORLDBBOX=@0 , MAXOCTREELEVEL=@1 WHERE FEDERATEDID=@2";
+            DBOperation.beginTransaction();
+            sqlStmt = "update BIMRL_FEDERATEDMODEL SET WORLDBBOX=@wbb , MAXOCTREELEVEL=@octl WHERE FEDERATEDID=@fedid";
             NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
-            BoundingBox3D worldBB = new BoundingBox3D(_bimrlCommon.LLB, _bimrlCommon.URT);
-            string worldBBJson = JsonConvert.SerializeObject(worldBB);
-            command.Parameters.AddWithValue("0", worldBBJson);
-            command.Parameters.AddWithValue("1", DBOperation.OctreeSubdivLevel);
-            command.Parameters.AddWithValue("2", DBOperation.currFedModel.FederatedID.ToString());
+            command.Parameters.Clear();
+            Point3D[] worldBBArr = new Point3D[2] { _bimrlCommon.LLB, _bimrlCommon.URT };
+            command.Parameters.AddWithValue("@wbb", NpgsqlDbType.Array|NpgsqlDbType.Composite, worldBBArr);
+            command.Parameters.AddWithValue("@octl", NpgsqlDbType.Integer, DBOperation.OctreeSubdivLevel);
+            command.Parameters.AddWithValue("@fedid", NpgsqlDbType.Integer, DBOperation.currFedModel.FederatedID);
             currStep = sqlStmt;
 #endif
             int commandStatus = command.ExecuteNonQuery();
+            DBOperation.commitTransaction();
 
             if (DBOperation.OnepushETL)
             {
@@ -409,9 +411,12 @@ namespace BIMRL
                BIMRLGraph.GraphData graphData = new BIMRLGraph.GraphData();
                graphData.createCirculationGraph(DBOperation.currFedModel.FederatedID);
                graphData.createSpaceAdjacencyGraph(DBOperation.currFedModel.FederatedID);
-#endif
 
                sqlStmt = "UPDATE BIMRL_FEDERATEDMODEL SET LASTUPDATEDATE=sysdate";
+#endif
+#if POSTGRES
+               sqlStmt = "UPDATE BIMRL_FEDERATEDMODEL SET LASTUPDATEDATE=now()";
+#endif
                BIMRLCommon.appendToString("MAXOCTREELEVEL=" + octreeLevel.ToString(), ", ", ref sqlStmt);
                BIMRLCommon.appendToString("WHERE FEDERATEDID=" + DBOperation.currFedModel.FederatedID.ToString(), " ", ref sqlStmt);
                DBOperation.executeSingleStmt(sqlStmt);
@@ -426,9 +431,9 @@ namespace BIMRL
             string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
 
             // (Re)-Create the spatial indexes
-            DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_SpatialIndexes.sql"), DBOperation.currFedModel.FederatedID);
-            DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_TopoFace.sql"), DBOperation.currFedModel.FederatedID);
-            DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_MajorAxes.sql"), DBOperation.currFedModel.FederatedID);
+            DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), DBOperation.currFedModel.FederatedID);
+            DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace.sql"), DBOperation.currFedModel.FederatedID);
+            DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), DBOperation.currFedModel.FederatedID);
 
             //sqlStmt = "Create Index IDX_BIMRLELEM_GEOM_" + currFedID.ToString("X4") + " on BIMRL_ELEMENT_" + currFedID.ToString("X4")
             //            + " (GEOMETRYBODY) INDEXTYPE is MDSYS.SPATIAL_INDEX PARAMETERS ('sdo_indx_dims=3')";
@@ -516,11 +521,13 @@ namespace BIMRL
             }
             else
                Console.Write(_bimrlCommon.ErrorMessages);
+            DBOperation.CloseActiveConnection();
          }
 
          // There are entries in the error stack, show them at the end
          if (_bimrlCommon.BIMRLErrorStackCount > 0)
          {
+            DBOperation.CloseActiveConnection();
             if (DBOperation.UIMode)
             {
                BIMRLErrorDialog errorDlg = new BIMRLErrorDialog(_bimrlCommon);

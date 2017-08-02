@@ -83,17 +83,14 @@ namespace BIMRL
          OracleDataReader reader;
 #endif
 #if POSTGRES
-         string sqlStmt = "select elementid, elementtype, geometrybody_geomtype, geometrybody from " + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " where geometrybody is not null ";
+         string sqlStmt = "select elementid, elementtype, geometrybody_geomtype, geometrybody from " 
+                           + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " where geometrybody is not null ";
          if (!string.IsNullOrEmpty(whereCond))
          {
             sqlStmt += " and " + whereCond;
             selectedRegen = true;
          }
-         // The following is needed to update the element table with Bbox information
-         string sqlStmt3 = "UPDATE " + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " SET GeometryBody_BBOX = @bbox, "
-                           + "GeometryBody_BBOX_CENTROID = @cent WHERE ELEMENTID = @eid";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
-         NpgsqlCommand commandUpdBbox = new NpgsqlCommand(sqlStmt3, DBOperation.DBConn);
          NpgsqlDataReader reader;
 #endif
 
@@ -101,16 +98,18 @@ namespace BIMRL
          {
             command.CommandText = "SELECT COUNT(*) FROM " + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " where geometrybody is not null ";
             object rC = command.ExecuteScalar();
-            int totalRowCount = Convert.ToInt32(rC.ToString()) * (int) Math.Pow(8,2);
+            int totalRowCount = Convert.ToInt32(rC.ToString()) * (int)Math.Pow(8, 2);
 
             currStep = sqlStmt;
             command.CommandText = sqlStmt;
 
-            commandUpdBbox.CommandText = sqlStmt3;
-            commandUpdBbox.Parameters.Clear();
             int sublistCnt = 0;
+            List<string> eidUpdList = new List<string>();
 
 #if ORACLE
+            commandUpdBbox.CommandText = sqlStmt3;
+            commandUpdBbox.Parameters.Clear();
+
             OracleParameter[] Bbox = new OracleParameter[3];
             Bbox[0] = commandUpdBbox.Parameters.Add("bbox", OracleDbType.Object);
             Bbox[0].Direction = ParameterDirection.Input;
@@ -127,13 +126,11 @@ namespace BIMRL
             Bbox[2] = commandUpdBbox.Parameters.Add("eid", OracleDbType.Varchar2);
             Bbox[2].Direction = ParameterDirection.Input;
             List<List<string>> eidUpdListList = new List<List<string>>();
-            List<string> eidUpdList = new List<string>();
 #endif
 #if POSTGRES
             List<Point3D[]> bboxList = new List<Point3D[]>();
             List<Point3D> centList = new List<Point3D>();
             command.Prepare();
-            commandUpdBbox.Prepare();
 #endif
             // end for Bbox
 
@@ -220,6 +217,7 @@ namespace BIMRL
                bboxCoords[1] = geom.boundingBox.URT;
                bboxList.Add(bboxCoords);
                centList.Add(geom.boundingBox.Center);
+               eidUpdList.Add(elemID);
                sublistCnt++;
 #endif
                // We will skip large buildinglementproxy that has more than 5000 vertices
@@ -236,17 +234,26 @@ namespace BIMRL
                   octreeInstance.ComputeOctree(elemID, geom);
             }
 
+            reader.Close();
             reader.Dispose();
+            DBOperation.commitTransaction();
+            command.Dispose();
 
             if (createSpIdx)
             {
                // Truncate the table first before reinserting the records
                FederatedModelInfo fedModel = DBOperation.getFederatedModelByID(federatedId);
                if (DBOperation.DBUserID.Equals(fedModel.FederatedID))
+#if ORACLE
                   DBOperation.executeSingleStmt("TRUNCATE TABLE " + DBOperation.formatTabName("BIMRL_SPATIALINDEX", federatedId));
                else
                   DBOperation.executeSingleStmt("DELETE FROM " + DBOperation.formatTabName("BIMRL_SPATIALINDEX"));
-
+#endif
+#if POSTGRES
+                  DBOperation.ExecuteNonQueryWithTrans2("TRUNCATE TABLE " + DBOperation.formatTabName("BIMRL_SPATIALINDEX", federatedId), commit: true);
+               else
+                  DBOperation.ExecuteNonQueryWithTrans2("DELETE FROM " + DBOperation.formatTabName("BIMRL_SPATIALINDEX"), commit: true);
+#endif
                collectSpatialIndexAndInsert(octreeInstance, federatedId);
             }
 
@@ -271,18 +278,7 @@ namespace BIMRL
                int commandStatus = commandUpdBbox.ExecuteNonQuery();
                DBOperation.commitTransaction();
             }
-#endif
-#if POSTGRES
-            for (int i=0; i<bboxList.Count; ++i)
-            {
-               commandUpdBbox.Parameters.Clear();
-               commandUpdBbox.Parameters.AddWithValue("bbox", NpgsqlDbType.Array, bboxList[i]);
-               commandUpdBbox.Parameters.AddWithValue("cent", centList[i]);
-               commandUpdBbox.Parameters.AddWithValue("eid", elemID);
-               int commandStatus = commandUpdBbox.ExecuteNonQuery();
-               DBOperation.commitTransaction();
-            }
-#endif
+            
             if (!string.IsNullOrEmpty(whereCond) && createSpIdx)
             {
                command.CommandText = "UPDATE BIMRL_FEDERATEDMODEL SET MAXOCTREELEVEL=" + Octree.MaxDepth.ToString() + " WHERE FEDERATEDID=" + federatedId.ToString();
@@ -290,10 +286,40 @@ namespace BIMRL
                DBOperation.commitTransaction();
             }
          }
-#if ORACLE
          catch (OracleException e)
+
 #endif
 #if POSTGRES
+            // The following is needed to update the element table with Bbox information
+            string sqlStmt3 = "UPDATE " + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " SET GeometryBody_BBOX = @bbox, "
+                              + "GeometryBody_BBOX_CENTROID = @cent WHERE ELEMENTID = @eid";
+            NpgsqlCommand commandUpdBbox = new NpgsqlCommand(sqlStmt3, DBOperation.DBConn);
+            //commandUpdBbox.Parameters.Add("@bbox", NpgsqlDbType.Array | NpgsqlDbType.Composite);
+            //commandUpdBbox.Parameters.Add("@cent", NpgsqlDbType.Composite);
+            //commandUpdBbox.Parameters.Add("@eid", NpgsqlDbType.Text);
+            //commandUpdBbox.Prepare();
+
+            for (int i = 0; i < bboxList.Count; ++i)
+            {
+               commandUpdBbox.Parameters.Clear();
+               Point3D[] bbox = bboxList[i];
+               commandUpdBbox.Parameters.AddWithValue("@bbox", NpgsqlDbType.Array|NpgsqlDbType.Composite, bbox);
+               Point3D centr = centList[i];
+               commandUpdBbox.Parameters.AddWithValue("@cent", centr);
+               commandUpdBbox.Parameters.AddWithValue("@eid", eidUpdList[i]);
+               //commandUpdBbox.Parameters["@bbox"].Value = bboxList[i];
+               //commandUpdBbox.Parameters["@cent"].Value = centList[i];
+               //commandUpdBbox.Parameters["@eid"].Value = elemID;
+               int commandStatus = commandUpdBbox.ExecuteNonQuery();
+            }
+            DBOperation.commitTransaction();
+            commandUpdBbox.Dispose();
+
+            if (!string.IsNullOrEmpty(whereCond) && createSpIdx)
+            {
+               DBOperation.ExecuteNonQueryWithTrans2("UPDATE BIMRL_FEDERATEDMODEL SET MAXOCTREELEVEL=" + Octree.MaxDepth.ToString() + " WHERE FEDERATEDID=" + federatedId.ToString());
+            }
+         }
          catch (NpgsqlException e)
 #endif
          {
@@ -306,7 +332,6 @@ namespace BIMRL
             _refBIMRLCommon.StackPushError(excStr);
             throw;
          }
-
          command.Dispose();
       }
 
@@ -660,14 +685,27 @@ namespace BIMRL
                _refBIMRLCommon.StackPushError(excStr);
                throw;
          }
+         commandIns.Dispose();
 #endif
 #if POSTGRES
          string sqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_SPATIALINDEX", federatedId) + " (ELEMENTID, CELLID, XMinBound, YMinBound, ZMinBound, XMaxBound, YMaxBound, ZMaxBound, Depth) "
                               + "VALUES (@eid, @cid, @xmin, @ymin, @zmin, @xmax, @ymax, @zmax, @dep)";
 
-         NpgsqlCommand commandIns = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         NpgsqlConnection arbConn = DBOperation.arbitraryConnection();
+         NpgsqlCommand commandIns = new NpgsqlCommand(sqlStmt, arbConn);
+         NpgsqlTransaction arbTrans = arbConn.BeginTransaction();
+         commandIns.Parameters.Add("@eid", NpgsqlDbType.Text);
+         commandIns.Parameters.Add("@cid", NpgsqlDbType.Text);
+         commandIns.Parameters.Add("@xmin", NpgsqlDbType.Integer);
+         commandIns.Parameters.Add("@ymin", NpgsqlDbType.Integer);
+         commandIns.Parameters.Add("@zmin", NpgsqlDbType.Integer);
+         commandIns.Parameters.Add("@xmax", NpgsqlDbType.Integer);
+         commandIns.Parameters.Add("@ymax", NpgsqlDbType.Integer);
+         commandIns.Parameters.Add("@zmax", NpgsqlDbType.Integer);
+         commandIns.Parameters.Add("@dep", NpgsqlDbType.Integer);
          commandIns.Prepare();
 
+         int recInsCount = 0;
          foreach (KeyValuePair<UInt64, Octree.CellData> dictEntry in octreeInstance.MasterDict)
          {
             CellID64 cellID = new CellID64(dictEntry.Key);
@@ -682,25 +720,35 @@ namespace BIMRL
                   ElementID eID = new ElementID(Octree.getElementIDByIndex(tupEID));
                   string elemID = eID.ElementIDString;
 
-                  commandIns.Parameters.Clear();
-                  commandIns.Parameters.AddWithValue("eid", elemID);
-                  commandIns.Parameters.AddWithValue("cid", cellIDstr);
-                  commandIns.Parameters.AddWithValue("xmin", XMin);
-                  commandIns.Parameters.AddWithValue("ymin", YMin);
-                  commandIns.Parameters.AddWithValue("zmin", ZMin);
-                  commandIns.Parameters.AddWithValue("xmax", XMax);
-                  commandIns.Parameters.AddWithValue("ymax", YMax);
-                  commandIns.Parameters.AddWithValue("zmax", ZMax);
-                  commandIns.Parameters.AddWithValue("dep", cellLevel);
+                  commandIns.Parameters["@eid"].Value = elemID;
+                  commandIns.Parameters["@cid"].Value = cellIDstr;
+                  commandIns.Parameters["@xmin"].Value = XMin;
+                  commandIns.Parameters["@ymin"].Value = YMin;
+                  commandIns.Parameters["@zmin"].Value = ZMin;
+                  commandIns.Parameters["@xmax"].Value = XMax;
+                  commandIns.Parameters["@ymax"].Value = YMax;
+                  commandIns.Parameters["@zmax"].Value = ZMax;
+                  commandIns.Parameters["@dep"].Value = cellLevel;
+
                   try
                   {
+                     arbTrans.Save("insSavePoint");
                      int commandStatus = commandIns.ExecuteNonQuery();
-                     DBOperation.commitTransaction();
+                     recInsCount++;
+                     if (recInsCount > DBOperation.commitInterval)
+                     {
+                        arbTrans.Commit();
+                        recInsCount = 0;
+                        arbTrans = arbConn.BeginTransaction();
+                     }
+                     else
+                        arbTrans.Release("insSavePoint");
                   }
                   catch (NpgsqlException e)
                   {
                      string excStr = "%%Insert Spatial Index Error - " + e.Message + "\n\t";
                      _refBIMRLCommon.StackPushIgnorableError(excStr);
+                     arbTrans.Rollback("insSavePoint");
                   }
                   catch (SystemException e)
                   {
@@ -712,8 +760,12 @@ namespace BIMRL
             }
          }
 
-#endif
+         if (recInsCount > 0)
+            arbTrans.Commit();
+
          commandIns.Dispose();
+         arbConn.Close();
+#endif
       }
    }
 }

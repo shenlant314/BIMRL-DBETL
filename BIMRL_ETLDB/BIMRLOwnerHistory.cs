@@ -224,7 +224,13 @@ namespace BIMRL
 
             try
             {
+#if POSTGRES
+               DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
+#endif
                int commandStatus = command.ExecuteNonQuery();
+#if POSTGRES
+               DBOperation.CurrTransaction.Release(DBOperation.def_savepoint);
+#endif	
                Tuple<int, int> ownHEntry = new Tuple<int, int>(ID, BIMRLProcessModel.currModelID);
                _refBIMRLCommon.OwnerHistoryAdd(ownHEntry);
             }
@@ -237,6 +243,9 @@ namespace BIMRL
             {
                string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
                _refBIMRLCommon.StackPushIgnorableError(excStr);
+#if POSTGRES
+               DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
+#endif
             }
             catch (SystemException e)
             {

@@ -143,7 +143,7 @@ namespace BIMRL
             // expand elementtype that has aggregation
             if (!string.IsNullOrEmpty(elemList))
             {
-               string sqlStmt = "SELECT UNIQUE AGGREGATEELEMENTTYPE FROM " + DBOperation.formatTabName("BIMRL_RELAGGREGATION") + " WHERE MASTERELEMENTTYPE IN (" + elemList + ")";
+               string sqlStmt = "SELECT DISTINCT AGGREGATEELEMENTTYPE FROM " + DBOperation.formatTabName("BIMRL_RELAGGREGATION") + " WHERE MASTERELEMENTTYPE IN (" + elemList + ")";
                currStep = sqlStmt;
 #if ORACLE
                OracleCommand cmdAT = new OracleCommand(sqlStmt, DBOperation.DBConn);
@@ -191,19 +191,13 @@ namespace BIMRL
                List<IDnType> boundaries = new List<IDnType>();
                string eid = readerEID.GetString(0);
 
-               string sqlStmt2 = "SELECT UNIQUE A.ELEMENTID FROM " + DBOperation.formatTabName("BIMRL_SPATIALINDEX")
+               string sqlStmt2 = "SELECT DISTINCT A.ELEMENTID FROM " + DBOperation.formatTabName("BIMRL_SPATIALINDEX")
                                     + " A, " + DBOperation.formatTabName("BIMRL_SPATIALINDEX") + " B "
                                     + " WHERE A.CELLID = B.CELLID AND B.ELEMENTID='" + eid + "' INTERSECT " + elemListCond;
 #if ORACLE
                OracleCommand cmd = new OracleCommand(sqlStmt2, DBOperation.DBConn);
                cmd.FetchSize = 500;
                OracleDataReader reader2;
-#endif
-#if POSTGRES
-               NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt2, DBOperation.DBConn);
-               cmd.Prepare();
-               NpgsqlDataReader reader2;
-#endif
                currStep = sqlStmt2;
                reader2 = cmd.ExecuteReader();
                while (reader2.Read())
@@ -216,6 +210,32 @@ namespace BIMRL
                spaceNBoundary.Add(eid,boundaries);
                reader2.Dispose();
                cmd.Dispose();
+#endif
+#if POSTGRES
+               DataTable dt = DBOperation.ExecuteToDataTableWithTrans2(sqlStmt2);
+               foreach (DataRow row in dt.Rows)
+               {
+                  string bid = (string) row[0];
+                  string etype = "";
+                  IDnType boundaryInfo = new IDnType { elementId = bid, elementType = etype };
+                  boundaries.Add(boundaryInfo);
+               }
+               //NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt2, DBOperation.DBConn);
+               //cmd.Prepare();
+               //NpgsqlDataReader reader2;
+               //currStep = sqlStmt2;
+               //reader2 = cmd.ExecuteReader();
+               //while (reader2.Read())
+               //{
+               //   string bid = reader2.GetString(0);
+               //   string etype = "";
+               //   IDnType boundaryInfo = new IDnType { elementId = bid, elementType = etype };
+               //   boundaries.Add(boundaryInfo);
+               //}
+               spaceNBoundary.Add(eid,boundaries);
+               //reader2.Dispose();
+               //cmd.Dispose();
+#endif
             }
 
             readerEID.Dispose();
@@ -256,12 +276,13 @@ namespace BIMRL
 #if POSTGRES
                   sqlStmt3 = "INSERT INTO BIMRLQUERYTEMP (ID1) VALUES (@id1)";
                   NpgsqlCommand addCmd = new NpgsqlCommand(sqlStmt3, DBOperation.DBConn);
-                  addCmd.Prepare();
                   currStep = sqlStmt3;
                   foreach (IDnType it in spb.Value)
                   {
                      addCmd.Parameters.Clear();
-                     addCmd.Parameters.AddWithValue("id1", it.elementId);
+                     addCmd.Parameters.AddWithValue("@id1", NpgsqlDbType.Text, it.elementId);
+                     addCmd.Prepare();
+
                      addCmd.ExecuteNonQuery();
                   }
 #endif
@@ -591,24 +612,31 @@ namespace BIMRL
                   + " VALUES (@spid, @sface, @scpt, @bid, @bface, @bcpt, @spoly, @snorm, @san, @sfctr, @bpoly, @bnorm, @ban, @bctr)";
             currStep = insStmt;
             NpgsqlCommand insCmd = new NpgsqlCommand(insStmt, DBOperation.DBConn);
-            insCmd.Prepare();
+
             for (int i = 0; i < spaceEID.Count; ++i)
             {
                insCmd.Parameters.Clear();
-               insCmd.Parameters.AddWithValue("spid", spaceEID[i]);
-               insCmd.Parameters.AddWithValue("sface", sFaceBoundID[i]);
-               insCmd.Parameters.AddWithValue("scpt", commonPointAtS[i]);
-               insCmd.Parameters.AddWithValue("bid", boundaryEID[i]);
-               insCmd.Parameters.AddWithValue("bface", bFaceBoundID[i]);
-               insCmd.Parameters.AddWithValue("bcpt", commonPointAtB[i]);
-               insCmd.Parameters.AddWithValue("spoly", NpgsqlDbType.Jsonb, SFpolygonList[i]);
-               insCmd.Parameters.AddWithValue("snorm", SFnormalList[i]);
-               insCmd.Parameters.AddWithValue("san", SFanglefromnorthList[i]);
-               insCmd.Parameters.AddWithValue("sfctr", SFcentroidList[i]);
-               insCmd.Parameters.AddWithValue("bpoly", NpgsqlDbType.Jsonb, BFpolygonList[i]);
-               insCmd.Parameters.AddWithValue("bnorm", BFnormalList[i]);
-               insCmd.Parameters.AddWithValue("ban", BFanglefromnorthList[i]);
-               insCmd.Parameters.AddWithValue("bctr", BFcentroidList[i]);
+               insCmd.Parameters.AddWithValue("@spid", spaceEID[i]);
+               insCmd.Parameters.AddWithValue("@sface", sFaceBoundID[i]);
+               if (BIMRLUtils.IsNull(commonPointAtS[i]))
+                  insCmd.Parameters.AddWithValue("@scpt", DBNull.Value);
+               else
+                  insCmd.Parameters.AddWithValue("@scpt", commonPointAtS[i]);
+               insCmd.Parameters.AddWithValue("@bid", boundaryEID[i]);
+               insCmd.Parameters.AddWithValue("@bface", bFaceBoundID[i]);
+               if (BIMRLUtils.IsNull(commonPointAtB[i]))
+                  insCmd.Parameters.AddWithValue("@bcpt", DBNull.Value);
+               else
+                  insCmd.Parameters.AddWithValue("@bcpt", commonPointAtB[i]);
+               insCmd.Parameters.AddWithValue("@spoly", NpgsqlDbType.Jsonb, SFpolygonList[i]);
+               insCmd.Parameters.AddWithValue("@snorm", SFnormalList[i]);
+               insCmd.Parameters.AddWithValue("@san", SFanglefromnorthList[i]);
+               insCmd.Parameters.AddWithValue("@sfctr", SFcentroidList[i]);
+               insCmd.Parameters.AddWithValue("@bpoly", NpgsqlDbType.Jsonb, BFpolygonList[i]);
+               insCmd.Parameters.AddWithValue("@bnorm", BFnormalList[i]);
+               insCmd.Parameters.AddWithValue("@ban", BFanglefromnorthList[i]);
+               insCmd.Parameters.AddWithValue("@bctr", BFcentroidList[i]);
+               //insCmd.Prepare();
                insCmd.ExecuteNonQuery();
             }
             DBOperation.commitTransaction();
@@ -751,10 +779,10 @@ namespace BIMRL
          OracleCommand cmd = new OracleCommand("", DBOperation.DBConn);
 #endif
 #if POSTGRES
-         NpgsqlCommand cmd = new NpgsqlCommand("", DBOperation.DBConn);
+         //NpgsqlCommand cmd = new NpgsqlCommand("", DBOperation.DBConn);
 #endif
          string idlist = "";
-
+         string stmt = "";
          try
          {
             // 1. Test for top
@@ -803,11 +831,17 @@ namespace BIMRL
                         idlist += ", ";
                   idlist += "'" + faceidList[faceIdxColl[k]] + "'";
                }
-               cmd.CommandText = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
+               stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
                                     + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4")
                                     + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
 
+#if ORACLE
+               cmd.CommandText = stmt;
                int stat = cmd.ExecuteNonQuery();
+#endif
+#if POSTGRES
+               DBOperation.ExecuteNonQueryWithTrans2(stmt);
+#endif
 
                for (int j = removeFromList.Count - 1; j >= 0; --j)
                {
@@ -858,11 +892,17 @@ namespace BIMRL
                         idlist += ", ";
                      idlist += "'" + faceidList[faceIdxColl[k]] + "'";
                   }
-                  cmd.CommandText = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
+
+                  stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
                                        + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4")
                                        + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
-
+#if ORACLE
+                  cmd.CommandText = stmt;
                   int stat = cmd.ExecuteNonQuery();
+#endif
+#if POSTGRES
+                  DBOperation.ExecuteNonQueryWithTrans2(stmt);
+#endif
                   normalList.RemoveAt(prevIdx);
                   faceidList.RemoveAt(prevIdx);
                   polygonList.RemoveAt(prevIdx);
@@ -917,11 +957,16 @@ namespace BIMRL
                      idlist += ", ";
                   idlist += "'" + faceidList[faceIdxColl[k]] + "'";
                }
-               cmd.CommandText = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
+               stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
                                     + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4")
                                     + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
-
+#if ORACLE
+               cmd.CommandText = stmt;
                int stat = cmd.ExecuteNonQuery();
+#endif
+#if POSTGRES
+               DBOperation.ExecuteNonQueryWithTrans2(stmt);
+#endif
 
                for (int j = removeFromList.Count - 1; j >= 0; --j)
                {
@@ -968,11 +1013,19 @@ namespace BIMRL
                         idlist += ", ";
                      idlist += "'" + faceidList[faceIdxColl[k]] + "'";
                   }
-                  cmd.CommandText = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
-                                       + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4")
-                                       + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
 
+                  stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
+                     + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4")
+                     + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
+
+#if ORACLE
+                  cmd.CommandText = stmt;
                   int stat = cmd.ExecuteNonQuery();
+#endif
+#if POSTGRES
+                  DBOperation.ExecuteNonQueryWithTrans2(stmt);
+#endif
+
                   normalList.RemoveAt(prevIdx);
                   faceidList.RemoveAt(prevIdx);
                   polygonList.RemoveAt(prevIdx);
@@ -1018,16 +1071,16 @@ namespace BIMRL
                   {
                      fIdList.Add(faceidList[faceIdxColl[k]]);
                   }
-//#if ORACLE
-//                  OracleParameter par = new OracleParameter();
-//                  par = cmd.Parameters.Add("1", OracleDbType.Varchar2);
-//                  par.Value = fIdList.ToArray();
-//                  par.Size = fIdList.Count;
-//#endif
-                                          
+                  //#if ORACLE
+                  //                  OracleParameter par = new OracleParameter();
+                  //                  par = cmd.Parameters.Add("1", OracleDbType.Varchar2);
+                  //                  par.Value = fIdList.ToArray();
+                  //                  par.Size = fIdList.Count;
+                  //#endif
+
+#if ORACLE                      
                   DBOperation.executeSingleStmt("DELETE FROM BIMRLQUERYTEMP");
 
-#if ORACLE
                   OracleCommand addCmd = new OracleCommand("INSERT INTO BIMRLQUERYTEMP (ID1) VALUES (:1)", DBOperation.DBConn);
                   OracleParameter param = new OracleParameter();
                   param = addCmd.Parameters.Add("1", OracleDbType.Varchar2);
@@ -1036,16 +1089,23 @@ namespace BIMRL
                   addCmd.ExecuteNonQuery();
 #endif
 #if POSTGRES
-                  NpgsqlCommand addCmd = new NpgsqlCommand("INSERT INTO BIMRLQUERYTEMP (ID1) VALUES (@id1)", DBOperation.DBConn);
-                  addCmd.Prepare();
-                  foreach(string id in fIdList)
-                  {
-                     addCmd.Parameters.Clear();
-                     addCmd.Parameters.AddWithValue(id);
-                     addCmd.ExecuteNonQuery();
-                  }
+                  DBOperation.ExecuteNonQueryWithTrans2("DELETE FROM BIMRLQUERYTEMP");
+                  //NpgsqlCommand addCmd = new NpgsqlCommand("INSERT INTO BIMRLQUERYTEMP (ID1) VALUES (@id1)", DBOperation.DBConn);
+
+                  //foreach(string id in fIdList)
+                  //{
+                  //   addCmd.Parameters.Clear();
+                  //   addCmd.Parameters.AddWithValue(NpgsqlDbType.Text, id);
+                  //   //addCmd.Prepare();
+                  //   addCmd.ExecuteNonQuery();
+                  //}
+                  IList<object> parList = new List<object>();
+                  foreach (string id in fIdList)
+                     parList.Add(id);
+
+                  DBOperation.ExecuteNonQueryWithTrans2("INSERT INTO BIMRLQUERYTEMP (ID1) VALUES (@0)", parList);
 #endif
-                  cmd.CommandText = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
+                  stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
                                        + " WHERE ELEMENTID='" + elemid + "' AND ID IN ( SELECT ID1 FROM BIMRLQUERYTEMP )";
                }
                else
@@ -1056,11 +1116,16 @@ namespace BIMRL
                         idlist += ", ";
                      idlist += "'" + faceidList[faceIdxColl[k]] + "'";
                   }
-                  cmd.CommandText = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
+                  stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
                                        + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
                }
+#if ORACLE
+               cmd.CommandText = stmt;
                int stat = cmd.ExecuteNonQuery();
-
+#endif
+#if POSTGRES
+               DBOperation.ExecuteNonQueryWithTrans2(stmt);
+#endif
                for (int j = removeFromList.Count - 1; j >= 0; --j)
                {
                   normalList.RemoveAt(removeFromList[j]);
@@ -1069,7 +1134,6 @@ namespace BIMRL
                   polygonList.RemoveAt(removeFromList[j]);
                }
             }
-            DBOperation.commitTransaction();
          }
 #if ORACLE
          catch (OracleException e)
@@ -1209,7 +1273,7 @@ namespace BIMRL
 
          SortedList<double, Tuple<string, Vector3D>> faceArea = new SortedList<double,Tuple<string,Vector3D>>();
 
-         string sqlStmt = "SELECT A.ID, SDO_GEOM.SDO_AREA(A.POLYGON, B.DIMINFO) AREA, A.NORMAL FROM " + DBOperation.formatTabName("BIMRL_TOPOFACEV4")
+         string sqlStmt = "SELECT A.ID, SDO_GEOM.SDO_AREA(A.POLYGON, B.DIMINFO) AREA, A.NORMAL FROM " + DBOperation.formatTabName("BIMRL_TOPOFACEV")
                            + " A, ALL_SDO_GEOM_METADATA B WHERE A.ELEMENTID='" + elemid + "' AND A.ORIENTATION='" + faceOrientation.SIDE.ToString() + "' AND"
                            + " B.TABLE_NAME='BIMRL_TOPO_FACE_" + DBOperation.currFedModel.FederatedID.ToString("X4") + "' AND OWNER='" + DBOperation.currFedModel.Owner + "'"
                            + " AND B.COLUMN_NAME='POLYGON' ORDER BY AREA DESC";
@@ -1241,7 +1305,7 @@ namespace BIMRL
             }
             reader.Dispose();
 
-            List<Tuple<string, string>> leafList = new List<Tuple<string,string>>();
+            List<Tuple<string, string>> leafList = new List<Tuple<string, string>>();
             Vector3D firstNorm = null;
             Vector3D revfirstNorm = null;
             double lastArea = double.MinValue;
@@ -1306,9 +1370,15 @@ namespace BIMRL
             pars[1].Size = 1;
 #endif
 #if POSTGRES
-            string sqlUpd = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPOFACEV") + " SET ATTRIBUTE=@1 WHERE ELEMENTID='" + elemid + "' AND ID=@2";
-            NpgsqlCommand cmdUpd = new NpgsqlCommand(sqlUpd, DBOperation.DBConn);
-            cmd.Prepare();
+            NpgsqlConnection arbConn = DBOperation.arbitraryConnection();
+            NpgsqlTransaction arbTrans = arbConn.BeginTransaction();
+            string sqlUpd = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPOFACEV") + " SET ATTRIBUTE=@attr WHERE ELEMENTID=@elemid AND ID=@id";
+            NpgsqlCommand cmdUpd = new NpgsqlCommand(sqlUpd, arbConn);
+
+            cmdUpd.Parameters.Add("@elemid", NpgsqlDbType.Text);
+            cmdUpd.Parameters.Add("@attr", NpgsqlDbType.Text);
+            cmdUpd.Parameters.Add("@id", NpgsqlDbType.Text);
+            //cmdUpd.Prepare();
 #endif
             currStmt = sqlUpd;
             foreach (Tuple<string, string> panel in leafList)
@@ -1318,18 +1388,28 @@ namespace BIMRL
                pars[1].Value = panel.Item1;
 #endif
 #if POSTGRES
-               cmd.Parameters.Clear();
-               cmd.Parameters.AddWithValue("1", panel.Item2);
-               cmd.Parameters.AddWithValue("2", panel.Item1);
+               cmdUpd.Parameters["@elemid"].Value = elemid;
+               if (string.IsNullOrEmpty(panel.Item2))
+                  cmdUpd.Parameters["@attr"].Value = DBNull.Value;
+               else
+                  cmdUpd.Parameters["@attr"].Value = panel.Item2;
+               if (string.IsNullOrEmpty(panel.Item1))
+                  cmdUpd.Parameters["@id"].Value = DBNull.Value;
+               else
+                  cmdUpd.Parameters["@id"].Value = panel.Item1;
 #endif
                cmdUpd.ExecuteNonQuery();
             }
+#if ORACLE
             DBOperation.commitTransaction();
          }
-#if ORACLE
          catch (OracleException e)
 #endif
 #if POSTGRES
+            arbTrans.Commit();
+            cmdUpd.Dispose();
+            arbConn.Close();
+         }
          catch (NpgsqlException e)
 #endif
          {

@@ -149,8 +149,22 @@ namespace BIMRL
 #if POSTGRES
          string sqlStmt = "Insert into " + DBOperation.formatTabName("BIMRL_TYPE") + "(ElementId, IfcType, Name, Description, ApplicableOccurrence"
                            + ", Tag, ElementType, PredefinedType, AssemblyPlace, OperationType, ConstructionType, OwnerHistoryID, ModelID)"
-                           + " Values (@1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13)";
+                           + " Values (@eid, @ifctyp, @name, @desc, @applo, @tag, @etyp, @pdtyp, @asspl, @optyp, @ctyp, @ownh, @modid)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+
+         command.Parameters.Add("@eid", NpgsqlDbType.Text);
+         command.Parameters.Add("@ifctyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@name", NpgsqlDbType.Text);
+         command.Parameters.Add("@desc", NpgsqlDbType.Text);
+         command.Parameters.Add("@applo", NpgsqlDbType.Text);
+         command.Parameters.Add("@tag", NpgsqlDbType.Text);
+         command.Parameters.Add("@etyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@pdtyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@asspl", NpgsqlDbType.Text);
+         command.Parameters.Add("@optyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@ctyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@ownh", NpgsqlDbType.Integer);
+         command.Parameters.Add("@modid", NpgsqlDbType.Integer);
          command.Prepare();
 
          IEnumerable<IIfcTypeProduct> types = _model.Instances.OfType<IIfcTypeProduct>();
@@ -243,6 +257,7 @@ namespace BIMRL
             BIMRLProperties tProps = new BIMRLProperties(_refBIMRLCommon);
             tProps.processTypeProperties(typ);
          }
+         DBOperation.commitTransaction();
       }
 
 #if ORACLE
@@ -250,6 +265,7 @@ namespace BIMRL
                         string PDType, string APl, string opType, string consType, int ownerHist, int modelID)
       {
          OracleParameter[] Param = new OracleParameter[13];
+         command.Parameters.Clear();
          for (int i = 0; i < 11; i++)
          {
             Param[i] = command.Parameters.Add(i.ToString(), OracleDbType.Varchar2);
@@ -302,37 +318,71 @@ namespace BIMRL
       private void insType(NpgsqlCommand command, string guid, string ifcType, string name, string desc, string appO, string tag, string eType,
                         string PDType, string APl, string opType, string consType, int ownerHist, int modelID)
       {
-         command.Parameters.Clear();
-         command.Parameters.AddWithValue("1", guid);
-         command.Parameters.AddWithValue("2", ifcType);
-         command.Parameters.AddWithValue("3", name);
-         command.Parameters.AddWithValue("4", desc);
-         command.Parameters.AddWithValue("5", appO);
-         command.Parameters.AddWithValue("6", tag);
-         command.Parameters.AddWithValue("7", eType);
-         command.Parameters.AddWithValue("8", PDType);
-         command.Parameters.AddWithValue("9", APl);
-         command.Parameters.AddWithValue("10", opType);
-         command.Parameters.AddWithValue("11", consType);
+         command.Parameters["@eid"].Value = guid;
+         command.Parameters["@ifctyp"].Value = ifcType;
+         command.Parameters["@name"].Value = name;
+         
+         if (string.IsNullOrEmpty(desc))
+            command.Parameters["@desc"].Value = DBNull.Value;
+         else
+            command.Parameters["@desc"].Value = desc;
+
+         if (string.IsNullOrEmpty(appO))
+            command.Parameters["@applo"].Value = DBNull.Value;
+         else
+            command.Parameters["@applo"].Value = appO;
+
+         if (string.IsNullOrEmpty(tag))
+            command.Parameters["@tag"].Value = DBNull.Value;
+         else
+            command.Parameters["@tag"].Value = tag;
+
+         if (string.IsNullOrEmpty(eType))
+            command.Parameters["@etyp"].Value = DBNull.Value;
+         else
+            command.Parameters["@etyp"].Value = eType;
+
+         if (string.IsNullOrEmpty(PDType))
+            command.Parameters["@pdtyp"].Value = DBNull.Value;
+         else
+            command.Parameters["@pdtyp"].Value = PDType;
+
+         if (string.IsNullOrEmpty(APl))
+            command.Parameters["@asspl"].Value = DBNull.Value;
+         else
+            command.Parameters["@asspl"].Value = APl;
+
+         if (string.IsNullOrEmpty(opType))
+            command.Parameters["@optyp"].Value = DBNull.Value;
+         else
+            command.Parameters["@optyp"].Value = opType;
+
+         if (string.IsNullOrEmpty(consType))
+            command.Parameters["@ctyp"].Value = DBNull.Value;
+         else
+            command.Parameters["@ctyp"].Value = consType;
 
          if (ownerHist >= 0)
-            command.Parameters.AddWithValue("12", ownerHist);
+            command.Parameters["@ownh"].Value = ownerHist;
          else
-            command.Parameters.AddWithValue("12", DBNull.Value);
+            command.Parameters["@ownh"].Value = DBNull.Value;
 
          if (modelID >= 0)
-            command.Parameters.AddWithValue("13", modelID);
+            command.Parameters["@modid"].Value = modelID;
          else
-            command.Parameters.AddWithValue("12", DBNull.Value);
+            command.Parameters["@modid"].Value = DBNull.Value;
 
          try
          {
+            DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
             int commandStatus = command.ExecuteNonQuery();
+            DBOperation.CurrTransaction.Release(DBOperation.def_savepoint);
          }
          catch (NpgsqlException e)
          {
             string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
             _refBIMRLCommon.StackPushIgnorableError(excStr);
+            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
          }
          catch (SystemException e)
          {
@@ -340,6 +390,7 @@ namespace BIMRL
             _refBIMRLCommon.StackPushError(excStr);
             throw;
          }
+
       }
 #endif
    }

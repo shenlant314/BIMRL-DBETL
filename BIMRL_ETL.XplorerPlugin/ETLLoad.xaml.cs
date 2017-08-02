@@ -38,8 +38,13 @@ namespace BIMRL.BIMRL_ETL
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    [XplorerUiElement(PluginWindowUiContainerEnum.Dialog, PluginWindowActivation.OnMenu, "Load Model to BIMRL")]
-    public partial class ETLLoad : Window, IXbimXplorerPluginWindow
+#if ORACLE
+    [XplorerUiElement(PluginWindowUiContainerEnum.Dialog, PluginWindowActivation.OnMenu, "Load Model to BIMRL (Oracle)")]
+#endif
+#if POSTGRES
+    [XplorerUiElement(PluginWindowUiContainerEnum.Dialog, PluginWindowActivation.OnMenu, "Load Model to BIMRL (PostgreSQL)")]
+#endif
+   public partial class ETLLoad : Window, IXbimXplorerPluginWindow
     {
       public ETLLoad()
       {

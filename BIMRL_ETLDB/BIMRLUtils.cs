@@ -105,13 +105,15 @@ namespace BIMRL
             if (geombody == null || polyHList == null || polyHList.Count == 0)
                continue;      // something wrong, unable to get the polyhedron, skip
 
-            foreach (Polyhedron polyH in polyHList)
-            {
+            Polyhedron polyH = Polyhedron.UnionPolyhedronList(polyHList);
+
+            //foreach (Polyhedron polyH in polyHList)
+            //{
                BIMRLGeometryPostProcess postProc = new BIMRLGeometryPostProcess(elementid, polyH, bimrlCommon, fedID, null);
                postProc.deriveMajorAxes();
                postProc.trueOBBFaces();
                postProc.projectedFaces();
-            }
+            //}
 #endif
          }
          reader.Close();
@@ -247,7 +249,7 @@ namespace BIMRL
                sdoGeom[4].Value = trcol4;
 #endif
 #if POSTGRES
-            sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT", fedID) + " set TRANSFORM_COL=@1"
+            sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT", fedID) + " set TRANSFORM_COL=@trf"
                + " Where elementid = '" + elemListItem.Value + "'";
             command.CommandText = sqlStmt;
 
@@ -270,7 +272,8 @@ namespace BIMRL
                transf[3, 1] = 0;
                transf[3, 2] = 0;
                transf[3, 3] = 1;
-               command.Parameters.AddWithValue("1", NpgsqlDbType.Array | NpgsqlDbType.Double, transf);
+               command.Parameters.Clear();
+               command.Parameters.AddWithValue("@trf", NpgsqlDbType.Array | NpgsqlDbType.Double, transf);
 #endif
                currStep = sqlStmt;
 
@@ -658,6 +661,8 @@ namespace BIMRL
             if (dEnum.HasValue)
                m_IfcProjectDerivedUnitRep.TryGetValue(dEnum.Value, out unitRepStr);
          }
+         if (string.IsNullOrEmpty(unitRepStr))
+            m_PropTypeProcessedNoRep.Add(propType.Name);       // Add to a list of type that does not have any unit
 
          return unitRepStr;
       }
@@ -672,22 +677,25 @@ namespace BIMRL
             if (!m_IfcPropTypeToNamedUnitEnum.TryGetValue(propType, out propUnitEnumValue))
             {
                //string typeStr = (propType.Replace("IFC", "").Replace("MEASURE", "") + "UNIT").ToUpper();   // Trim the IFC and Measure
-               string typeStr;
-               if (string.Compare(propType, propType.Length - 7, "MEASURE", 0, 7, ignoreCase: true) == 0)
-                  typeStr = propType.Substring(3, propType.Length - 10).ToUpper() + "UNIT";
-               else
-                  typeStr = propType.Substring(3, propType.Length - 3).ToUpper() + "UNIT";   // Trim the IFC and Measure
+               string typeStr = propType;
+               if (string.Compare(propType, 0, "IFC", 0, 3) == 0)
+               {
+                  if (string.Compare(propType, propType.Length - 7, "MEASURE", 0, 7, ignoreCase: true) == 0)
+                     typeStr = propType.Substring(3, propType.Length - 10).ToUpper() + "UNIT";
+                  else
+                     typeStr = propType.Substring(3, propType.Length - 3).ToUpper() + "UNIT";   // Trim the IFC and Measure
+               }
                IfcUnitEnum uEnum;
                if (Enum.TryParse<IfcUnitEnum>(typeStr, out uEnum))
                {
                   m_IfcPropTypeToNamedUnitEnum.Add(propType, uEnum);
                   propUnitEnum = uEnum;
                }
-               else
-               {
-                  // The type has no associated Enum, keep it in HashSet so that we can skip it the next time without expensive EnumTryPass
-                  m_PropTypeProcessedNoRep.Add(propType);
-               }
+               //else
+               //{
+               //   // The type has no associated Enum, keep it in HashSet so that we can skip it the next time without expensive EnumTryPass
+               //   m_PropTypeProcessedNoRep.Add(propType);
+               //}
             }
             else
                propUnitEnum = propUnitEnumValue;
@@ -705,22 +713,25 @@ namespace BIMRL
             if (!m_IfcPropTypeToDerivedUnitEnum.TryGetValue(propType, out propUnitEnumValue))
             {
                //string typeStr = (propType.Replace("IFC", "").Replace("MEASURE", "") + "UNIT").ToUpper();   // Trim the IFC and Measure
-               string typeStr;
-               if (string.Compare(propType, propType.Length - 7, "MEASURE", 0, 7, ignoreCase: true) == 0)
-                  typeStr = propType.Substring(3, propType.Length - 10).ToUpper() + "UNIT";
-               else
-                  typeStr = propType.Substring(3, propType.Length - 3).ToUpper() + "UNIT";   // Trim the IFC and Measure
+               string typeStr = propType;
+               if (string.Compare(propType, 0, "IFC", 0, 3) == 0)
+               {
+                  if (string.Compare(propType, propType.Length - 7, "MEASURE", 0, 7, ignoreCase: true) == 0)
+                     typeStr = propType.Substring(3, propType.Length - 10).ToUpper() + "UNIT";
+                  else
+                     typeStr = propType.Substring(3, propType.Length - 3).ToUpper() + "UNIT";   // Trim the IFC and Measure
+               }
                IfcDerivedUnitEnum dEnum;
                if (Enum.TryParse<IfcDerivedUnitEnum>(typeStr, out dEnum))
                {
                   m_IfcPropTypeToDerivedUnitEnum.Add(propType, dEnum);
                   propUnitEnum = dEnum;
                }
-               else
-               {
-                  // The type has no associated Enum, keep it in HashSet so that we can skip it the next time without expensive EnumTryPass
-                  m_PropTypeProcessedNoRep.Add(propType);
-               }
+               //else
+               //{
+               //   // The type has no associated Enum, keep it in HashSet so that we can skip it the next time without expensive EnumTryPass
+               //   m_PropTypeProcessedNoRep.Add(propType);
+               //}
             }
             else
                propUnitEnum = propUnitEnumValue;
@@ -728,5 +739,9 @@ namespace BIMRL
          return propUnitEnum;
       }
 
+      public static bool IsNull(this object T)
+      {
+         return T == null ? true : false;
+      }
    }
 }

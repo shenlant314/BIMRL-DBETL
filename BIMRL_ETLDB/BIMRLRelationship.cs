@@ -95,6 +95,11 @@ namespace BIMRL
          sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELAGGREGATION")
                      + " (MASTERELEMENTID, MASTERELEMENTTYPE, AGGREGATEELEMENTID, AGGREGATEELEMENTTYPE) values (@mGuids, @mType, @aGuids, @aType )";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+
+         command.Parameters.Add("@mGuids", NpgsqlDbType.Text);
+         command.Parameters.Add("@mType", NpgsqlDbType.Text);
+         command.Parameters.Add("@aGuids", NpgsqlDbType.Text);
+         command.Parameters.Add("@aType", NpgsqlDbType.Text);
          command.Prepare();
 #endif
          currStep = sqlStmt;
@@ -159,13 +164,14 @@ namespace BIMRL
                }
 #endif
 #if POSTGRES
-               command.Parameters.Clear();
-               command.Parameters.AddWithValue("mGuids", aggrGuid);
-               command.Parameters.AddWithValue("mType", aggrType);
-               command.Parameters.AddWithValue("aGuids", relObj.GlobalId.ToString());
-               command.Parameters.AddWithValue("aType", relObj.GetType().Name.ToUpper());
+               command.Parameters["@mGuids"].Value = aggrGuid;
+               command.Parameters["@mType"].Value = aggrType;
+               command.Parameters["@aGuids"].Value = relObj.GlobalId.ToString();
+               command.Parameters["@aType"].Value = relObj.GetType().Name.ToUpper();
+
                try
                {
+                  DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
                   commandStatus = command.ExecuteNonQuery();
                   //Do commit at interval but keep the long transaction (reopen)
                   DBOperation.commitTransaction();
@@ -174,6 +180,7 @@ namespace BIMRL
                {
                   string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
                   _refBIMRLCommon.StackPushIgnorableError(excStr);
+                  DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
                   continue;
                }
                catch (SystemException e)
@@ -218,6 +225,7 @@ namespace BIMRL
             }
          }
 #endif
+
          DBOperation.commitTransaction();
          command.Dispose();
       }
@@ -271,8 +279,22 @@ namespace BIMRL
             + " (CONNECTINGELEMENTID, CONNECTINGELEMENTTYPE, CONNECTINGELEMENTATTRNAME, CONNECTINGELEMENTATTRVALUE, "
             + "CONNECTEDELEMENTID, CONNECTEDELEMENTTYPE, CONNECTEDELEMENTATTRNAME, CONNECTEDELEMENTATTRVALUE, "
             + "CONNECTIONATTRNAME, CONNECTIONATTRVALUE, REALIZINGELEMENTID, REALIZINGELEMENTTYPE, RELATIONSHIPTYPE) "
-            + "VALUES (@1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13)";
+            + "VALUES (@ieid, @ietyp, @iattrn, @iattrv, @deid, @detyp, @dattrn, @dattrv, @cattrn, @cattrv, @reid, @retyp, @rtyp)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+
+         command.Parameters.Add("@ieid", NpgsqlDbType.Text);
+         command.Parameters.Add("@ietyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@iattrn", NpgsqlDbType.Text);
+         command.Parameters.Add("@iattrv", NpgsqlDbType.Text);
+         command.Parameters.Add("@deid", NpgsqlDbType.Text);
+         command.Parameters.Add("@detyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@dattrn", NpgsqlDbType.Text);
+         command.Parameters.Add("@dattrv", NpgsqlDbType.Text);
+         command.Parameters.Add("@cattrn", NpgsqlDbType.Text);
+         command.Parameters.Add("@cattrv", NpgsqlDbType.Text);
+         command.Parameters.Add("@reid", NpgsqlDbType.Text);
+         command.Parameters.Add("@retyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@rtyp", NpgsqlDbType.Text);
          command.Prepare();
 #endif
          int commandStatus = -1;
@@ -288,6 +310,7 @@ namespace BIMRL
                portElemVal = new Dictionary<string, string>();
             portElemVal.Add("RELATEDELEMENT", pte.RelatedElement.GlobalId.ToString());
             portElemVal.Add("RELATEDELEMENTTYPE", pte.RelatedElement.GetType().Name.ToUpper());
+            _refBIMRLCommon.PortToElemAdd(pte.RelatingPort.GlobalId.ToString(), portElemVal);
          }
 
          IEnumerable<IIfcRelConnects> rels = _model.Instances.OfType<IIfcRelConnects>().Where
@@ -897,8 +920,14 @@ namespace BIMRL
 #endif
 #if POSTGRES
          sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELSPACEBOUNDARY")
-                     + " (SPACEELEMENTID, BOUNDARYELEMENTID, BOUNDARYELEMENTTYPE, BOUNDARYTYPE, INTERNALOREXTERNAL) values (@1, @2, @3, @4, @5)";
+                     + " (SPACEELEMENTID, BOUNDARYELEMENTID, BOUNDARYELEMENTTYPE, BOUNDARYTYPE, INTERNALOREXTERNAL) values (@sid, @bid, @betyp, @btyp, @intext)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+
+         command.Parameters.Add("@sid", NpgsqlDbType.Text);
+         command.Parameters.Add("@bid", NpgsqlDbType.Text);
+         command.Parameters.Add("@betyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@btyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@intext", NpgsqlDbType.Text);
          command.Prepare();
 #endif
          currStep = sqlStmt;
@@ -1066,15 +1095,21 @@ namespace BIMRL
 #if POSTGRES
       private void insSpaceBoundary(NpgsqlCommand command, string spaceGuid, string boundGuid, string BoundElemType, string boundaryType, string internalOrExternal)
       {
-         command.Parameters.Clear();
-         command.Parameters.AddWithValue("1", spaceGuid);
-         command.Parameters.AddWithValue("2", boundGuid);
-         command.Parameters.AddWithValue("3", BoundElemType);
-         command.Parameters.AddWithValue("4", boundaryType);
-         command.Parameters.AddWithValue("5", internalOrExternal);
+         command.Parameters["@sid"].Value = spaceGuid;
+         command.Parameters["@bid"].Value = boundGuid;
+         command.Parameters["@betyp"].Value = BoundElemType;
+         if (string.IsNullOrEmpty(boundaryType))
+            command.Parameters["@btyp"].Value = DBNull.Value;
+         else
+            command.Parameters["@btyp"].Value = boundaryType;
+         if (string.IsNullOrEmpty(internalOrExternal))
+            command.Parameters["@intext"].Value = DBNull.Value;
+         else
+            command.Parameters["@intext"].Value = internalOrExternal;
 
          try
          {
+            DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
             command.ExecuteNonQuery();
             //Do commit at interval but keep the long transaction (reopen)
             DBOperation.commitTransaction();
@@ -1083,6 +1118,7 @@ namespace BIMRL
          {
             string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
             _refBIMRLCommon.StackPushIgnorableError(excStr);
+            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
          }
          catch (SystemException e)
          {
@@ -1121,8 +1157,13 @@ namespace BIMRL
 #endif
 #if POSTGRES
          sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_RELGROUP")
-                     + " (GROUPELEMENTID, GROUPELEMENTTYPE, MEMBERELEMENTID, MEMBERELEMENTTYPE) values (@1, @2, @3, @4)";
+                     + " (GROUPELEMENTID, GROUPELEMENTTYPE, MEMBERELEMENTID, MEMBERELEMENTTYPE) values (@gid, @gtyp, @mid, @mtyp)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+
+         command.Parameters.Add("@gid", NpgsqlDbType.Text);
+         command.Parameters.Add("@gtyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@mid", NpgsqlDbType.Text);
+         command.Parameters.Add("@mtyp", NpgsqlDbType.Text);
          command.Prepare();
 #endif
          currStep = sqlStmt;
@@ -1202,14 +1243,14 @@ namespace BIMRL
                if (_refBIMRLCommon.getLineNoFromMapping(memberGuid) == null)
                   continue;       // Skip if member is not loaded into BIMRL_ELEMENT already
 
-               command.Parameters.Clear();
-               command.Parameters.AddWithValue("1", grpGuid);
-               command.Parameters.AddWithValue("2", grType);
-               command.Parameters.AddWithValue("3", memberGuid);
-               command.Parameters.AddWithValue("4", memberType);
+               command.Parameters["@gid"].Value = grpGuid;
+               command.Parameters["@gtyp"].Value = grType;
+               command.Parameters["@mid"].Value = memberGuid;
+               command.Parameters["@mtyp"].Value = memberType;
 
                try
                {
+                  DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
                   commandStatus = command.ExecuteNonQuery();
                   //Do commit at interval but keep the long transaction (reopen)
                   DBOperation.commitTransaction();
@@ -1219,6 +1260,7 @@ namespace BIMRL
                   string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
                   _refBIMRLCommon.StackPushIgnorableError(excStr);
                   // Ignore any error
+                  DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
                   continue;
                }
                catch (SystemException e)
@@ -1363,6 +1405,7 @@ namespace BIMRL
          cDepend.Clear();
          cDependTyp.Clear();
          cDepTyp.Clear();
+         DBOperation.commitTransaction();
       }
 
 #if ORACLE
@@ -1425,24 +1468,30 @@ namespace BIMRL
       {
          string sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_ELEMENTDEPENDENCY")
                      + " (ELEMENTID, ELEMENTTYPE, DEPENDENTELEMENTID, DEPENDENTELEMENTTYPE, DEPENDENCYTYPE) "
-                     + "VALUES (@1, @2, @3, @4, @5)";
+                     + "VALUES (@eid, @etyp, @did, @detyp, @dtyp)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
-         command.Prepare();
          string currStep = sqlStmt;
          int commandStatus = -1;
+         command.Parameters.Add("@eid", NpgsqlDbType.Text);
+         command.Parameters.Add("@etyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@did", NpgsqlDbType.Text);
+         command.Parameters.Add("@detyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@dtyp", NpgsqlDbType.Text);
+         command.Prepare();
 
          DBOperation.beginTransaction();
 
          for (int i = 0; i < cEleId.Count; ++i)
          {
-            command.Parameters.Clear();
-            command.Parameters.AddWithValue("1", cEleId[i]);
-            command.Parameters.AddWithValue("2", cEleTyp[i]);
-            command.Parameters.AddWithValue("3", cDepend[i]);
-            command.Parameters.AddWithValue("4", cDependTyp[i]);
-            command.Parameters.AddWithValue("5", cDepTyp[i]);
+            command.Parameters["@eid"].Value = cEleId[i];
+            command.Parameters["@etyp"].Value = cEleTyp[i];
+            command.Parameters["@did"].Value = cDepend[i];
+            command.Parameters["@detyp"].Value = cDependTyp[i];
+            command.Parameters["@dtyp"].Value = cDepTyp[i];
+
             try
             {
+               DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
                commandStatus = command.ExecuteNonQuery();
                DBOperation.commitTransaction();
             }
@@ -1451,6 +1500,7 @@ namespace BIMRL
                string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
                _refBIMRLCommon.StackPushIgnorableError(excStr);
                // Ignore any error
+               DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
             }
             catch (SystemException e)
             {
@@ -1579,29 +1629,65 @@ namespace BIMRL
                            string connectedId, string connectedType, string connectedAttr, string connectedAttrVal,
                            string connectionAttr, string connectionAttrVal, string realizingElId, string realizingElType, string relationshipType)
       {
-         command.Parameters.Clear();
-         command.Parameters.AddWithValue("1", connectingId);
-         command.Parameters.AddWithValue("2", connectingType);
-         command.Parameters.AddWithValue("3", connectingAttr);
-         command.Parameters.AddWithValue("4", connectingAttrVal);
-         command.Parameters.AddWithValue("5", connectedId);
-         command.Parameters.AddWithValue("6", connectedType);
-         command.Parameters.AddWithValue("7", connectedAttr);
-         command.Parameters.AddWithValue("8", connectedAttrVal);
-         command.Parameters.AddWithValue("9", connectionAttr);
-         command.Parameters.AddWithValue("10", connectionAttrVal);
-         command.Parameters.AddWithValue("11", realizingElId);
-         command.Parameters.AddWithValue("12", realizingElType);
-         command.Parameters.AddWithValue("13", relationshipType);
+         command.Parameters["@ieid"].Value = connectingId;
+         command.Parameters["@ietyp"].Value = connectingType;
+
+         if (string.IsNullOrEmpty(connectingAttr))
+            command.Parameters["@iattrn"].Value = DBNull.Value;
+         else
+            command.Parameters["@iattrn"].Value = connectingAttr;
+
+         if (string.IsNullOrEmpty(connectingAttrVal))
+            command.Parameters["@iattrv"].Value = DBNull.Value;
+         else
+            command.Parameters["@iattrv"].Value = connectingAttrVal;
+
+         command.Parameters["@deid"].Value = connectedId;
+         command.Parameters["@detyp"].Value = connectedType;
+
+         if (string.IsNullOrEmpty(connectedAttr))
+            command.Parameters["@dattrn"].Value = DBNull.Value;
+         else
+            command.Parameters["@dattrn"].Value = connectedAttr;
+
+         if (string.IsNullOrEmpty(connectedAttrVal))
+            command.Parameters["@dattrv"].Value =  DBNull.Value;
+         else
+            command.Parameters["@dattrv"].Value = connectedAttrVal;
+
+         if (string.IsNullOrEmpty(connectionAttr))
+            command.Parameters["@cattrn"].Value = DBNull.Value;
+         else
+            command.Parameters["@cattrn"].Value = connectionAttr;
+
+         if (string.IsNullOrEmpty(connectionAttrVal))
+            command.Parameters["@cattrv"].Value = DBNull.Value;
+         else
+            command.Parameters["@cattrv"].Value = connectionAttrVal;
+
+         if (string.IsNullOrEmpty(realizingElId))
+            command.Parameters["@reid"].Value = DBNull.Value;
+         else
+            command.Parameters["@reid"].Value = realizingElId;
+
+         if (string.IsNullOrEmpty(realizingElType))
+            command.Parameters["@retyp"].Value = DBNull.Value;
+         else
+            command.Parameters["@retyp"].Value = realizingElType;
+         command.Parameters["@rtyp"].Value = relationshipType;
+
          try
          {
+            DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
             command.ExecuteNonQuery();
+            DBOperation.CurrTransaction.Release(DBOperation.def_savepoint);
          }
          catch (NpgsqlException e)
          {
             string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
             _refBIMRLCommon.StackPushIgnorableError(excStr);
             // Ignore any error
+            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
          }
          catch (SystemException e)
          {
@@ -1609,6 +1695,7 @@ namespace BIMRL
             _refBIMRLCommon.StackPushError(excStr);
             throw;
          }
+
       }
 #endif
    }

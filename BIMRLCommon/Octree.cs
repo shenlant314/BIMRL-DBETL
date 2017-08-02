@@ -1193,7 +1193,7 @@ namespace BIMRL.Common
          Octree.OctreeCheck ret;
 
          string whereCond = Octree.childrenCellCondition(cellid);
-         string sqlStmt = "SELECT UNIQUE CELLID FROM " + DBOperation.formatTabName("BIMRL_SPATIALINDEX", fedID) + " WHERE " + whereCond;
+         string sqlStmt = "SELECT DISTINCT CELLID FROM " + DBOperation.formatTabName("BIMRL_SPATIALINDEX", fedID) + " WHERE " + whereCond;
          DataTable dt = new DataTable();
 #if ORACLE
          OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);

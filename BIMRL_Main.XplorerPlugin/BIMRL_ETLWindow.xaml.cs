@@ -41,8 +41,13 @@ namespace BIMRLMainXplorerPlugin
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    [XplorerUiElement(PluginWindowUiContainerEnum.Dialog, PluginWindowActivation.OnMenu, "BIMRL ETL Window")]
-    public partial class BIMRL_ETLWindow : Window, IXbimXplorerPluginWindow
+#if ORACLE
+    [XplorerUiElement(PluginWindowUiContainerEnum.Dialog, PluginWindowActivation.OnMenu, "BIMRL Main ETL Window (Oracle)")]
+#endif
+#if POSTGRES
+    [XplorerUiElement(PluginWindowUiContainerEnum.Dialog, PluginWindowActivation.OnMenu, "BIMRL Main ETL Window (PostgreSQL)")]
+#endif
+   public partial class BIMRL_ETLWindow : Window, IXbimXplorerPluginWindow
     {
         BIMRLQueryModel _qModel;
         BIMRLCommon BIMRLCommonRef = new BIMRLCommon();
@@ -114,7 +119,7 @@ namespace BIMRLMainXplorerPlugin
                     if (selModelInfosItem.HasValue)
                     {
                         selModelInfo = selModelInfosItem.Value;
-                        whereCond += " and ModelID = " + selModelInfo.ModelID + " ";
+                        whereCond += " ModelID = " + selModelInfo.ModelID + " ";
                     }
 
                 if (!string.IsNullOrEmpty(TextBox_Additional_Condition.Text))
@@ -326,16 +331,16 @@ namespace BIMRLMainXplorerPlugin
                     {
                         spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, true);
                         BIMRLUtils.updateMajorAxesAndOBB(FedID, whereCond);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_SpatialIndexes.sql"), FedID);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_TopoFace.sql"), FedID);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_MajorAxes.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), FedID);
                         updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel;
                     }
                     else if (regenSpatialIndex && regenBoundaryFaces && !_majorAxes)
                     {
                         spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, true);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_SpatialIndexes.sql"), FedID);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_TopoFace.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace.sql"), FedID);
                         updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel;
                     }
                     // Update Spatial index (including major axes and OBB) only
@@ -343,44 +348,49 @@ namespace BIMRLMainXplorerPlugin
                     {
                         spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, false);
                         BIMRLUtils.updateMajorAxesAndOBB(FedID, whereCond);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_SpatialIndexes.sql"), FedID);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_MajorAxes.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), FedID);
                         updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel;
                     }
                     // Update Boundary faces and MajorAxes
                     else if (!regenSpatialIndex && regenBoundaryFaces && _majorAxes)
                     {
                         spIdx.createFacesFromBIMRLElement(FedID, whereCond);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_TopoFace.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace.sql"), FedID);
                         BIMRLUtils.updateMajorAxesAndOBB(FedID, whereCond);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_MajorAxes.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), FedID);
                     }
                     // Update Spatial Index only
                     else if (regenSpatialIndex && !regenBoundaryFaces && !_majorAxes)
                     {
                         spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, false);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_SpatialIndexes.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), FedID);
                         updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel;
                     }
                     // update faces only
                     else if (!regenSpatialIndex && regenBoundaryFaces && !_majorAxes)
                     {
                         spIdx.createFacesFromBIMRLElement(FedID, whereCond);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_TopoFace.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace.sql"), FedID);
                     }
                     // Update only the major axes and OBB only
                     else if (!regenSpatialIndex && !regenBoundaryFaces && _majorAxes)
                     {
                         BIMRLUtils.updateMajorAxesAndOBB(FedID, whereCond);
-                        DBOperation.executeScript(Path.Combine(exePath, "script", "BIMRL_Idx_MajorAxes.sql"), FedID);
+                        DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), FedID);
                     }
                     else
                     {
                         // Invalid option
                     }
 
-                    string sqlStmt = "UPDATE BIMRL_FEDERATEDMODEL SET LASTUPDATEDATE=sysdate";
-                    BIMRLCommon.appendToString(updOctreeLevel, ", ", ref sqlStmt);
+#if ORACLE
+               string sqlStmt = "UPDATE BIMRL_FEDERATEDMODEL SET LASTUPDATEDATE=sysdate";
+#endif
+#if POSTGRES
+               string sqlStmt = "UPDATE BIMRL_FEDERATEDMODEL SET LASTUPDATEDATE=now()";
+#endif
+               BIMRLCommon.appendToString(updOctreeLevel, ", ", ref sqlStmt);
                     BIMRLCommon.appendToString("WHERE FEDERATEDID=" + FedID, " ", ref sqlStmt);
                     DBOperation.executeSingleStmt(sqlStmt);
                 }

@@ -154,8 +154,14 @@ namespace BIMRL
 #endif
 #if POSTGRES
          sqlStmt = "Insert into " + DBOperation.formatTabName(tableName) + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
-            + ", PropertyUnit) Values (@0, @1, @2, @3, @4, @5)";
+            + ", PropertyUnit) Values (@eid, @gname, @pname, @pvalue, @pdtyp, @punit)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         command.Parameters.Add("@eid", NpgsqlDbType.Text);
+         command.Parameters.Add("@gname", NpgsqlDbType.Text);
+         command.Parameters.Add("@pname", NpgsqlDbType.Text);
+         command.Parameters.Add("@pvalue", NpgsqlDbType.Text);
+         command.Parameters.Add("@pdtyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@punit", NpgsqlDbType.Text);
          command.Prepare();
 #endif
          foreach (IIfcPropertySetDefinition p in psdefs)
@@ -726,10 +732,17 @@ namespace BIMRL
 #endif
 #if POSTGRES
          sqlStmt = "Insert into " + DBOperation.formatTabName(tableName) + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
-            + ", PropertyUnit) Values (@0, @1, @2, @3, @4, @5)";
+            + ", PropertyUnit) Values (@eid, @gname, @pname, @pvalue, @pdtyp, @punit)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
-         command.Prepare();
          string currStep = sqlStmt;
+         command.Parameters.Add("@eid", NpgsqlDbType.Text);
+         command.Parameters.Add("@gname", NpgsqlDbType.Text);
+         command.Parameters.Add("@pname", NpgsqlDbType.Text);
+         command.Parameters.Add("@pvalue", NpgsqlDbType.Text);
+         command.Parameters.Add("@pdtyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@punit", NpgsqlDbType.Text);
+         command.Prepare();
+
 #endif
          // IEnumerable<IfcPropertySet> elPsets = el.PropertySets;
          foreach (IIfcPropertySet pset in elPsets)
@@ -1129,22 +1142,33 @@ namespace BIMRL
 #if POSTGRES
       private void insertProperty(NpgsqlCommand command, string elementid, string propGroup, string propName, string propValue, string propDataType, string uom)
       {
-         command.Parameters.Clear();
-         command.Parameters.AddWithValue("0", elementid);
-         command.Parameters.AddWithValue("1", propGroup);
-         command.Parameters.AddWithValue("2", propName);
-         command.Parameters.AddWithValue("3", propValue);
-         command.Parameters.AddWithValue("4", propDataType);
-         command.Parameters.AddWithValue("5", uom);
+         command.Parameters["@eid"].Value = elementid;
+         command.Parameters["@gname"].Value = propGroup;
+         command.Parameters["@pname"].Value = propName;
+         if (string.IsNullOrEmpty(propValue))
+            command.Parameters["@pvalue"].Value = DBNull.Value;
+         else
+            command.Parameters["@pvalue"].Value = propValue;
+         if (string.IsNullOrEmpty(propDataType))
+            command.Parameters["@pdtyp"].Value = DBNull.Value;
+         else
+            command.Parameters["@pdtyp"].Value = propDataType;
+         if (string.IsNullOrEmpty(uom))
+            command.Parameters["@punit"].Value = DBNull.Value;
+         else
+            command.Parameters["@punit"].Value = uom;
          try
          {
+            DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
             int commandStatus = command.ExecuteNonQuery();
+            DBOperation.CurrTransaction.Release(DBOperation.def_savepoint);
          }
          catch (NpgsqlException e)
          {
             // Ignore error and continue
             _refBIMRLCommon.StackPushIgnorableError(string.Format("Error inserting (\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\"); {6})", elementid, propGroup, propName,
                propValue, propDataType, uom, e.Message));
+            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
          }
       }
 #endif

@@ -117,16 +117,15 @@ namespace BIMRL
 #endif
 #if POSTGRES
          string sqlStmt = "insert into " + DBOperation.formatTabName("BIMRL_TYPEMATERIAL") + " (ElementID, MaterialName, Category, SetName, IsVentilated, forprofile, MaterialSequence, MaterialThickness) "
-            + " values (@0, @1, @2, @3, @4, @5, @6, @7)";
+            + " values (@eid, @mname, @cat, @sname, @isv, @fprof, @mseq, @mthick)";
 
          string sqlStmt2 = "insert into " + DBOperation.formatTabName("BIMRL_ELEMENTMATERIAL") + " (ElementID, MaterialName, Category, SetName, IsVentilated, forprofile, MaterialSequence, MaterialThickness) "
-            + " values (@0, @1, @2, @3, @4, @5, @6, @7)";
+            + " values (@eid, @mname, @cat, @sname, @isv, @fprof, @mseq, @mthick)";
 
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+         setParam(command);
          NpgsqlCommand command2 = new NpgsqlCommand(sqlStmt2, DBOperation.DBConn);
-
-         command.Prepare();
-         command2.Prepare();
+         setParam(command2);
 #endif
          string currStep = "Processing Materials";
 
@@ -387,7 +386,7 @@ namespace BIMRL
                                     ref insMatThick, ref insMatTPS, arrMatThick[i]);
 #endif
 #if POSTGRES
-                     insertMaterial(command, guid, arrMatName[i], arrCategory[i], arrSetName[i], arrIsVentilated[i], arrForProfile[i], arrMatSeq[i], arrMatThick[i]);
+                     insertMaterial(command2, guid, arrMatName[i], arrCategory[i], arrSetName[i], arrIsVentilated[i], arrForProfile[i], arrMatSeq[i], arrMatThick[i]);
 #endif
                   }
                   else
@@ -402,7 +401,7 @@ namespace BIMRL
                                     ref insTMatThick, ref insTMatTPS, arrMatThick[i]);
 #endif
 #if POSTGRES
-                     insertMaterial(command2, guid, arrMatName[i], arrCategory[i], arrSetName[i], arrIsVentilated[i], arrForProfile[i], arrMatSeq[i], arrMatThick[i]);
+                     insertMaterial(command, guid, arrMatName[i], arrCategory[i], arrSetName[i], arrIsVentilated[i], arrForProfile[i], arrMatSeq[i], arrMatThick[i]);
 #endif
                   }
                }
@@ -684,39 +683,68 @@ namespace BIMRL
       }
 #endif
 #if POSTGRES
+      private void setParam(NpgsqlCommand command)
+      {
+         command.Parameters.Add("@eid", NpgsqlDbType.Text);
+         command.Parameters.Add("@mname", NpgsqlDbType.Text);
+         command.Parameters.Add("@cat", NpgsqlDbType.Text);
+         command.Parameters.Add("@sname", NpgsqlDbType.Text);
+         command.Parameters.Add("@isv", NpgsqlDbType.Text);
+         command.Parameters.Add("@fprof", NpgsqlDbType.Text);
+         command.Parameters.Add("@mseq", NpgsqlDbType.Integer);
+         command.Parameters.Add("@mthick", NpgsqlDbType.Double);
+         command.Prepare();
+      }
+
       private void insertMaterial(NpgsqlCommand command, string elementid, string materialName, string category, string setname, string isVentilated, string forProfile,
          int materialSequence, double materialThickness)
       {
-         command.Parameters.Clear();
-         command.Parameters.AddWithValue("0", elementid);
-         command.Parameters.AddWithValue("1", materialName);
-         command.Parameters.AddWithValue("2", category);
-         command.Parameters.AddWithValue("3", setname);
-         command.Parameters.AddWithValue("4", isVentilated);
-         command.Parameters.AddWithValue("5", forProfile);
+         command.Parameters["@eid"].Value = elementid;
+         command.Parameters["@mname"].Value = materialName;
+         if (string.IsNullOrEmpty(category))
+            command.Parameters["@cat"].Value = DBNull.Value;
+         else
+            command.Parameters["@cat"].Value = category;
+
+         if (string.IsNullOrEmpty(setname))
+            command.Parameters["@sname"].Value = DBNull.Value;
+         else
+            command.Parameters["@sname"].Value = setname;
+
+         if (string.IsNullOrEmpty(isVentilated))
+            command.Parameters["@isv"].Value = DBNull.Value;
+         else
+            command.Parameters["@isv"].Value = isVentilated;
+
+         if (string.IsNullOrEmpty(forProfile))
+            command.Parameters["@fprof"].Value = DBNull.Value;
+         else
+            command.Parameters["@fprof"].Value = forProfile;
 
          if (materialSequence >= 0)
-            command.Parameters.AddWithValue("6", materialSequence);
+            command.Parameters["@mseq"].Value = materialSequence;
          else
-            command.Parameters.AddWithValue("6", DBNull.Value);
+            command.Parameters["@mseq"].Value = DBNull.Value;
 
          if (materialThickness >= 0)
-            command.Parameters.AddWithValue("7", materialThickness);
+            command.Parameters["@mthick"].Value = materialThickness;
          else
-            command.Parameters.AddWithValue("7", DBNull.Value);
+            command.Parameters["@mthick"].Value = DBNull.Value;
 
          try
          {
+            DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
             int commandStatus = command.ExecuteNonQuery();
+            DBOperation.CurrTransaction.Release(DBOperation.def_savepoint);
          }
          catch (NpgsqlException e)
          {
             // Ignore error and continue
             _refBIMRLCommon.StackPushIgnorableError(string.Format("Error inserting (\"{0}\",\"{1}\",\"{2}\",\"{3}\",{4},{5},\"{6}\",\"{7}\"); {8})", elementid, materialName, category,
                setname, materialSequence.ToString(), materialThickness.ToString(), isVentilated, forProfile, e.Message));
+            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
          }
       }
 #endif
-
    }
 }
