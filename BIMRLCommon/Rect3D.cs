@@ -26,22 +26,23 @@ using Newtonsoft.Json;
 
 namespace BIMRL.Common
 {
-    public class Rect3DLW
-    {
-        public Point3DLW min { get; set; }
-        public Point3DLW max { get; set; }
-        public Rect3DLW(Rect3D rect)
-        {
-            min = new Point3DLW(rect.Min);
-            max = new Point3DLW(rect.Max);
-        }
-    }
+    //public class Rect3DLW
+    //{
+    //    public Point3DLW min { get; set; }
+    //    public Point3DLW max { get; set; }
+    //    public Rect3DLW(Rect3D rect)
+    //    {
+    //        min = new Point3DLW(rect.Min);
+    //        max = new Point3DLW(rect.Max);
+    //    }
+    //}
 
     public class Rect3D
     {
 
         private static Rect3D _empty;
 
+      [JsonIgnore]
         public static Rect3D Empty
         {
             get { return Rect3D._empty; }
@@ -90,7 +91,7 @@ namespace BIMRL.Common
             }
         }
         
-        
+        [JsonIgnore]
         public double X
         {
             get
@@ -102,7 +103,8 @@ namespace BIMRL.Common
                 _location.X = value;
             }
         }
-        public double Y
+      [JsonIgnore]
+      public double Y
         {
             get
             {
@@ -113,7 +115,8 @@ namespace BIMRL.Common
                 _location.Y = value;
             }
         }
-        public double Z
+      [JsonIgnore]
+      public double Z
         {
             get
             {
@@ -125,7 +128,8 @@ namespace BIMRL.Common
             }
         }
 
-        public bool IsEmpty
+      [JsonIgnore]
+      public bool IsEmpty
         {
             get
             {
@@ -173,21 +177,24 @@ namespace BIMRL.Common
             this._sizeY = Math.Max(vMin.Y, vMax.Y) - _location.Y;
             this._sizeZ = Math.Max(vMin.Z, vMax.Z) - _location.Z;
         }
-        
-        /// <summary>
-        /// Minimum vertex
-        /// </summary>
-        public Point3D Min
+
+      [JsonIgnore]
+      /// <summary>
+      /// Minimum vertex
+      /// </summary>
+      public Point3D Min
         {
             get
             {
                 return new Point3D(_location.X+_sizeX,_location.Y+_sizeY,_location.Z+_sizeZ);
             }
         }
-        /// <summary>
-        /// Maximum vertex
-        /// </summary>
-        public Point3D Max
+
+      [JsonIgnore]
+      /// <summary>
+      /// Maximum vertex
+      /// </summary>
+      public Point3D Max
         {
             get
             {
@@ -359,7 +366,7 @@ namespace BIMRL.Common
 
         public string ToJsonString()
         {
-            return JsonConvert.SerializeObject(new Rect3DLW(this));
+            return JsonConvert.SerializeObject(this);
         }
     }
 }

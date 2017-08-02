@@ -25,18 +25,21 @@ using Newtonsoft.Json;
 
 namespace BIMRL.Common
 {
-    public class Point3DLW
-    {
-        public double x { get; set; }
-        public double y { get; set; }
-        public double z { get; set; }
-        public Point3DLW(Point3D p)
-        {
-            x = p.X;
-            y = p.Y;
-            z = p.Z;
-        }
-    }
+    //public class Point3DLW
+    //{
+    //    public double x { get; set; }
+    //    public double y { get; set; }
+    //    public double z { get; set; }
+    //    public Point3DLW()
+    //    {
+    //    }
+    //    public Point3DLW(Point3D p)
+    //    {
+    //        x = p.X;
+    //        y = p.Y;
+    //        z = p.Z;
+    //    }
+    //}
 
     public class Point3D 
     {
@@ -57,12 +60,7 @@ namespace BIMRL.Common
         {
             _X = (double) x; _Y = (double) y; _Z = (double) z;
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="x"></param>
-        /// <param name="y"></param>
-        /// <param name="z"></param>
+
         public Point3D(double x, double y, double z)
         {
             _X = x; _Y = y; _Z = z;
@@ -94,6 +92,7 @@ namespace BIMRL.Common
             set { _Z = value; }
         }
 
+        [JsonIgnore]
         public double W
         {
             get { return _W; }
@@ -107,7 +106,7 @@ namespace BIMRL.Common
 
         public string ToJsonString()
         {
-            return JsonConvert.SerializeObject(new Point3DLW(this));
+            return JsonConvert.SerializeObject(this);
         }
 
         public override bool Equals(object ob)
