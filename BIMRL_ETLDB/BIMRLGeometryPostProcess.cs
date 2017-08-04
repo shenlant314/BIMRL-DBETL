@@ -1129,6 +1129,37 @@ public class BIMRLGeometryPostProcess
             {
                int commandStatus = cmd.ExecuteNonQuery();
                insRec++;
+
+               // Add holes
+               // For every hole, we will also create an independent face for the hole in addition of being a hole to the main face
+               if (face.verticesWithHoles.Count > 1)
+               {
+                  List<Face3D> holeFaces = new List<Face3D>();
+                  List<Point3D> holeCentroids = new List<Point3D>();
+                  for (int i = 1; i < face.verticesWithHoles.Count; i++)
+                  {
+                     List<Point3D> holeVerts = face.verticesWithHoles[i].ToList();
+                     holeVerts.Reverse();          // Reverse it to get the positive normal direction
+                     Face3D holeFace = new Face3D(holeVerts);
+
+                     cmd.Parameters.Clear();
+                     cmd.Parameters.AddWithValue("@eid", _elementid);
+                     cmd.Parameters.AddWithValue("@id", faceID.ToString() + "-" + (i-1).ToString());
+                     cmd.Parameters.AddWithValue("@ftyp", "HOLE");
+                     normal = holeFace.basePlane.normalVector.ToPoint3D();
+                     cmd.Parameters.AddWithValue("@norm", normal);
+                     normal2D = new Vector3D(normal.X, normal.Y, 0.0);
+                     angleRad = Math.Atan2(normal2D.Y, normal2D.X) - Math.Atan2(_trueNorth.Y, _trueNorth.X);
+                     cmd.Parameters.AddWithValue("@angle", angleRad);
+                     cmd.Parameters.AddWithValue("@cent", holeFace.boundingBox.Center);
+
+                     polygonStr = JsonConvert.SerializeObject(holeFace);
+                     cmd.Parameters.AddWithValue("@polyg", NpgsqlDbType.Jsonb, polygonStr);
+                     commandStatus = cmd.ExecuteNonQuery();
+                     insRec++;
+                  }
+               }
+
                if (insRec > DBOperation.commitInterval)
                {
                   arbTrans.Commit();

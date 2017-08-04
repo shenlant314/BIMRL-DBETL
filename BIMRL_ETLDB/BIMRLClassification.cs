@@ -119,14 +119,6 @@ namespace BIMRL
 
 #endif
 #if POSTGRES
-         string className = "";
-         string classSource= "";
-         string classEdition = "";
-         string classEdDate = "";
-         string classItemCode = "";
-         string classItemName = "";
-         string classItemLocation = "";
-
          DBOperation.beginTransaction();
 
          NpgsqlCommand command = new NpgsqlCommand(" ", DBOperation.DBConn);
