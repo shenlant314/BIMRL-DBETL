@@ -302,15 +302,15 @@ namespace BIMRL.BIMRLGraph
                            boundID = dt.Rows[0][0].ToString();
                            boundType = dt.Rows[0][1].ToString();
                            string origBoundID = boundID;
+                        }
 #endif
 
-                           dependencyDict.Add(origBoundID, new Tuple<string, string>(boundID, boundType));
-                        }
-                        else
-                        {
-                           // when there is no dependency, insert itself into the Dict to avoid the query to be invoked again in future
-                           dependencyDict.Add(boundID, new Tuple<string, string>(boundID, boundType));
-                        }
+                        dependencyDict.Add(origBoundID, new Tuple<string, string>(boundID, boundType));
+                     }
+                     else
+                     {
+                        // when there is no dependency, insert itself into the Dict to avoid the query to be invoked again in future
+                        dependencyDict.Add(boundID, new Tuple<string, string>(boundID, boundType));
                      }
 #if ORACLE
                      depReader.Dispose();
