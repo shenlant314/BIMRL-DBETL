@@ -966,5 +966,73 @@ namespace BIMRL.Common
          }
          return nullFace;
       }
+
+      public Matrix3D GetFaceTransform()
+      {
+         // Define LCS of the face to transform the face to a 2D plane with the face normal as +Z
+         Vector3D zAxis = this.basePlane.normalVector;
+         zAxis.Normalize();
+         Point3D p1 = this.verticesWithHoles[0].ElementAt(0);
+         Point3D p2 = this.verticesWithHoles[0].ElementAt(1);
+         Vector3D xAxis = new Vector3D(p2.X - p1.X, p2.Y - p1.Y, p2.Z - p1.Z);   // arbitrary taken from a vector of P1-P2
+         xAxis.Normalize();
+         Vector3D yAxis = xAxis.CrossProduct(zAxis);
+         yAxis.Normalize();
+         Point3D orig = this.boundingBox.Center;
+         Matrix3D fMat = new Matrix3D(xAxis.X, xAxis.Y, xAxis.Z, orig.X, yAxis.X, yAxis.Y, yAxis.Z, orig.Y, zAxis.X, zAxis.Y, zAxis.Z, orig.Z, 0, 0, 0, 1);
+         return fMat;
+      }
+
+      /// <summary>
+      /// Compute the Face surface area (including subtraction of holes if any)
+      /// </summary>
+      /// <returns>area</returns>
+      public double Area
+      {
+         get
+         {
+            double fArea = 0.0;
+            // Transform the face loop to its plane to make it 2D
+            Matrix3D faceTrf = this.GetFaceTransform();
+            for (int i = 0; i < this.verticesWithHoles.Count; ++i)
+            {
+               // The loop direction of the inner loop(s) will subtract the outer loop area
+               fArea += CalculateLoopArea(this.verticesWithHoles[i], faceTrf);
+            }
+            fArea += fArea / 2;
+            return fArea;
+         }
+      }
+
+      private IList<Point3D> transformLoop(IList<Point3D> inputLoop, Matrix3D transformMatrix)
+      {
+         IList<Point3D> res = new List<Point3D>();
+         foreach (Point3D p in inputLoop)
+         {
+            Point3D trfP = transformMatrix.Transform(p);
+            res.Add(trfP);
+         }
+
+         return res;
+      }
+
+      private double CalculateLoopArea(IList<Point3D> orgloop, Matrix3D facePlaneTrf)
+      {
+         // Transform to XY plane of the face
+         IList<Point3D> loop = transformLoop(orgloop, facePlaneTrf);
+
+         // Outer bound area. Ignore Z because it is already transformed to XY plane
+         double area = 0.0;
+         int j = loop.Count - 1;
+         for (int i = 0; i < loop.Count; ++i)
+         {
+            area += ((loop[j].X + loop[i].X) * (loop[j].Y - loop[i].Y));
+            j = i;
+         }
+         area = area / 2;
+         if (double.IsNaN(area))
+            area = 0.0;
+         return area;
+      }
    }
 }

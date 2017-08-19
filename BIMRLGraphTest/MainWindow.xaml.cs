@@ -31,7 +31,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using BIMRLGraph;
+using BIMRL.BIMRLGraph;
 using BIMRL.Common;
 
 namespace GraphTest

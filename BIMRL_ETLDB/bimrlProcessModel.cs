@@ -42,6 +42,7 @@ using Npgsql;
 using NpgsqlTypes;
 #endif
 using BIMRL.Common;
+using BIMRL.BIMRLGraph;
 using Newtonsoft.Json;
 
 namespace BIMRL
@@ -408,7 +409,7 @@ namespace BIMRL
 
                // 5. Create Graph Data
 #if ORACLE
-               BIMRLGraph.GraphData graphData = new BIMRLGraph.GraphData();
+               GraphData graphData = new GraphData();
                graphData.createCirculationGraph(DBOperation.currFedModel.FederatedID);
                graphData.createSpaceAdjacencyGraph(DBOperation.currFedModel.FederatedID);
 

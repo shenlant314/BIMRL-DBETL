@@ -2,7 +2,7 @@ create sequence seq_bimrl_modelinfo_&1;
 grant select on seq_bimrl_modelinfo_&1 to public;
 
 create table bimrl_element_&1 (
-		  elementid varchar(22) not null, 
+		  elementid varchar(48) not null, 
 		  lineno integer,
 		  elementtype varchar(64) not null, 
 		  modelid integer not null, 
@@ -13,7 +13,7 @@ create table bimrl_element_&1 (
 		  description varchar(256),
 		  objecttype varchar(256),
 		  tag varchar(256),
-		  container varchar(22),
+		  container varchar(48),
 		  geometrybody_geomtype geom3dtype,
 		  geometrybody jsonb, 
 		  geometrybody_bbox point3d[2], 
@@ -35,8 +35,8 @@ create view bimrl_elemwogeom_&1 as select elementid,lineno,elementtype,modelid,t
 grant select, update, insert, delete on bimrl_elemwogeom_&1 to public;
 
 create table bimrl_topo_face_&1 (
-		  elementid varchar(22) not null,
-		  id	varchar(22) not null,
+		  elementid varchar(48) not null,
+		  id	varchar(48) not null,
 		  type varchar(8) not null,
 		  polygon jsonb not null,
 		  normal point3d not null,
@@ -80,9 +80,9 @@ create table bimrl_ownerhistory_&1 (
 grant select, update, insert, delete on bimrl_ownerhistory_&1 to public;
 
 create table bimrl_spatialstructure_&1 (
-		  spatialelementid varchar(22) not null, 
+		  spatialelementid varchar(48) not null, 
         spatialelementtype varchar(64) not null,
-		  parentid varchar(22),
+		  parentid varchar(48),
 		  parenttype varchar(64),
 		  levelremoved integer not null
 );
@@ -100,24 +100,24 @@ create table bimrl_modelinfo_&1 (
 grant select, update, insert, delete on bimrl_modelinfo_&1 to public;
 
 create table bimrl_relconnection_&1 (
-		  connectingelementid varchar(22) not null, 
+		  connectingelementid varchar(48) not null, 
 		  connectingelementtype varchar(64) not null, 
 		  connectingelementattrname varchar(128), 
 		  connectingelementattrvalue varchar(256), 
-		  connectedelementid varchar(22) not null, 
+		  connectedelementid varchar(48) not null, 
 		  connectedelementtype varchar(64) not null, 
 		  connectedelementattrname varchar(128), 
 		  connectedelementattrvalue varchar(256), 
 		  connectionattrname varchar(128), 
 		  connectionattrvalue varchar(256), 
-		  realizingelementid varchar(22),
+		  realizingelementid varchar(48),
 		  realizingelementtype varchar(64),
 		  relationshiptype varchar(64) not null 
 );
 grant select, update, insert, delete on bimrl_relconnection_&1 to public;
 
 create table bimrl_elementproperties_&1 (
-		  elementid varchar(22) not null, 
+		  elementid varchar(48) not null, 
 		  propertygroupname varchar(256) not null, 
 		  propertyname varchar(256) not null, 
 		  propertyvalue varchar(1024), 
@@ -130,7 +130,7 @@ create table bimrl_elementproperties_&1 (
 grant select, update, insert, delete on bimrl_elementproperties_&1 to public;
 
 create table bimrl_typematerial_&1 (
-		  elementid varchar(22) not null, 
+		  elementid varchar(48) not null, 
 		  materialname varchar(256) not null, 
 		  category varchar(256), 
 		  setname varchar(256), 
@@ -142,7 +142,7 @@ create table bimrl_typematerial_&1 (
 grant select, update, insert, delete on bimrl_typematerial_&1 to public;
 
 create table bimrl_elementmaterial_&1 (
-		  elementid varchar(22) not null, 
+		  elementid varchar(48) not null, 
 		  materialname varchar(256) not null, 
 		  category varchar(256), 
 		  setname varchar(256),
@@ -154,7 +154,7 @@ create table bimrl_elementmaterial_&1 (
 grant select, update, insert, delete on bimrl_elementmaterial_&1 to public;
 
 create table bimrl_elemclassification_&1 (
-		  elementid varchar(22) not null,
+		  elementid varchar(48) not null,
 		  classificationname varchar(256) not null,
 		  classificationitemcode varchar(256) not null
 );
@@ -173,7 +173,7 @@ create table bimrl_classification_&1 (
 grant select, update, insert, delete on bimrl_classification_&1 to public;
 
 create table bimrl_type_&1 (
-		  elementid varchar(22) not null,
+		  elementid varchar(48) not null,
 		  ifctype varchar(64) not null,
 		  name varchar(256) not null, 
 		  description varchar(256),
@@ -191,7 +191,7 @@ create table bimrl_type_&1 (
 grant select, update, insert, delete on bimrl_type_&1 to public;
 
 create table bimrl_typclassification_&1 (
-		  elementid varchar(22) not null,
+		  elementid varchar(48) not null,
 		  classificationname varchar(256) not null,
 		  classificationitemcode varchar(256) not null
 );
@@ -220,7 +220,7 @@ union
 grant select, update, insert, delete on bimrl_classifassignment_&1 to public;
 
 create table bimrl_spatialindex_&1 (
-		  elementid varchar(22) not null, 
+		  elementid varchar(48) not null, 
 		  cellid varchar(12) not null, 
 		  xminbound	integer,
 		  yminbound	integer,
@@ -234,7 +234,7 @@ create table bimrl_spatialindex_&1 (
 grant select, update, insert, delete on bimrl_spatialindex_&1 to public;
 
 create table bimrl_typeproperties_&1 (
-		  elementid varchar(22) not null, 
+		  elementid varchar(48) not null, 
 		  propertygroupname varchar(256) not null, 
 		  propertyname varchar(256) not null, 
 		  propertyvalue varchar(1024), 
@@ -252,17 +252,17 @@ union
 grant select, update, insert, delete on bimrl_properties_&1 to public;
 
 create table bimrl_relaggregation_&1 (
-		  masterelementid varchar(22) not null, 
+		  masterelementid varchar(48) not null, 
 		  masterelementtype varchar(64) not null, 
-		  aggregateelementid varchar(22) not null, 
+		  aggregateelementid varchar(48) not null, 
 		  aggregateelementtype varchar(64) not null, 
 		  primary key (masterelementid, aggregateelementid)
 );
 grant select, update, insert, delete on bimrl_relaggregation_&1 to public;
 
 create table bimrl_relspaceboundary_&1 (
-		  spaceelementid varchar(22) not null, 
-		  boundaryelementid varchar(22) not null, 
+		  spaceelementid varchar(48) not null, 
+		  boundaryelementid varchar(48) not null, 
 		  boundaryelementtype varchar(64) not null, 
 		  boundarytype varchar(32), 
 		  internalorexternal varchar(32),
@@ -271,11 +271,11 @@ create table bimrl_relspaceboundary_&1 (
 grant select, update, insert, delete on bimrl_relspaceboundary_&1 to public;
 
 create table bimrl_relspaceb_detail_&1 (
-		  spaceelementid varchar(22) not null,
-		  sfaceboundid varchar(22) not null,
+		  spaceelementid varchar(48) not null,
+		  sfaceboundid varchar(48) not null,
 		  commonpointats point3d,
-		  boundaryelementid varchar(22) not null,
-		  bfaceboundid varchar(22) not null,
+		  boundaryelementid varchar(48) not null,
+		  bfaceboundid varchar(48) not null,
 		  commonpointatb point3d,
 		  sfacepolygon	jsonb not null,
 		  sfacenormal point3d not null,
@@ -295,18 +295,18 @@ create view bimrl_spaceboundaryv_&1 as select * from bimrl_relspaceboundary_&1 f
 grant select, update, insert, delete on bimrl_spaceboundaryv_&1 to public;
 
 create table bimrl_relgroup_&1 (
-		  groupelementid varchar(22) not null, 
+		  groupelementid varchar(48) not null, 
 		  groupelementtype varchar(64) not null, 
-		  memberelementid varchar(22) not null, 
+		  memberelementid varchar(48) not null, 
 		  memberelementtype varchar(64) not null, 
 		  primary key (groupelementid, memberelementid)
 );
 grant select, update, insert, delete on bimrl_relgroup_&1 to public;
 
 create table bimrl_elementdependency_&1 (
-		  elementid varchar(22) not null, 
+		  elementid varchar(48) not null, 
 		  elementtype varchar(64) not null, 
-		  dependentelementid varchar(22) not null,
+		  dependentelementid varchar(48) not null,
 		  dependentelementtype varchar(64) not null,
 		  dependencytype varchar(32) not null,
 		  primary key (elementid, dependentelementid)

@@ -175,10 +175,12 @@ namespace BIMRL
                if (!reader.IsDBNull(12))
                   color.transparency = reader.GetFloat(12);
 
-               colorDict.Add(elementType, color);
+               if (!colorDict.ContainsKey(elementType))
+                  colorDict.Add(elementType, color);
             }
             reader.Dispose();
             command.Dispose();
+            DBOperation.rollbackTransaction();
          }
 #if ORACLE
          catch (OracleException e)
@@ -189,11 +191,13 @@ namespace BIMRL
          {
             string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
             _refBIMRLCommon.StackPushError(excStr);
+            DBOperation.rollbackTransaction();
          }
          catch (SystemException e)
          {
             string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
             _refBIMRLCommon.StackPushError(excStr);
+            DBOperation.rollbackTransaction();
             throw;
          }
       }

@@ -34,10 +34,9 @@ using Oracle.DataAccess;
 using Oracle.DataAccess.Types;
 using Oracle.DataAccess.Client;
 using BIMRL.Common;
-using BIMRLGraph;
 using NetSdoGeometry;
 
-namespace BIMRLGraph
+namespace BIMRL.BIMRLGraph
 {
     public class BuildGraph
     {

@@ -63,7 +63,7 @@ namespace BIMRL.Common
 #endif
       private static bool transactionActive = false;
       private static int currInsertCount = 0;
-      public static int commitInterval { get; set; }
+      public static int commitInterval { get; set; } = 1;
       public static string operatorToUse { get; set; }
       public static string DBUserID { get; set; }
       public static string DBPassword { get; set; }
@@ -92,6 +92,9 @@ namespace BIMRL.Common
          {
             string excStr = "%%Error - " + e.Message + "\n\t";
             refBIMRLCommon.StackPushError(excStr);
+#if POSTGRES
+            DBOperation.rollbackTransaction();
+#endif
             throw;
          }
       }
@@ -161,6 +164,9 @@ namespace BIMRL.Common
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
             refBIMRLCommon.StackPushError(excStr);
+#if POSTGRES
+            DBOperation.rollbackTransaction();
+#endif
             throw;
          }
          return m_DBconn;
@@ -198,15 +204,19 @@ namespace BIMRL.Common
 #endif
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + defaultUser + "@" + defaultConnecstring;
-               refBIMRLCommon.StackPushError(excStr);
-               throw;
-            }
+            refBIMRLCommon.StackPushError(excStr);
+#if POSTGRES
+            DBOperation.rollbackTransaction();
+#endif
+            throw;
+          }
         }
 
 #if ORACLE
       private static OracleConnection m_DBconn;
       public static OracleConnection DBConn
 #endif
+
 #if POSTGRES
 #region arbitraryConnection
          public static NpgsqlConnection arbitraryConnection()
@@ -224,6 +234,7 @@ namespace BIMRL.Common
                {
                   string excStr = "%%Error - " + e.Message + "\n\t" + constr;
                   refBIMRLCommon.StackPushError(excStr);
+                  DBOperation.rollbackTransaction();
                   throw;
                }
             }
@@ -242,7 +253,7 @@ namespace BIMRL.Common
                {
                   if (!string.IsNullOrEmpty(DBUserID) && !string.IsNullOrEmpty(DBPassword) && !string.IsNullOrEmpty(DBConnectstring))
                   {
-                     string constr = "User Id=" + DBUserID + ";Password=" + DBPassword + ";" + DBConnectstring;
+                     string constr = "User Id=" + DBUserID + ";Password=" + DBPassword + ";" + DBConnectstring + ";CommandTimeout=0";
                      m_DBconn2 = new NpgsqlConnection(constr);
                      m_DBconn2.Open();
                   }
@@ -295,6 +306,7 @@ namespace BIMRL.Common
             {
                string excStr = "%%Error - " + e.Message + "\n\t" + stmt;
                refBIMRLCommon.StackPushError(excStr);
+               DBOperation.rollbackTransaction();
                cmdShort.Dispose();
                throw;
             }
@@ -342,6 +354,7 @@ namespace BIMRL.Common
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + stmt;
             refBIMRLCommon.StackPushError(excStr);
+            DBOperation.rollbackTransaction();
             cmdShort.Dispose();
             throw;
          }
@@ -451,8 +464,8 @@ namespace BIMRL.Common
 #endif
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + sqlStmt;
-               refBIMRLCommon.StackPushError(excStr);
-               command.Dispose();
+            refBIMRLCommon.StackPushError(excStr);
+            command.Dispose();
          }
          command.Dispose();
          return commandStatus;
@@ -544,6 +557,9 @@ namespace BIMRL.Common
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
             refBIMRLCommon.StackPushError(excStr);
+#if POSTGRES
+            DBOperation.rollbackTransaction();
+#endif
             command.Dispose();
             throw;
          }
@@ -666,6 +682,9 @@ namespace BIMRL.Common
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
             refBIMRLCommon.StackPushError(excStr);
+#if POSTGRES
+            DBOperation.rollbackTransaction();
+#endif
             throw;
          }
 #endif
@@ -744,6 +763,9 @@ namespace BIMRL.Common
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
             refBIMRLCommon.StackPushError(excStr);
+#if POSTGRES
+            DBOperation.rollbackTransaction();
+#endif
             command.Dispose();
             throw;
          }
@@ -772,6 +794,7 @@ namespace BIMRL.Common
       {
          var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
          string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
+         exePath = exePath.Replace("%20", " ");
          string crtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_crtab.sql");
          return executeScript(crtabScript, ID);
       }
@@ -786,8 +809,8 @@ namespace BIMRL.Common
          OracleCommand cmd = new OracleCommand(" ", DBConn);
 #endif
 #if POSTGRES
+         beginTransaction();
          NpgsqlCommand cmd = new NpgsqlCommand(" ", DBConn);
-         CurrTransaction.Save(def_savepoint);
 #endif
          string currStep = string.Empty;
 
@@ -851,10 +874,11 @@ namespace BIMRL.Common
 
       public static int dropModelTables(int ID)
       {
-      var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
-      string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
-      string drtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_drtab.sql");
-      return executeScript(drtabScript, ID);
+         var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
+         string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
+         exePath = exePath.Replace("%20", " ");
+         string drtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_drtab.sql");
+         return executeScript(drtabScript, ID);
       }
 
       public static projectUnit getProjectUnitLength(int fedID)
@@ -862,7 +886,7 @@ namespace BIMRL.Common
          projectUnit projectUnit = projectUnit.SIUnit_Length_Meter;
 
          string sqlStmt = "Select PROPERTYVALUE from " + DBOperation.formatTabName("BIMRL_PROPERTIES", fedID) + " P, " + DBOperation.formatTabName("BIMRL_ELEMENT", fedID) + " E"
-                           + " where P.ELEMENTID=E.ELEMENTID and E.ELEMENTTYPE='IFCPROJECT' AND PROPERTYGROUPNAME='IFCATTRIBUTES' AND PROPERTYNAME='LENGTHUNIT'";
+                           + " where P.ELEMENTID=E.ELEMENTID and upper(E.ELEMENTTYPE)='IFCPROJECT' AND upper(PROPERTYGROUPNAME)='IFCATTRIBUTES' AND upper(PROPERTYNAME)='LENGTHUNIT'";
          string currStep = sqlStmt;
 #if ORACLE
          OracleCommand command = new OracleCommand(sqlStmt, DBConn);
@@ -894,6 +918,7 @@ namespace BIMRL.Common
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
             refBIMRLCommon.StackPushError(excStr);
+            DBOperation.rollbackTransaction();
             command.Dispose();
          }
          command.Dispose();
@@ -971,13 +996,16 @@ namespace BIMRL.Common
 #endif
          {
             string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
-                refBIMRLCommon.StackPushError(excStr);
+            refBIMRLCommon.StackPushError(excStr);
          }
          catch (SystemException e)
          {
-               string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
-               refBIMRLCommon.StackPushError(excStr);
-               throw;
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
+            refBIMRLCommon.StackPushError(excStr);
+#if POSTGRES
+            DBOperation.rollbackTransaction();
+#endif
+            throw;
          }
          return false;
       }

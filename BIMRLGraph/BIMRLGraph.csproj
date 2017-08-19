@@ -7,7 +7,7 @@
     <ProjectGuid>{179CD0ED-DA22-4D61-BE50-E4A02ADD07D4}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>BIMRLGraph</RootNamespace>
+    <RootNamespace>BIMRL.BIMRLGraph</RootNamespace>
     <AssemblyName>BIMRLGraph</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -168,10 +168,6 @@
     <ProjectReference Include="..\BIMRLCommon\BIMRLCommon.csproj">
       <Project>{571c1a04-3d2f-43c4-9bbc-e42a19ff2397}</Project>
       <Name>BIMRLCommon</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\BIMRL_ETLDB\BIMRL_ETLDB.csproj">
-      <Project>{6bafbb4a-44a8-4b24-91ee-a429eeb03246}</Project>
-      <Name>BIMRL_ETLDB</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

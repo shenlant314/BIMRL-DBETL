@@ -66,7 +66,12 @@ namespace BIMRL.Common
             _X = x; _Y = y; _Z = z;
         }
 
-        public Point3D(Point3D P)
+      public Point3D(double x, double y, double z, double w)
+      {
+         _X = x; _Y = y; _Z = z; _W = w;
+      }
+
+      public Point3D(Point3D P)
         {
             _X = P.X;
             _Y = P.Y;
@@ -159,7 +164,12 @@ namespace BIMRL.Common
                                     );
         }
 
-        public static Point3D operator *(Point3D p, Matrix3D m)
+      public static Point3D operator *(Point3D p, double scale)
+      {
+         return new Point3D(p.X *scale, p.Y*scale, p.Z*scale, p.W*scale);
+      }
+
+      public static Point3D operator *(Point3D p, Matrix3D m)
         {
             return Point3D.Multiply(p, m);
         }

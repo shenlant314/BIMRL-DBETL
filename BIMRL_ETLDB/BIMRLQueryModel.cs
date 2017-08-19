@@ -112,6 +112,7 @@ namespace BIMRL
                fedModels.Add(fedModel);
             }
             reader.Close();
+            command.Dispose();
          }
 #if ORACLE
          catch (OracleException e)
@@ -129,7 +130,7 @@ namespace BIMRL
             _refBIMRLCommon.StackPushError(excStr);
             throw;
          }
-
+         
          return fedModels;
       }
 
@@ -172,6 +173,7 @@ namespace BIMRL
                modelInfos.Add(modelInfo);
             }
             reader.Close();
+            command.Dispose();
          }
 #if ORACLE
          catch (OracleException e)
@@ -182,6 +184,9 @@ namespace BIMRL
          {
             string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
             _refBIMRLCommon.StackPushError(excStr);
+#if POSTGRES
+            DBOperation.rollbackTransaction();
+#endif
          }
          catch (SystemException e)
          {
@@ -211,6 +216,7 @@ namespace BIMRL
             DBOperation.beginTransaction();
             //OracleTransaction txn = DBOperation.DBconnShort.BeginTransaction();
             command.ExecuteNonQuery();
+            command.Dispose();
             DBOperation.commitTransaction();
             //txn.Commit();
          }
@@ -243,6 +249,7 @@ namespace BIMRL
             int? fedID = federatedModelID as int?;
             if (fedID.HasValue)
                deleteModel(fedID.Value);
+            command.Dispose();
          }
 #if ORACLE
          catch (OracleException e)
@@ -290,6 +297,7 @@ namespace BIMRL
             NpgsqlDataAdapter qAdapter = new NpgsqlDataAdapter(command);
 #endif
             qAdapter.Fill(qResult);
+            command.Dispose();
             if (qResult != null)
                if (qResult.Rows.Count > 0)
                   return true;

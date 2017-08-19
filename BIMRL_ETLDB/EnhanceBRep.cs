@@ -88,13 +88,45 @@ namespace BIMRL
             DBOperation.objectForSpaceBoundary.Add("IFCWALL", true);
             DBOperation.objectForSpaceBoundary.Add("IFCWALLSTANDARDCASE", true);
             DBOperation.objectForSpaceBoundary.Add("IFCWINDOW", true);
+#if POSTGRES
+            // Add equivalent objects from Revit model to be processed the same way
+            DBOperation.objectForSpaceBoundary.Add("OST_Windows", DBOperation.objectForSpaceBoundary["IFCWINDOW"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_CurtainWallPanels", DBOperation.objectForSpaceBoundary["IFCCURTAINWALL"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Doors", DBOperation.objectForSpaceBoundary["IFCDOOR"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_CurtainGridsRoof", DBOperation.objectForSpaceBoundary["IFCROOF"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Roofs", DBOperation.objectForSpaceBoundary["IFCROOF"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Walls", DBOperation.objectForSpaceBoundary["IFCWALL"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Floors", DBOperation.objectForSpaceBoundary["IFCSLAB"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_StairsLandings", DBOperation.objectForSpaceBoundary["IFCSLAB"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Ramps", DBOperation.objectForSpaceBoundary["IFCRAMP"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Stairs", DBOperation.objectForSpaceBoundary["IFCSTAIR"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_StairsRuns", DBOperation.objectForSpaceBoundary["IFCSTAIR"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Areas", DBOperation.objectForSpaceBoundary["IFCSPACE"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Rooms", DBOperation.objectForSpaceBoundary["IFCSPACE"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_MEPSpaces", DBOperation.objectForSpaceBoundary["IFCSPACE"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_SWallRectOpening", DBOperation.objectForSpaceBoundary["IFCOPENINGELEMENT"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_RoofOpening", DBOperation.objectForSpaceBoundary["IFCOPENINGELEMENT"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Cornices", DBOperation.objectForSpaceBoundary["IFCBEAM"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_CurtainWallMullions", DBOperation.objectForSpaceBoundary["IFCMEMBER"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_StairsStringerCarriage", DBOperation.objectForSpaceBoundary["IFCMEMBER"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Railings", DBOperation.objectForSpaceBoundary["IFCRAILING"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_RailingHandRail", DBOperation.objectForSpaceBoundary["IFCRAILING"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_RailingSupport", DBOperation.objectForSpaceBoundary["IFCRAILING"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_RailingTopRail", DBOperation.objectForSpaceBoundary["IFCRAILING"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_StairsRailing", DBOperation.objectForSpaceBoundary["IFCRAILING"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_Ceilings", DBOperation.objectForSpaceBoundary["IFCCOVERING"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_StructuralColumns", DBOperation.objectForSpaceBoundary["IFCCOLUMN"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_StructuralFraming", DBOperation.objectForSpaceBoundary["IFCCOLUMN"]);
+            DBOperation.objectForSpaceBoundary.Add("OST_StructuralFoundation", DBOperation.objectForSpaceBoundary["IFCCOLUMN"]);
+#endif
          }
       }
 
       public void enhanceSpaceBoundary(string addCondition)
       {
          Dictionary<string, List<IDnType>> spaceNBoundary = new Dictionary<string, List<IDnType>>();
-            
+         string spaceColl = "('IFCSPACE', 'OST_ROOMS', 'OST_AREAS',' OST_MEPSPACES')";
+
          List<string> spaceEID = new List<string>();
          List<string> sFaceBoundID = new List<string>();
          List<string> boundaryEID = new List<string>();
@@ -137,13 +169,13 @@ namespace BIMRL
                {
                   if (!string.IsNullOrEmpty(elemList))
                      elemList += ", ";
-                  elemList += "'" + elems.Key + "'";
+                  elemList += "'" + elems.Key.ToUpper() + "'";
                }
             }
             // expand elementtype that has aggregation
             if (!string.IsNullOrEmpty(elemList))
             {
-               string sqlStmt = "SELECT DISTINCT AGGREGATEELEMENTTYPE FROM " + DBOperation.formatTabName("BIMRL_RELAGGREGATION") + " WHERE MASTERELEMENTTYPE IN (" + elemList + ")";
+               string sqlStmt = "SELECT DISTINCT AGGREGATEELEMENTTYPE FROM " + DBOperation.formatTabName("BIMRL_RELAGGREGATION") + " WHERE UPPER(MASTERELEMENTTYPE) IN (" + elemList + ")";
                currStep = sqlStmt;
 #if ORACLE
                OracleCommand cmdAT = new OracleCommand(sqlStmt, DBOperation.DBConn);
@@ -157,7 +189,7 @@ namespace BIMRL
 #endif
                while (reader.Read())
                {
-                  string etype = reader.GetString(0);
+                  string etype = reader.GetString(0).ToUpper();
                   if (elemList.Contains("'" + etype + "'"))
                         continue;
                   elemList += ",'" + etype + "'";
@@ -169,9 +201,9 @@ namespace BIMRL
 
             string elemListCond = "";
             if (!string.IsNullOrEmpty(elemList))
-               elemListCond = "SELECT ELEMENTID FROM BIMRL_ELEMENT_" +  DBOperation.currSelFedID.ToString("X4") + " WHERE ELEMENTTYPE IN " + elemList;
+               elemListCond = "SELECT ELEMENTID FROM BIMRL_ELEMENT_" +  DBOperation.currSelFedID.ToString("X4") + " WHERE upper(ELEMENTTYPE) IN " + elemList;
                 
-            string sqlStmt1 = "SELECT ELEMENTID FROM " + DBOperation.formatTabName("BIMRL_ELEMENT") + " WHERE ELEMENTTYPE='IFCSPACE'";
+            string sqlStmt1 = "SELECT ELEMENTID FROM " + DBOperation.formatTabName("BIMRL_ELEMENT") + " WHERE upper(ELEMENTTYPE) in " + spaceColl;
             BIMRLCommon.appendToString(addCondition, " AND ", ref sqlStmt1);
 
 #if ORACLE
@@ -213,28 +245,31 @@ namespace BIMRL
 #endif
 #if POSTGRES
                DataTable dt = DBOperation.ExecuteToDataTableWithTrans2(sqlStmt2);
-               foreach (DataRow row in dt.Rows)
+               if (dt != null)
                {
-                  string bid = (string) row[0];
-                  string etype = "";
-                  IDnType boundaryInfo = new IDnType { elementId = bid, elementType = etype };
-                  boundaries.Add(boundaryInfo);
+                  foreach (DataRow row in dt.Rows)
+                  {
+                     string bid = (string)row[0];
+                     string etype = "";
+                     IDnType boundaryInfo = new IDnType { elementId = bid, elementType = etype };
+                     boundaries.Add(boundaryInfo);
+                  }
+                  //NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt2, DBOperation.DBConn);
+                  //cmd.Prepare();
+                  //NpgsqlDataReader reader2;
+                  //currStep = sqlStmt2;
+                  //reader2 = cmd.ExecuteReader();
+                  //while (reader2.Read())
+                  //{
+                  //   string bid = reader2.GetString(0);
+                  //   string etype = "";
+                  //   IDnType boundaryInfo = new IDnType { elementId = bid, elementType = etype };
+                  //   boundaries.Add(boundaryInfo);
+                  //}
+                  spaceNBoundary.Add(eid, boundaries);
+                  //reader2.Dispose();
+                  //cmd.Dispose();
                }
-               //NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt2, DBOperation.DBConn);
-               //cmd.Prepare();
-               //NpgsqlDataReader reader2;
-               //currStep = sqlStmt2;
-               //reader2 = cmd.ExecuteReader();
-               //while (reader2.Read())
-               //{
-               //   string bid = reader2.GetString(0);
-               //   string etype = "";
-               //   IDnType boundaryInfo = new IDnType { elementId = bid, elementType = etype };
-               //   boundaries.Add(boundaryInfo);
-               //}
-               spaceNBoundary.Add(eid,boundaries);
-               //reader2.Dispose();
-               //cmd.Dispose();
 #endif
             }
 
@@ -1078,7 +1113,7 @@ namespace BIMRL
                   //                  par.Size = fIdList.Count;
                   //#endif
 
-#if ORACLE                      
+#if ORACLE
                   DBOperation.executeSingleStmt("DELETE FROM BIMRLQUERYTEMP");
 
                   OracleCommand addCmd = new OracleCommand("INSERT INTO BIMRLQUERYTEMP (ID1) VALUES (:1)", DBOperation.DBConn);

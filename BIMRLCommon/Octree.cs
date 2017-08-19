@@ -46,8 +46,8 @@ namespace BIMRL.Common
       static Dictionary<string, Int16> masterDictDB;
 
       // A Pair of Dict and List to allow fast access to the index tat will be stored into a celldata
-      static Dictionary<Tuple<UInt64, UInt64>, int> elemIDDict;  // Keeping the list of element ids in a Dictionary for int value of an index in the List
-      static List<Tuple<UInt64, UInt64>> elemIDList;
+      static Dictionary<Tuple<Guid, int>, int> elemIDDict;  // Keeping the list of element ids in a Dictionary for int value of an index in the List
+      static List<Tuple<Guid, int>> elemIDList;
         
       List<string> candidates;
       Dictionary<UInt64, CellData> userDict;
@@ -79,22 +79,12 @@ namespace BIMRL.Common
          LEAFWITHDESCENDANT = 9
       }
 
-      //private static readonly Lazy<Octree> lazy = new Lazy<Octree>(() => new Octree());
-
-      //public static Octree Instance { get { return lazy.Value; } }
-
-      //public Octree()
-      //{
-      //    theTree = new OctreeNode();
-      //    theMasterTree = new OctreeNode();
-      //}
-
       public Dictionary<UInt64, CellData> MasterDict
       {
          get { return masterDict; }
       }
 
-      public List<Tuple<UInt64, UInt64>> ElemIDList
+      public List<Tuple<Guid, int>> ElemIDList
       {
          get { return elemIDList; }
       }
@@ -149,7 +139,7 @@ namespace BIMRL.Common
          if (_ID != ID || masterDict == null)
          {
             _ID = ID;
-            if (!deSerializeMasterDict())
+            //if (!deSerializeMasterDict())
             {
                // If not empty, claer first before reallocating a new ones
                if (masterDict != null)
@@ -160,8 +150,8 @@ namespace BIMRL.Common
                   elemIDList.Clear();
 
                masterDict = new Dictionary<UInt64, CellData>(initDictNo);
-               elemIDDict = new Dictionary<Tuple<UInt64, UInt64>, int>(initDictNo);
-               elemIDList = new List<Tuple<UInt64, UInt64>>(initDictNo);
+               elemIDDict = new Dictionary<Tuple<Guid, int>, int>(initDictNo);
+               elemIDList = new List<Tuple<Guid, int>>(initDictNo);
 
                CellID64 cell = new CellID64("000000000000");
                masterDict.Add(cell.iCellID, new CellData { nodeType = 0, data = new SortedSet<int>() });
@@ -170,14 +160,6 @@ namespace BIMRL.Common
                   regenSpatialIndexDict(ID, ref masterDict);
                   _regen = true;
                }
-               //DBOperation.executeSingleStmt("TRUNCATE TABLE CELLTREEDETTMP");
-               //masterDictDB = new Dictionary<string, short>(initDictNo);
-               //masterDictDB.Add("000000000000", 0);
-               //if (!skipRegenDict)
-               //{
-               //    regenSpatialIndexDictDB(ID, ref masterDictDB);
-               //    _regen = true;
-               //}
             }
             _maxDepth = maxDepth;
             candidates = new List<string>();
@@ -255,12 +237,35 @@ namespace BIMRL.Common
       /// <param name="forUserDict"></param>
       public void ComputeOctree(string elementID, Polyhedron polyH, bool forUserDict)
       {
-         // Make sure ElementID string is 22 character long for correct encoding/decoding
-         if (elementID.Length < 22)
-               elementID = elementID.PadLeft(22, '0');
+         Tuple<Guid, int> elementIDNo = ElementIDstrToKey(elementID);
 
-         ElementID eidNo = new ElementID(elementID);
-         Tuple<UInt64, UInt64> elementIDNo = eidNo.ElementIDNo;
+         //if (elementID.Length >= 36)
+         //{
+         //   Guid guidPart;
+         //   int addNo = 0;
+         //   // This is Revit based Elementid
+         //   if (!Guid.TryParse(elementID.Substring(0, 36), out guidPart))
+         //   {
+         //      // There is problem with Guid format
+         //      Exception e = new Exception();
+         //      string excStr = "%%ElementID format Error - " + elementID + " : " + e.Message + "\n\t";
+         //      refCellBIMRLCommon.StackPushError(excStr);
+         //      throw e;
+         //   }
+         //   if (elementID.Length > 37)
+         //   {
+         //      int.TryParse(elementID.Substring(37, 8), out addNo);
+         //   }
+         //}
+         //else
+         //{
+         //   // Make sure ElementID string is 22 character long for correct encoding/decoding
+         //   if (elementID.Length < 22)
+         //      elementID = elementID.PadLeft(22, '0');
+
+         //   ElementID eidNo = new ElementID(elementID);
+         //   elementIDNo = new Tuple<Guid,int>(eidNo.ElementIDGuid, 0);
+         //}
 
          OctreeNode theTree = new OctreeNode();
          // Do it in steps:
@@ -295,12 +300,14 @@ namespace BIMRL.Common
       /// <param name="forUserDict"></param>
       public void ComputeOctree(string elementID, Face3D face, bool forUserDict)
       {
-         // Make sure ElementID string is 22 character long for correct encoding/decoding
-         if (elementID.Length < 22)
-            elementID = elementID.PadLeft(22, '0');
+         Tuple<Guid, int> elementIDNo = ElementIDstrToKey(elementID);
 
-         ElementID eidNo = new ElementID(elementID);
-         Tuple<UInt64, UInt64> elementIDNo = eidNo.ElementIDNo;
+         //// Make sure ElementID string is 22 character long for correct encoding/decoding
+         //if (elementID.Length < 22)
+         //   elementID = elementID.PadLeft(22, '0');
+
+         //ElementID eidNo = new ElementID(elementID);
+         //Tuple<Guid, int> elementIDNo = eidNo.ElementIDNo;
 
          OctreeNode theTree = new OctreeNode();
             
@@ -331,12 +338,14 @@ namespace BIMRL.Common
       /// <param name="forUserDict"></param>
       public void ComputeOctree(string elementID, LineSegment3D lineS, bool forUserDict)
       {
-         // Make sure ElementID string is 22 character long for correct encoding/decoding
-         if (elementID.Length < 22)
-            elementID = elementID.PadLeft(22, '0');
+         Tuple<Guid, int> elementIDNo = ElementIDstrToKey(elementID);
 
-         ElementID eidNo = new ElementID(elementID);
-         Tuple<UInt64, UInt64> elementIDNo = eidNo.ElementIDNo;
+         //// Make sure ElementID string is 22 character long for correct encoding/decoding
+         //if (elementID.Length < 22)
+         //   elementID = elementID.PadLeft(22, '0');
+
+         //ElementID eidNo = new ElementID(elementID);
+         //Tuple<UInt64, UInt64> elementIDNo = eidNo.ElementIDNo;
 
          OctreeNode theTree = new OctreeNode();
 
@@ -354,12 +363,11 @@ namespace BIMRL.Common
             if (forUserDict)
                insertDataToUserDict(elementIDNo, collCellID[i], collBorderFlag[i], false);
             else
-               //insertDataToDictDB(elementID, collCellID[i]);
                insertDataToDict(elementIDNo, collCellID[i]);
          }
       }
 
-      void insertDataToDict(Tuple<UInt64, UInt64> elementID, CellID64 cellID)
+      void insertDataToDict(Tuple<Guid, int> elementID, CellID64 cellID)
       {
          CellData cellData;
          if (!masterDict.TryGetValue(cellID.iCellID, out cellData))
@@ -377,16 +385,6 @@ namespace BIMRL.Common
             }
 
             cellData.data.Add(getIndexForElementID(elementID));
-
-            //int flag;
-            //if (!cellData.data.TryGetValue(elementID, out flag))
-            //{
-            //    cellData.data.Add(elementID, borderFlag);
-            //}
-            //else
-            //{
-            //    cellData.data[elementID] = borderFlag;
-            //}
          }
          else   // it's a node, we must traverse down and add elementID to all the leaves. Not ideal to pass the same flag, but better than none
          {
@@ -401,7 +399,7 @@ namespace BIMRL.Common
          }
       }
 
-   void createCellInDict(Tuple<UInt64, UInt64> elementID, CellID64 cellID)
+   void createCellInDict(Tuple<Guid, int> elementID, CellID64 cellID)
    {
       CellID64 parentID = CellID64.parentCell(cellID);
       CellData cellData;
@@ -466,19 +464,6 @@ namespace BIMRL.Common
       }
    }
 
-
-      //static string findCellSQL = "SELECT CELLTYPE FROM CELLTREETMP WHERE CELLID=:cellid";
-      //static OracleCommand findCellCmd = new OracleCommand(findCellSQL, DBOperation.DBConn);
-      //static OracleParameter findCellPar = findCellCmd.Parameters.Add("cellid", OracleDbType.Varchar2);
-      //static string findCellDetSQL = "SELECT ELEMENTID FROM CELLTREEDETTMP WHERE CELLID=:cellid";
-      //static OracleCommand findCellDetCmd = new OracleCommand(findCellDetSQL, DBOperation.DBConn);
-      //static OracleParameter findCellDetPar = findCellDetCmd.Parameters.Add("cellid", OracleDbType.Varchar2);
-      //static string cellInsSQL = "INSERT INTO CELLTREETMP(CELLID, CELLTYPE) VALUES (:cid, :type)";
-      //static OracleCommand cellInsCmd = new OracleCommand(cellInsSQL, DBOperation.DBConn);
-      //static OracleParameter[] cellInsPars = new OracleParameter[2];
-      //static string cellDetInsSQL = "INSERT INTO CELLTREEDETTMP(CELLID, ELEMENTID) VALUES (:cid, :eid)";
-      //static OracleCommand cellDetInsCmd = new OracleCommand(cellDetInsSQL, DBOperation.DBConn);
-      //static OracleParameter[] cellDetInsPars = new OracleParameter[2];
       static BIMRLCommon refCellBIMRLCommon = new BIMRLCommon();
 
       void insertDataToDictDB(string elementID, CellID64 cellID)
@@ -497,13 +482,6 @@ namespace BIMRL.Common
                masterDictDB.TryGetValue(cellID.ToString(), out cellType);
             }
 
-         //    if (!masterDict.TryGetValue(cellID.ToString(), out cellData))
-         //{
-         //    // no entry yet for this cell
-         //    createCellInDict(elementID, cellID);
-         //    masterDict.TryGetValue(cellID.ToString(), out cellData);
-         //}
-
             if (cellType == 1)         //it's leaf, add the elementID
             {
                DBOperation.executeSingleStmt("INSERT INTO CELLTREEDETTMP (CELLID,ELEMENTID) VALUES ('" + cellID.ToString() + "','" + elementID.ToString() + "')" );
@@ -521,14 +499,14 @@ namespace BIMRL.Common
             }
          }
 #if ORACLE
-      catch (OracleException e)
+         catch (OracleException e)
 #endif
 #if POSTGRES
-      catch (NpgsqlException e)
+         catch (NpgsqlException e)
 #endif
-      {
-         string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
-               refCellBIMRLCommon.StackPushError(excStr);
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
+            refCellBIMRLCommon.StackPushError(excStr);
          }
       }
 
@@ -539,33 +517,16 @@ namespace BIMRL.Common
 
          try
          {
-            //findCellPar.Direction = ParameterDirection.Input;
-            //findCellPar.Value = parentID.ToString();
-            //sqlStmt = findCellSQL;
-            //object celltypeObj = findCellCmd.ExecuteScalar();
-            //if (celltypeObj == null)
             short cellType;
             if (!masterDictDB.TryGetValue(parentID.ToString(), out cellType))
             {
                createCellInDictDB(elementID, parentID);
                masterDictDB.TryGetValue(parentID.ToString(), out cellType);
-               //celltypeObj = findCellCmd.ExecuteScalar();
-               //if (celltypeObj != null)
-               //    cellData.nodeType = int.Parse(celltypeObj.ToString());
             }
 
-            // entry found, need to create all the entries for the children and transfer all the data into the new cells
-            // remove the current elementid in the data first if present. It will be added later on
-            //if (cellData.data != null)
-            //cellData.data.Remove(elementID);
             DBOperation.executeSingleStmt("DELETE FROM CELLTREEDETTMP WHERE CELLID='" + parentID.ToString() + "' AND ELEMENTID='" + elementID.ToString() + "'");
             for (int i = 0; i < 8; ++i)
             {
-               //findCellPar.Value = cellIDIns;
-               //sqlStmt = findCellSQL;
-               //celltypeObj = findCellCmd.ExecuteScalar();
-               //if (celltypeObj == null)
-
                string childID = CellID64.newChildCellId(parentID, i).ToString();
                if (!masterDictDB.ContainsKey(childID))
                   masterDictDB.Add(childID, 1);
@@ -574,10 +535,8 @@ namespace BIMRL.Common
                   + "',ELEMENTID FROM CELLTREEDETTMP WHERE CELLID='" + parentID.ToString() +"'");
             }
             // reset cellData and set the nodeType to "node"
-            //cellData.nodeType = 0;
             masterDictDB[parentID.ToString()] = 0;
             DBOperation.executeSingleStmt("DELETE FROM CELLTREEDETTMP WHERE CELLID='" + parentID.ToString() + "'");
-            // DBOperation.executeSingleStmt("UPDATE CELLTREETMP SET CELLTYPE=0 WHERE CELLID='" + parentID.ToString() + "'");
          }
 #if ORACLE
       catch (OracleException e)
@@ -591,7 +550,7 @@ namespace BIMRL.Common
          }
       }
 
-      void insertDataToUserDict(Tuple<UInt64, UInt64> elementID, CellID64 cellID, int borderFlag, bool traverseDepth)
+      void insertDataToUserDict(Tuple<Guid, int> elementID, CellID64 cellID, int borderFlag, bool traverseDepth)
       {
          CellData cellData;
          List<UInt64> foundID;
@@ -599,11 +558,8 @@ namespace BIMRL.Common
 
          if (retEnum == OctreeCheck.NOTFOUND)
          {
-            // no entry yet for this cell
-            //Dictionary<string, int> data = new Dictionary<string, int>();
             SortedSet<int> data = new SortedSet<int>();
             byte cellType = (byte)OctreeCellType.LEAF;
-            //data.Add(elementID, borderFlag);     // borderflag is not used anymore
             data.Add(getIndexForElementID(elementID));     // borderflag is not used anymore
             cellData = new CellData { nodeType = cellType, data = data };
             userDict.Add(cellID.iCellID, cellData);
@@ -613,10 +569,8 @@ namespace BIMRL.Common
             cellData = masterDict[cellID.iCellID];
             if (cellData.nodeType == 1)         //it's leaf, add the elementID
             {
-               //Dictionary<string,int> iData = new Dictionary<string,int>();
                SortedSet<int> iData = new SortedSet<int>();
                byte cellType = (byte)OctreeCellType.LEAF;
-               //iData.Add(elementID, borderFlag);
                iData.Add(getIndexForElementID(elementID));
                CellData cdata;
                if (!userDict.TryGetValue(cellID.iCellID, out cdata))
@@ -634,12 +588,6 @@ namespace BIMRL.Common
                         cdata.data = new SortedSet<int>();
                   }
                   cdata.data.Add(getIndexForElementID(elementID));
-                        
-                  //int flag;
-                  //if (!cdata.data.TryGetValue(elementID, out flag))
-                  //    cdata.data.Add(elementID, borderFlag);
-                  //else
-                  //    cdata.data[elementID] = borderFlag;
                }
             }
             else   // it's a node, we must traverse down and add elementID to all the leaves. Not ideal to pass the same flag, but better than none
@@ -657,7 +605,6 @@ namespace BIMRL.Common
          else if (retEnum == OctreeCheck.FOUNDANCESTOR || retEnum == OctreeCheck.FOUNDDESCENDANT)
          {
             // Add the current ID entry into the userDict
-            //Dictionary<string, int> data = new Dictionary<string, int>();
             SortedSet<int> data = new SortedSet<int>();
 
             byte cellType = (byte) OctreeCellType.LEAF;
@@ -679,8 +626,6 @@ namespace BIMRL.Common
                CellData cData;
                if (!userDict.TryGetValue(id, out cData))
                {
-                  //Dictionary<string, int> iData = new Dictionary<string, int>();
-                  //iData.Add(elementID, borderFlag);
                   SortedSet<int> iData = new SortedSet<int>();
                   iData.Add(getIndexForElementID(elementID));
                   cData = new CellData { nodeType = (int)OctreeCellType.LEAF, data = iData };
@@ -693,12 +638,6 @@ namespace BIMRL.Common
                         cData.data = new SortedSet<int>();
                   }
                   cData.data.Add(getIndexForElementID(elementID));
-                        
-                  //int flag;
-                  //if (!cData.data.TryGetValue(elementID, out flag))
-                  //    cData.data.Add(elementID, 1);
-                  //else
-                  //    cData.data[elementID] = 1;
                }
             }
          }
@@ -758,24 +697,7 @@ namespace BIMRL.Common
                IDsFound.AddRange(outID);
 
             return ret;
-            //for (int i =0; i<8; ++i)
-            //{
-            //    List<string> outID;
-            //    CellID64 childNode = CellID64.newChildCellId(cellid, i);
-            //    OctreeCheck ret = findNodeInDict(childNode.ToString(), out outID);
-            //    if (ret == OctreeCheck.NODEFOUND || ret == OctreeCheck.FOUNDDESCENDANT)
-            //    {
-            //        foundSomeNode |= true;
-            //        IDsFound.AddRange(outID);
-            //    }
-            //}
-            //if (foundSomeNode)
-            //{
-            //    return OctreeCheck.FOUNDDESCENDANT;
-            //}
          }
-
-         //return OctreeCheck.NOTFOUND;
       }
 
       OctreeCheck findDescendantLeafNodesInDict(CellID64 cellid, out List<UInt64> outIDs)
@@ -811,172 +733,15 @@ namespace BIMRL.Common
             return OctreeCheck.NOTFOUND;
       }
 
-      /// <summary>
-      /// Collect ALL the cellids from the master dictionary
-      /// </summary>
-      /// <param name="elementIDList"></param>
-      /// <param name="cellIDStrList"></param>
-      /// <param name="borderFlagList"></param>
-      //public void collectSpatialIndex(out List<string> elementIDList, out List<string> cellIDStrList, out List<int> XMinB, out List<int> YMinB, out List<int> ZMinB,
-      //                                out List<int> XMaxB, out List<int> YMaxB, out List<int>ZMaxB, out List<int> depthList)
+      //void serializeMasterDict()
       //{
-      //    int initArraySize = masterDict.Count;   // estimated initial size of the list to hold the array data
-      //    elementIDList = new List<string>(initArraySize);
-      //    cellIDStrList = new List<string>(initArraySize);
-
-      //    XMinB = new List<int>(initArraySize);
-      //    YMinB = new List<int>(initArraySize);
-      //    ZMinB = new List<int>(initArraySize);
-      //    XMaxB = new List<int>(initArraySize);
-      //    YMaxB = new List<int>(initArraySize);
-      //    ZMaxB = new List<int>(initArraySize);
-      //    depthList = new List<int>(initArraySize);
-
-      //    int XMin;
-      //    int YMin;
-      //    int ZMin;
-      //    int XMax;
-      //    int YMax;
-      //    int ZMax;
-
-      //    foreach (KeyValuePair<UInt64, CellData> dictEntry in masterDict)
-      //    {
-      //        CellID64 cellID = new CellID64(dictEntry.Key);
-      //        string cellIDstr = cellID.ToString();
-      //        CellID64.getCellIDComponents(cellID, out XMin, out YMin, out ZMin, out XMax, out YMax, out ZMax);
-      //        int cellLevel = CellID64.getLevel(cellID);
-
-      //        if (dictEntry.Value.data != null && dictEntry.Value.nodeType != 0)
-      //        {
-      //            foreach (int tupEID in dictEntry.Value.data)
-      //            {
-      //                List<int> cBound = new List<int>();
-
-      //                ElementID eID = new ElementID(getElementIDByIndex(tupEID));
-      //                elementIDList.Add(eID.ElementIDString);
-      //                //cellIDStrList.Add(cellID.ToString());
-      //                cellIDStrList.Add(cellIDstr);
-
-      //                //CellID64.getCellIDComponents(cellID, out XMin, out YMin, out ZMin, out XMax, out YMax, out ZMax);
-      //                XMinB.Add(XMin);
-      //                YMinB.Add(YMin);
-      //                ZMinB.Add(ZMin);
-      //                XMaxB.Add(XMax);
-      //                YMaxB.Add(YMax);
-      //                ZMaxB.Add(ZMax);
-      //                //depthList.Add(CellID64.getLevel(cellID));
-      //                depthList.Add(cellLevel);
-      //            }
-      //        }
-      //    }
-      //    //serializeMasterDict();
+      //   return;
       //}
 
-      //public void collectSpatialIndexDB(out List<string> elementIDList, out List<string> cellIDStrList, out List<int> XMinB, out List<int> YMinB, out List<int> ZMinB,
-      //                        out List<int> XMaxB, out List<int> YMaxB, out List<int> ZMaxB, out List<int> depthList)
+      //bool deSerializeMasterDict()
       //{
-      //    int initArraySize = masterDictDB.Count;   // estimated initial size of the list to hold the array data
-      //    elementIDList = new List<string>(initArraySize);
-      //    cellIDStrList = new List<string>(initArraySize);
-
-      //    XMinB = new List<int>(initArraySize);
-      //    YMinB = new List<int>(initArraySize);
-      //    ZMinB = new List<int>(initArraySize);
-      //    XMaxB = new List<int>(initArraySize);
-      //    YMaxB = new List<int>(initArraySize);
-      //    ZMaxB = new List<int>(initArraySize);
-      //    depthList = new List<int>(initArraySize);
-
-      //    int XMin;
-      //    int YMin;
-      //    int ZMin;
-      //    int XMax;
-      //    int YMax;
-      //    int ZMax;
-
-      //    OracleCommand cmd = new OracleCommand("SELECT CELLID, ELEMENTID FROM CELLTREEDETTMP", DBOperation.DBConn);
-      //    OracleDataReader reader = cmd.ExecuteReader();
-      //    while (reader.Read())
-      //    {
-      //        string cellidStr = reader.GetString(0);
-      //        string eidStr = reader.GetString(1);
-
-      //        CellID64 cellID = new CellID64(cellidStr);
-      //        elementIDList.Add(eidStr);
-      //        cellIDStrList.Add(cellidStr);
-
-      //        CellID64.getCellIDComponents(cellID, out XMin, out YMin, out ZMin, out XMax, out YMax, out ZMax);
-      //        XMinB.Add(XMin);
-      //        YMinB.Add(YMin);
-      //        ZMinB.Add(ZMin);
-      //        XMaxB.Add(XMax);
-      //        YMaxB.Add(YMax);
-      //        ZMaxB.Add(ZMax);
-      //        depthList.Add(CellID64.getLevel(cellID));
-      //    }
-      //    reader.Dispose();
-      //    cmd.Dispose();
+      //   return false;
       //}
-
-      void serializeMasterDict()
-      {
-         return;
-
-         //// We will serialize this Dictionary into a binary file so that we can deseriaize again when we need this information back, e.g. generating the user dict
-         //// Default file name will be "C:\ProgramData\BIMRL\MasterOctree_<Fed Model ID in Hex>.bin"
-         //String serFileName = "C:\\ProgramData\\BIMRL\\MasterOctree_" + _ID.ToString("X4") + ".bin";
-         //if (File.Exists(serFileName))
-         //    File.Delete(serFileName);
-
-         //FileStream fs = new FileStream(serFileName, FileMode.Create);
-
-         //// Construct a BinaryFormatter and use it to serialize the data to the stream.
-         //BinaryFormatter formatter = new BinaryFormatter();
-         //try
-         //{
-         //    formatter.Serialize(fs, masterDict);
-         //}
-         //catch (SerializationException e)
-         //{
-         //    Console.WriteLine("Failed to serialize. Reason: " + e.Message);
-         //    File.Delete(serFileName);
-         //    throw;
-         //}
-         //finally
-         //{
-         //    fs.Close();
-         //}
-      }
-
-      bool deSerializeMasterDict()
-      {
-         return false;
-         // Serialize still has problem for a large size because system complains of Int32 max value has been exceeded
-         //String serFileName = "C:\\ProgramData\\BIMRL\\MasterOctree_" + _ID.ToString("X4") + ".bin";
-         //if (!File.Exists(serFileName))
-         //    return false;           // File does not exist, must build the Dict from the table instead
-
-         //FileStream fs = new FileStream(serFileName, FileMode.Open);
-         //try
-         //{
-         //    BinaryFormatter formatter = new BinaryFormatter();
-
-         //    // Deserialize the hashtable from the file and  
-         //    // assign the reference to the local variable.
-         //    masterDict = (Dictionary<string, CellData>)formatter.Deserialize(fs);
-         //}
-         //catch (SerializationException e)
-         //{
-         //    Console.WriteLine("Failed to deserialize. Reason: " + e.Message);
-         //    throw;
-         //}
-         //finally
-         //{
-         //    fs.Close();
-         //}
-
-         //return true;
-      }
 
       /// <summary>
       /// Collect ALL the cellids from userDict for populating transient geometry(ies)
@@ -1014,19 +779,21 @@ namespace BIMRL.Common
             {
                foreach (int tupEID in dictEntry.Value.data)
                {
-                  ElementID eID = new ElementID(getElementIDByIndex(tupEID));
+                  string userGeomID = ElementID.GetElementIDstrFromKey(getElementIDByIndex(tupEID));
+
+                  //ElementID eID = new ElementID(getElementIDByIndex(tupEID));
                         
-                  // For UserGeom, the ID i s generated from string of a simple number padded left with '0'. Now we need to remove them
-                  int end0Pos = 0;
-                  for (int i = 0; i < eID.ElementIDString.Length; ++i)
-                  {
-                        if (eID.ElementIDString[i] != '0')
-                        {
-                           end0Pos = i;
-                           break;
-                        }
-                  }
-                  string userGeomID = eID.ElementIDString.Remove(0, end0Pos);
+                  //// For UserGeom, the ID i s generated from string of a simple number padded left with '0'. Now we need to remove them
+                  //int end0Pos = 0;
+                  //for (int i = 0; i < eID.ElementIDString.Length; ++i)
+                  //{
+                  //      if (eID.ElementIDString[i] != '0')
+                  //      {
+                  //         end0Pos = i;
+                  //         break;
+                  //      }
+                  //}
+                  //string userGeomID = eID.ElementIDString.Remove(0, end0Pos);
 
                   elementIDList.Add(userGeomID);
                   cellIDStrList.Add(cellID.ToString());
@@ -1052,21 +819,6 @@ namespace BIMRL.Common
          return ret;
       }
 
-      //public void collectLines(out List<double> coordList, out List<int> lineIndex)
-      //{
-      //    coordList = new List<double>();
-      //    lineIndex = new List<int>();
-
-      //    List<Point3D> coords;
-      //    theTree.collecLines(out coords, out lineIndex);
-      //    foreach (Point3D pt in coords)
-      //    {
-      //        coordList.Add(pt.X);
-      //        coordList.Add(pt.Y);
-      //        coordList.Add(pt.Z);
-      //    }
-      //}
-
       public static void regenSpatialIndexDict(int fedID, ref Dictionary<UInt64, Octree.CellData> regenSpIndexTree)
       {
          BIMRLCommon refBIMRLCommon = new BIMRLCommon();
@@ -1085,25 +837,22 @@ namespace BIMRL.Common
             while (reader.Read())
             {
                string elementid = reader.GetString(0);
-               ElementID eID = new ElementID(elementid);
+               //ElementID eID = new ElementID(elementid);
+               Tuple<Guid, int> eID = ElementIDstrToKey(elementid);
                string cellid = reader.GetString(1);
                CellID64 cell = new CellID64(cellid);
                if (!regenSpIndexTree.ContainsKey(cell.iCellID))
                {
-                  //Dictionary<string, int> cData = new Dictionary<string, int>();
-                  //cData.Add(elementid, 0);    // the flag is no longer used, any value doesn't matter
                   SortedSet<int> cData = new SortedSet<int>();
-                  cData.Add(getIndexForElementID(eID.ElementIDNo));    // the flag is no longer used, any value doesn't matter
+                  cData.Add(getIndexForElementID(eID));    // the flag is no longer used, any value doesn't matter
                   Octree.CellData data = new Octree.CellData { nodeType = 1, data = cData };
                   regenSpIndexTree.Add(cell.iCellID, data);
                }
                else
                {
                   Octree.CellData data = regenSpIndexTree[cell.iCellID];
-                  //Dictionary<string, int> cData = data.data;
-                  //cData.Add(elementid, 0);
                   SortedSet<int> cData = data.data;
-                  cData.Add(getIndexForElementID(eID.ElementIDNo));
+                  cData.Add(getIndexForElementID(eID));
                }
             }
             reader.Dispose();
@@ -1123,69 +872,12 @@ namespace BIMRL.Common
          {
             string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
             refBIMRLCommon.StackPushError(excStr);
+#if POSTGRES
+            DBOperation.rollbackTransaction();
+#endif
             throw;
          }
       }
-
-      //public static void regenSpatialIndexDictDB(int fedID, ref Dictionary<string, short> regenSpIndexTree)
-      //{
-      //    BIMRLCommon refBIMRLCommon = new BIMRLCommon();
-      //    List<string> cellIDList = new List<string>();
-      //    List<string> eidList = new List<string>();
-
-      //    string sqlStmt = "SELECT ELEMENTID, CELLID FROM BIMRL_SPATIALINDEX_" + fedID.ToString("X4");
-      //    try
-      //    {
-      //        OracleCommand cmd = new OracleCommand(sqlStmt, DBOperation.DBConn);
-      //        cmd.FetchSize = 1000;
-      //        OracleDataReader reader = cmd.ExecuteReader();
-      //        while (reader.Read())
-      //        {
-      //            string elementid = reader.GetString(0);
-      //            string cellid = reader.GetString(1);
-      //            if (!regenSpIndexTree.ContainsKey(cellid))
-      //            {
-      //                regenSpIndexTree.Add(cellid, 1);    // Only LEAF nodes are stored in the DB table
-      //            }
-      //            cellIDList.Add(cellid);
-      //            eidList.Add(elementid);
-      //        }
-      //        reader.Dispose();
-      //        cmd.Dispose();
-
-      //        cmd.CommandText = "INSERT INTO CELLTREEDETTMP (CELLID, ELEMENTID) VALUES (:cid, :eid)";
-      //        OracleParameter[] cellDetInsPars = new OracleParameter[2];
-      //        cellDetInsPars[0] = cmd.Parameters.Add("cid", OracleDbType.Varchar2);
-      //        cellDetInsPars[0].Direction = ParameterDirection.Input;
-      //        cellDetInsPars[1] = cmd.Parameters.Add("cid", OracleDbType.Varchar2);
-      //        cellDetInsPars[1].Direction = ParameterDirection.Input;
-      //        int insertCnt = 5000;
-      //        while (cellIDList.Count > 0)
-      //        {
-      //            if (cellIDList.Count < insertCnt)
-      //                insertCnt = cellIDList.Count;
-      //            cellDetInsPars[0].Value = cellIDList.GetRange(0, insertCnt).ToArray();
-      //            cellDetInsPars[1].Value = eidList.GetRange(0, insertCnt).ToArray();
-      //            cmd.ArrayBindCount = insertCnt;
-
-      //            cmd.ExecuteNonQuery();
-
-      //            cellIDList.RemoveRange(0, insertCnt);
-      //            eidList.RemoveRange(0, insertCnt);
-      //        }
-      //    }
-      //    catch (OracleException e)
-      //    {
-      //        string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
-      //        refBIMRLCommon.StackPushError(excStr);
-      //    }
-      //    catch (SystemException e)
-      //    {
-      //        string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
-      //        refBIMRLCommon.StackPushError(excStr);
-      //        throw;
-      //    }
-      //}
 
       public static Octree.OctreeCheck getCellDescendants(CellID64 cellid, int fedID, out List<UInt64> IDsFound)
       {
@@ -1218,7 +910,7 @@ namespace BIMRL.Common
          return ret;
       }
 
-      public static int getIndexForElementID (Tuple<UInt64,UInt64> elemID)
+      public static int getIndexForElementID (Tuple<Guid,int> elemID)
       {
          int theIdx;
          if (!elemIDDict.TryGetValue(elemID, out theIdx))
@@ -1230,10 +922,45 @@ namespace BIMRL.Common
          return theIdx;
       }
 
-      public static Tuple<UInt64,UInt64> getElementIDByIndex(int theIdx)
+      public static Tuple<Guid,int> getElementIDByIndex(int theIdx)
       {
          return elemIDList[theIdx];
       }
+
+      static Tuple<Guid,int> ElementIDstrToKey(string elementID)
+      {
+         Tuple<Guid, int> elementIDNo = null;
+         if (elementID.Length >= 36)
+         {
+            Guid guidPart;
+            int addNo = 0;
+            // This is Revit based Elementid
+            if (!Guid.TryParse(elementID.Substring(0, 36), out guidPart))
+            {
+               // There is problem with Guid format
+               Exception e = new Exception();
+               string excStr = "%%ElementID format Error - " + elementID + " : " + e.Message + "\n\t";
+               refCellBIMRLCommon.StackPushError(excStr);
+               throw e;
+            }
+            if (elementID.Length > 37)
+            {
+               addNo = int.Parse(elementID.Substring(37, 8), System.Globalization.NumberStyles.HexNumber);
+            }
+            elementIDNo = new Tuple<Guid, int>(guidPart, addNo);
+         }
+         else
+         {
+            // Make sure ElementID string is 22 character long for correct encoding/decoding
+            if (elementID.Length < 22)
+               elementID = elementID.PadLeft(22, '0');
+
+            ElementID eidNo = new ElementID(elementID);
+            elementIDNo = new Tuple<Guid, int>(eidNo.ElementIDGuid, 0);
+         }
+         return elementIDNo;
+      }
+
    }
 }
 

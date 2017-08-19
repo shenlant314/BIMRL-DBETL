@@ -219,7 +219,7 @@ namespace BIMRL
 
             // Add background element from IFCSLAB to give a sense of spatial relative location
             x3dExp.transparencyOverride = 0.9;
-            string whereCondElemGeom = "ELEMENTID IN (SELECT ELEMENTID FROM " + DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value) + " WHERE elementtype like 'IFCSLAB%')";
+            string whereCondElemGeom = "ELEMENTID IN (SELECT ELEMENTID FROM " + DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value) + " WHERE upper(elementtype) like 'IFCSLAB%')";
             x3dExp.exportElemGeomToX3D(modelIDNew, whereCondElemGeom);
             x3dExp.endExportToX3D();
             row["GraphicFile"] = x3dFile;

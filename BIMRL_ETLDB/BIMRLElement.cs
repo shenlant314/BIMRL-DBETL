@@ -108,7 +108,7 @@ namespace BIMRL
             if (shapeInstances.Count() == 0)
             {
                //continue;         // SKip if the product has no geometry
-               // If the body is null, we will still process the other informationation, mainly the transformation information
+               // If the body is null, we will still process the other information, mainly the transformation information
                trfOnly = true;
                IIfcLocalPlacement locPlacement = product.ObjectPlacement as IIfcLocalPlacement;
                if (locPlacement == null)
@@ -496,7 +496,8 @@ namespace BIMRL
          return area;
       }
 
-      public void processElements()
+      public void 
+         processElements()
       {
          DBOperation.beginTransaction();
 

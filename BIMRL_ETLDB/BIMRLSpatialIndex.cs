@@ -551,9 +551,10 @@ namespace BIMRL
                {
                   List<int> cBound = new List<int>();
 
-                  ElementID eID = new ElementID(Octree.getElementIDByIndex(tupEID));
-                  elementIDList.Add(eID.ElementIDString);
-                  //cellIDStrList.Add(cellID.ToString());
+                  //ElementID eID = new ElementID(Octree.getElementIDByIndex(tupEID));
+                  //elementIDList.Add(eID.ElementIDString);
+                  string eidStr = ElementID.GetElementIDstrFromKey(Octree.getElementIDByIndex(tupEID));
+                  elementIDList.Add(eidStr);
                   cellIDStrList.Add(cellIDstr);
 
                   //CellID64.getCellIDComponents(cellID, out XMin, out YMin, out ZMin, out XMax, out YMax, out ZMax);
@@ -717,8 +718,9 @@ namespace BIMRL
             {
                foreach (int tupEID in dictEntry.Value.data)
                {
-                  ElementID eID = new ElementID(Octree.getElementIDByIndex(tupEID));
-                  string elemID = eID.ElementIDString;
+                  //ElementID eID = new ElementID(Octree.getElementIDByIndex(tupEID));
+                  //string elemID = eID.ElementIDString;
+                  string elemID = ElementID.GetElementIDstrFromKey(Octree.getElementIDByIndex(tupEID));
 
                   commandIns.Parameters["@eid"].Value = elemID;
                   commandIns.Parameters["@cid"].Value = cellIDstr;

@@ -112,6 +112,46 @@ namespace BIMRL.Common
             _EIDstr = new string(tmpChar);
         }
 
+      public static string GetElementIDstrFromKey(Tuple<Guid,int> elemidKey, bool userGeom=false)
+      {
+         UInt64 upperPart = 0;
+         UInt64 lowerPart = 0;
+
+         if (elemidKey.Item2 == 0)
+         {
+            // This is a traditional IFC encoded elementid in 22 Char (128 bits), ignore the Item2
+            Byte[] guid = elemidKey.Item1.ToByteArray();
+            Byte[] guidUpper = guid.Take(8).ToArray();
+            upperPart = BitConverter.ToUInt64(guidUpper, 0);
+            Byte[] guidLower = guid.Skip(8).Take(8).ToArray();
+            lowerPart = BitConverter.ToUInt64(guidLower, 0);
+            ElementID eID = new ElementID(new Tuple<UInt64, UInt64>(upperPart, lowerPart));
+
+            if (userGeom)
+            {
+               // For UserGeom, the ID i s generated from string of a simple number padded left with '0'. Now we need to remove them
+               int end0Pos = 0;
+               for (int i = 0; i < eID.ElementIDString.Length; ++i)
+               {
+                  if (eID.ElementIDString[i] != '0')
+                  {
+                     end0Pos = i;
+                     break;
+                  }
+               }
+               return eID.ElementIDString.Remove(0, end0Pos);
+            }
+            else
+               return eID.ElementIDString;
+         }
+         else
+         {
+            // This is Revit style element guid
+            string eidStr = elemidKey.Item1.ToString() + "-" + elemidKey.Item2.ToString("x8");
+            return eidStr;
+         }
+      }
+
         public string ElementIDString
         {
             get { return _EIDstr; }
@@ -126,5 +166,15 @@ namespace BIMRL.Common
         {
             return _EIDstr;
         }
+
+      public Guid ElementIDGuid
+      {
+         get
+         {
+            IEnumerable<byte> combined = BitConverter.GetBytes(_EIDNo.Item1).Concat(BitConverter.GetBytes(_EIDNo.Item2));
+            Guid guid = new Guid(combined.ToArray());
+            return guid;
+         }
+      }
     }
 }

@@ -421,5 +421,18 @@ namespace BIMRL.Common
          }
          return polyH;
       }
+
+      public double Area
+      {
+         get
+         {
+            double area = 0.0;
+            foreach (Face3D f in Faces)
+            {
+               area += f.Area;
+            }
+            return area;
+         }
+      }
    }
 }
