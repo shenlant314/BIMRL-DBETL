@@ -774,10 +774,21 @@ namespace BIMRL.BIMGeomTester
             Button_F3D_IntersectTest.IsEnabled = false;
         }
 
-#endregion
+      private void button_AreaFace1_Click(object sender, RoutedEventArgs e)
+      {
+         if (_F3D_Face1 != null)
+            textBox_AreaFace1.Text = _F3D_Face1.Area.ToString();
+      }
 
-        #region Plane3D_test
-        private Plane3D _PL_PL1;
+      private void button_AreaFace2_Click(object sender, RoutedEventArgs e)
+      {
+         if (_F3D_Face2 != null)
+            textBox_AreaFace2.Text = _F3D_Face2.Area.ToString();
+      }
+      #endregion
+
+      #region Plane3D_test
+      private Plane3D _PL_PL1;
         private Plane3D _PL_PL2;
         Point3D _PL_P;
         LineSegment3D _PL_LS;
@@ -1354,9 +1365,20 @@ namespace BIMRL.BIMGeomTester
                 _PolyH_facetype = PolyhedronFaceTypeEnum.ArbitraryFaces;
         }
 
-        #endregion
+      private void button_AreaPH1_Click(object sender, RoutedEventArgs e)
+      {
+         if (_PolyH_PolyH1 != null)
+            textBox_AreaPH1.Text = _PolyH_PolyH1.Area.ToString();
+      }
 
-        private void Button_Close_Click(object sender, RoutedEventArgs e)
+      private void button_AreaPH2_Click(object sender, RoutedEventArgs e)
+      {
+         if (_PolyH_PolyH2 != null)
+            textBox_AreaPH2.Text = _PolyH_PolyH2.Area.ToString();
+      }
+      #endregion
+
+      private void Button_Close_Click(object sender, RoutedEventArgs e)
         {
             Close();
         }

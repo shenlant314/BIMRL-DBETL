@@ -50,6 +50,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BIMRLGraphTest", "BIMRLGrap
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImportBimpk", "ImportBimpk\ImportBimpk.csproj", "{5B8D385F-CBED-4B24-8ADE-C80C3266A9F6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BIMRL_Main-Standalone", "BIMRL_Main-Standalone\BIMRL_Main-Standalone.csproj", "{640F422B-5374-43F1-948F-60956CDE6B3E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_Postgres|Any CPU = Debug_Postgres|Any CPU
@@ -576,6 +578,48 @@ Global
 		{5B8D385F-CBED-4B24-8ADE-C80C3266A9F6}.RelWPDB_Postgres|Mixed Platforms.Build.0 = Release|Any CPU
 		{5B8D385F-CBED-4B24-8ADE-C80C3266A9F6}.RelWPDB_Postgres|x64.ActiveCfg = Release|Any CPU
 		{5B8D385F-CBED-4B24-8ADE-C80C3266A9F6}.RelWPDB_Postgres|x64.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug_Postgres|Any CPU.ActiveCfg = Debug_Postgres|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug_Postgres|Any CPU.Build.0 = Debug_Postgres|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug_Postgres|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug_Postgres|Mixed Platforms.Build.0 = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug_Postgres|x64.ActiveCfg = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug_Postgres|x64.Build.0 = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Debug|x64.Build.0 = Debug|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.NugetDistribution|Any CPU.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.NugetDistribution|Any CPU.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.NugetDistribution|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.NugetDistribution|Mixed Platforms.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.NugetDistribution|x64.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.NugetDistribution|x64.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Rel_Postgres|Any CPU.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Rel_Postgres|Any CPU.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Rel_Postgres|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Rel_Postgres|Mixed Platforms.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Rel_Postgres|x64.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Rel_Postgres|x64.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Release|x64.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.Release|x64.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.ReleaseWithPDB|Any CPU.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.ReleaseWithPDB|Any CPU.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.ReleaseWithPDB|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.ReleaseWithPDB|Mixed Platforms.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.ReleaseWithPDB|x64.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.ReleaseWithPDB|x64.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.RelWPDB_Postgres|Any CPU.ActiveCfg = RelWPDB_Postgres|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.RelWPDB_Postgres|Any CPU.Build.0 = RelWPDB_Postgres|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.RelWPDB_Postgres|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.RelWPDB_Postgres|Mixed Platforms.Build.0 = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.RelWPDB_Postgres|x64.ActiveCfg = Release|Any CPU
+		{640F422B-5374-43F1-948F-60956CDE6B3E}.RelWPDB_Postgres|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

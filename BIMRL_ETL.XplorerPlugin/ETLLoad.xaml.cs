@@ -76,9 +76,9 @@ namespace BIMRL.BIMRL_ETL
       private void checkBox_Checked(object sender, RoutedEventArgs e)
       {
          if (checkBox_ETLOption.IsEnabled)
-               DBOperation.OnepushETL = true;
+            DBOperation.OnepushETL = true;
          else
-               DBOperation.OnepushETL = false;
+            DBOperation.OnepushETL = false;
       }
 
       private IXbimXplorerPluginMasterWindow _parentWindow;
@@ -95,7 +95,7 @@ namespace BIMRL.BIMRL_ETL
             IIfcProject project = model.Instances.OfType<IIfcProject>(true).FirstOrDefault();
 
             if (String.Compare(projName, "Empty Project") != 0)
-                  button_OK.IsEnabled = true;
+               button_OK.IsEnabled = true;
          }
          SetBinding(ModelProperty, new Binding());
       }
@@ -110,7 +110,7 @@ namespace BIMRL.BIMRL_ETL
 
         public static DependencyProperty ModelProperty =
             DependencyProperty.Register("Model", typeof(IfcStore), typeof(ETLLoad),
-                new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.Inherits, OnSelectedEntityChanged));
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.Inherits, OnSelectedEntityChanged));
 
         private static void OnSelectedEntityChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -134,20 +134,29 @@ namespace BIMRL.BIMRL_ETL
             Close();
         }
 
-        private void button_OK_Click(object sender, RoutedEventArgs e)
-        {
-            if (checkBox_ETLOption.IsChecked.Value)
-                DBOperation.OnepushETL = true;
-            else
-                DBOperation.OnepushETL = false;
+      private void button_OK_Click(object sender, RoutedEventArgs e)
+      {
+         if (checkBox_ETLOption.IsChecked.Value)
+            DBOperation.OnepushETL = true;
+         else
+            DBOperation.OnepushETL = false;
 
-            Close();
+         Close();
+         try
+         {
             BIMRLProcessModel bimrlPM = new BIMRLProcessModel(_model, false);
             if (!string.IsNullOrEmpty(bimrlPM.ErrorsInStack()))
             {
                Error_Dialog errorDlg = new Error_Dialog(bimrlPM.ErrorsInStack());
                errorDlg.ShowDialog();
+               DBOperation.rollbackTransaction();
             }
-        }
+         }
+         catch (SystemException excp)
+         {
+            string excStr = "%% Error - " + excp.Message + "\n\t";
+            DBOperation.rollbackTransaction();
+         }
+      }
     }
 }

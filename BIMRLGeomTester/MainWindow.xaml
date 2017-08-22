@@ -177,7 +177,7 @@
                   <ColumnDefinition Width="97*"/>
                   <ColumnDefinition Width="115*"/>
                </Grid.ColumnDefinitions>
-               <TextBox x:Name="TextBox_F3D_Face1Def" HorizontalAlignment="Left" Height="86" Margin="10,36,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="190" MaxLines="3" AcceptsReturn="True"/>
+               <TextBox x:Name="TextBox_F3D_Face1Def" HorizontalAlignment="Left" Height="86" Margin="10,36,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="268" MaxLines="3" AcceptsReturn="True"/>
                <Label x:Name="Label_F3D_Face" Content="Face3D by 3Points" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Height="26" Width="107"/>
                <Button x:Name="Button_F3D_Face1Def" Content="Define Face" HorizontalAlignment="Left" Margin="13,127,0,0" VerticalAlignment="Top" Width="75" Click="Button_F3D_Face1Def_Click" Height="20"/>
                <TextBox x:Name="TextBox_F3D_PointDef" HorizontalAlignment="Left" Height="25" Margin="140,11,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="193" Grid.Column="1"/>
@@ -196,30 +196,34 @@
                <TextBox x:Name="TextBox_F3D_Result" Grid.ColumnSpan="2" HorizontalAlignment="Left" Height="107" Margin="13,385,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="602" IsReadOnly="True" ScrollViewer.CanContentScroll="True" VerticalScrollBarVisibility="Auto"/>
                <Label Content="Tolerance" HorizontalAlignment="Left" Margin="13,164,0,0" VerticalAlignment="Top"/>
                <TextBox x:Name="TextBox_F3D_Tol" HorizontalAlignment="Left" Height="23" Margin="80,167,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120" TextChanged="TextBox_F3D_Tol_TextChanged"/>
+               <Button x:Name="button_AreaFace1" Content="Area" HorizontalAlignment="Left" Margin="290,285,0,0" VerticalAlignment="Top" Width="75" Click="button_AreaFace1_Click"/>
+               <TextBox x:Name="textBox_AreaFace1" HorizontalAlignment="Left" Height="23" Margin="290,310,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120" IsReadOnly="True"/>
+               <Button x:Name="button_AreaFace2" Content="Area" HorizontalAlignment="Left" Margin="340,280,0,0" VerticalAlignment="Top" Width="75" Click="button_AreaFace2_Click" Grid.Column="1"/>
+               <TextBox x:Name="textBox_AreaFace2" HorizontalAlignment="Left" Height="23" Margin="340,310,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="113" IsReadOnly="True" Grid.Column="1"/>
             </Grid>
          </TabItem>
          <TabItem x:Name="TabItem_Polyhedron" Header="Polyhedron" Height="20" VerticalAlignment="Top" Margin="-1,0,1,0" Initialized="TabItem_Polyhedron_Initialized" GotFocus="TabItem_gotFocus">
             <Grid Background="#FFE5E5E5">
                <Rectangle Fill="#FFF4F4F5" HorizontalAlignment="Left" Height="1" Margin="7,343,0,0" Stroke="Black" VerticalAlignment="Top" Width="619"/>
                <TextBox x:Name="TextBox_PolyH_DefVertices" HorizontalAlignment="Left" Height="108" Margin="10,21,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="251" AcceptsReturn="True"/>
-               <TextBox x:Name="TextBox_PolyH_DefPoint" HorizontalAlignment="Left" Height="23" Margin="395,43,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="231"/>
-               <TextBox x:Name="TextBox_PolyH_DefLS" HorizontalAlignment="Left" Height="58" Margin="395,71,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="231" AcceptsReturn="True"/>
-               <TextBox x:Name="TextBox_PolyH_DefFace" HorizontalAlignment="Left" Height="93" Margin="395,134,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="231" AcceptsReturn="True"/>
-               <TextBox x:Name="TextBox_PolyH_Out1" HorizontalAlignment="Left" Height="78" Margin="10,364,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="251" IsReadOnly="True"/>
-               <TextBox x:Name="TextBox_PolyH_Out2" HorizontalAlignment="Left" Height="78" Margin="380,364,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="246" IsReadOnly="True"/>
-               <TextBox x:Name="TextBox_PolyH_Tol" HorizontalAlignment="Left" Height="23" Margin="506,249,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120" TextChanged="TextBox_PolyH_Tol_TextChanged"/>
-               <TextBox x:Name="TextBox_PolyH_Result" HorizontalAlignment="Left" Height="45" Margin="10,447,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="616" IsReadOnly="True"/>
+               <TextBox x:Name="TextBox_PolyH_DefPoint" HorizontalAlignment="Left" Height="23" Margin="651,28,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="231"/>
+               <TextBox x:Name="TextBox_PolyH_DefLS" HorizontalAlignment="Left" Height="58" Margin="651,56,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="231" AcceptsReturn="True"/>
+               <TextBox x:Name="TextBox_PolyH_DefFace" HorizontalAlignment="Left" Height="93" Margin="651,119,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="231" AcceptsReturn="True"/>
+               <TextBox x:Name="TextBox_PolyH_Out1" HorizontalAlignment="Left" Height="78" Margin="85,364,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="313" IsReadOnly="True"/>
+               <TextBox x:Name="TextBox_PolyH_Out2" HorizontalAlignment="Left" Height="78" Margin="502,364,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="287" IsReadOnly="True"/>
+               <TextBox x:Name="TextBox_PolyH_Tol" HorizontalAlignment="Left" Height="23" Margin="762,234,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120" TextChanged="TextBox_PolyH_Tol_TextChanged"/>
+               <TextBox x:Name="TextBox_PolyH_Result" Height="45" Margin="10,447,20,0" TextWrapping="Wrap" VerticalAlignment="Top" IsReadOnly="True"/>
                <Label Content="Define Polyhedron (Vertex List, Face index, No of Vertices/Face List" HorizontalAlignment="Left" Margin="4,-3,0,0" VerticalAlignment="Top"/>
-               <Label Content="Tolerance" HorizontalAlignment="Left" Margin="440,249,0,0" VerticalAlignment="Top"/>
+               <Label Content="Tolerance" HorizontalAlignment="Left" Margin="696,234,0,0" VerticalAlignment="Top"/>
                <Label Content="Polyhedron" HorizontalAlignment="Left" Margin="10,343,0,0" VerticalAlignment="Top"/>
                <Label x:Name="Label_PolyH_Out2" Content="" HorizontalAlignment="Left" Margin="380,343,0,0" VerticalAlignment="Top" Width="99"/>
                <Button x:Name="Button_PolyH_DefPolyh1" Content="Define PolyH #2" HorizontalAlignment="Left" Margin="266,234,0,0" VerticalAlignment="Top" Width="97" Click="Button_PolyH_DefPolyh1_Click"/>
-               <Button x:Name="Button_PolyH_DefPoint" Content="Define Point" HorizontalAlignment="Left" Margin="315,46,0,0" VerticalAlignment="Top" Width="75" Click="Button_PolyH_DefPoint_Click"/>
-               <Button x:Name="Button_PolyH_DefLS" Content="Define LineSegment" HorizontalAlignment="Left" Margin="281,91,0,0" VerticalAlignment="Top" Width="109" Click="Button_PolyH_DefLS_Click"/>
-               <Button x:Name="Button_PolyH_DefFace" Content="Define Face" HorizontalAlignment="Left" Margin="315,152,0,0" VerticalAlignment="Top" Width="75" Click="Button_PolyH_DefFace_Click"/>
+               <Button x:Name="Button_PolyH_DefPoint" Content="Define Point" HorizontalAlignment="Left" Margin="571,31,0,0" VerticalAlignment="Top" Width="75" Click="Button_PolyH_DefPoint_Click"/>
+               <Button x:Name="Button_PolyH_DefLS" Content="Define LineSegment" HorizontalAlignment="Left" Margin="537,76,0,0" VerticalAlignment="Top" Width="109" Click="Button_PolyH_DefLS_Click"/>
+               <Button x:Name="Button_PolyH_DefFace" Content="Define Face" HorizontalAlignment="Left" Margin="571,137,0,0" VerticalAlignment="Top" Width="75" Click="Button_PolyH_DefFace_Click"/>
                <Button x:Name="Button_PolyH_DefPolyh2" Content="Define PolyH #1" HorizontalAlignment="Left" Margin="266,207,0,0" VerticalAlignment="Top" Width="97" Click="Button_PolyH_DefPolyh2_Click"/>
-               <Button x:Name="Button_PolyH_Inside" Content="Inside" HorizontalAlignment="Left" Margin="288,380,0,0" VerticalAlignment="Top" Width="75" Click="Button_PolyH_Inside_Click"/>
-               <Button x:Name="Button_PolyH_Intersect" Content="Intersect" HorizontalAlignment="Left" Margin="288,405,0,0" VerticalAlignment="Top" Width="75" Click="Button_PolyH_Intersect_Click"/>
+               <Button x:Name="Button_PolyH_Inside" Content="Inside" HorizontalAlignment="Left" Margin="413,379,0,0" VerticalAlignment="Top" Width="75" Click="Button_PolyH_Inside_Click"/>
+               <Button x:Name="Button_PolyH_Intersect" Content="Intersect" HorizontalAlignment="Left" Margin="413,404,0,0" VerticalAlignment="Top" Width="75" Click="Button_PolyH_Intersect_Click"/>
                <RadioButton x:Name="RButton_Triangle" GroupName="FaceType" Content="3-sided" HorizontalAlignment="Left" Margin="284,323,0,0" VerticalAlignment="Top" IsChecked="True" Checked="RButton_Checked"/>
                <RadioButton x:Name="RButton_Rectangle" GroupName="FaceType" Content="4-sided" HorizontalAlignment="Left" Margin="353,323,0,0" VerticalAlignment="Top" Checked="RButton_Checked"/>
                <RadioButton x:Name="RButton_Arbitrary" GroupName="FaceType" Content="Arbitrary" HorizontalAlignment="Left" Margin="423,323,0,0" VerticalAlignment="Top" Checked="RButton_Checked"/>
@@ -227,6 +231,10 @@
                <Label Content="Polyhedron Face Types:" HorizontalAlignment="Left" Margin="265,297,0,0" VerticalAlignment="Top"/>
                <TextBox x:Name="TextBox_PolyH_DefFaceIdx" HorizontalAlignment="Left" Height="104" Margin="10,134,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="251" AcceptsReturn="True"/>
                <TextBox x:Name="TextBox_PolyH_DefNoVert" HorizontalAlignment="Left" Height="95" Margin="10,243,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="251" AcceptsReturn="True"/>
+               <Button x:Name="button_AreaPH1" Content="Area" HorizontalAlignment="Left" Margin="10,374,0,0" VerticalAlignment="Top" Width="70" Click="button_AreaPH1_Click" />
+               <TextBox x:Name="textBox_AreaPH1" HorizontalAlignment="Left" Height="23" Margin="10,404,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="70" IsReadOnly="True"/>
+               <Button x:Name="button_AreaPH2" Content="Area" HorizontalAlignment="Left" Margin="812,374,0,0" VerticalAlignment="Top" Width="70" Click="button_AreaPH2_Click" />
+               <TextBox x:Name="textBox_AreaPH2" HorizontalAlignment="Left" Height="23" Margin="812,404,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="70" IsReadOnly="True"/>
             </Grid>
          </TabItem>
       </TabControl>

@@ -297,11 +297,12 @@ namespace BIMRL.BIMRLGraph
                      DataTable dt = DBOperation.ExecuteToDataTableWithTrans2(command2.CommandText);
                      if (dt != null)
                      {
+                        string origBoundID = null;
                         if (dt.Rows.Count > 0)
                         {
                            boundID = dt.Rows[0][0].ToString();
                            boundType = dt.Rows[0][1].ToString();
-                           string origBoundID = boundID;
+                           origBoundID = boundID;
                         }
 #endif
 

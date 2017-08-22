@@ -172,9 +172,15 @@ namespace BIMRL
                                     + "from " + elemTableNew + " a, " + elemTableRef + " b "
                                     + "where a.elementid = b.elementid and a.geometrybody is not null "
                                     + "and((a.total_surface_area - b.total_surface_area) < " + tolNeg.ToString("G") + " or (a.total_surface_area - b.total_surface_area) > " + tol.ToString("G")
+#if ORACLE
                                     + "or sdo_geom.sdo_difference(a.geometrybody_bbox, b.geometrybody_bbox, " + tol.ToString("G") + ") is not null "
                                     + "or sdo_geom.sdo_difference(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid, " + tol.ToString("G") + ") is not null)";
-
+#endif
+#if POSTGRES
+                                    + "or diffbox(geometrybody_bbox, b.geometrybody_bbox, " + tol.ToString() + ") "
+                                    + "or distance(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid) < " + tol.ToString();
+                                    // TODO: Need function to compare bounding boxes and points!
+#endif
          DataTable geomDiffRes = queryMultipleRows(diffGeomReport, "Geometry Difference By Signature");
 
          // Go through the differences and show them in X3d file (need to add the X3d file name into the geomDiffRes

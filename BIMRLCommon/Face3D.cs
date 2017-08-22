@@ -999,7 +999,6 @@ namespace BIMRL.Common
                // The loop direction of the inner loop(s) will subtract the outer loop area
                fArea += CalculateLoopArea(this.verticesWithHoles[i], faceTrf);
             }
-            fArea += fArea / 2;
             return fArea;
          }
       }

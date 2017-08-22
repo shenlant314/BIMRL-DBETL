@@ -47,8 +47,8 @@ namespace BIMRL.Common
 
       // A Pair of Dict and List to allow fast access to the index tat will be stored into a celldata
       static Dictionary<Tuple<Guid, int>, int> elemIDDict;  // Keeping the list of element ids in a Dictionary for int value of an index in the List
-      static List<Tuple<Guid, int>> elemIDList;
-        
+      //static List<Tuple<Guid, int>> elemIDList;
+      static IDictionary<int, Tuple<Guid, int>> elemIDList;
       List<string> candidates;
       Dictionary<UInt64, CellData> userDict;
       static int _ID = -1;
@@ -84,7 +84,7 @@ namespace BIMRL.Common
          get { return masterDict; }
       }
 
-      public List<Tuple<Guid, int>> ElemIDList
+      public IDictionary <int, Tuple<Guid, int>> ElemIDList
       {
          get { return elemIDList; }
       }
@@ -151,7 +151,7 @@ namespace BIMRL.Common
 
                masterDict = new Dictionary<UInt64, CellData>(initDictNo);
                elemIDDict = new Dictionary<Tuple<Guid, int>, int>(initDictNo);
-               elemIDList = new List<Tuple<Guid, int>>(initDictNo);
+               elemIDList = new Dictionary<int, Tuple<Guid, int>>(initDictNo);
 
                CellID64 cell = new CellID64("000000000000");
                masterDict.Add(cell.iCellID, new CellData { nodeType = 0, data = new SortedSet<int>() });
@@ -917,7 +917,7 @@ namespace BIMRL.Common
          {
             theIdx = elemIDList.Count;
             elemIDDict.Add(elemID, theIdx);
-            elemIDList.Add(elemID);
+            elemIDList.Add(theIdx, elemID);
          }
          return theIdx;
       }
