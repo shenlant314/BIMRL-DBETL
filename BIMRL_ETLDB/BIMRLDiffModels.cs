@@ -45,6 +45,14 @@ namespace BIMRL
       static BIMRLCommon m_BIMRLCommonRef;
       public string GraphicsZipFile { get; private set; }
       IDictionary<string, DataTable> diffResultsDict = new Dictionary<string, DataTable>();
+#if ORACLE
+      string diffKeyword = " minus ";
+      bool doCommit = false;
+# endif
+#if POSTGRES
+      string diffKeyword = " except ";
+      bool doCommit = true;
+#endif
 
       public BIMRLDiffModels(int modelId1, int modelId2, BIMRLCommon bimrlCommon)
       {
@@ -76,11 +84,12 @@ namespace BIMRL
          string elemTableNew = DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value);
          string elemTableRef = DBOperation.formatTabName("BIMRL_ELEMENT", compRefModel.Value);
 
+         DBOperation.beginTransaction();
          // Create tables to keep track of the new or deleted objects
-         runNonQuery("drop table newelements", true);
-         runNonQuery("create table newelements as select elementid from " + elemTableNew + " minus select elementid from " + elemTableRef, true);
-         runNonQuery("drop table deletedelements", true);
-         runNonQuery("create table deletedelements as select elementid from " + elemTableRef + " minus select elementid from " + elemTableNew, true);
+         runNonQuery("drop table newelements", true, doCommit);
+         runNonQuery("create table newelements as select elementid from " + elemTableNew + diffKeyword + "select elementid from " + elemTableRef, true, doCommit);
+         runNonQuery("drop table deletedelements", true, doCommit);
+         runNonQuery("create table deletedelements as select elementid from " + elemTableRef + diffKeyword + "select elementid from " + elemTableNew, true, doCommit);
 
          if (options.CheckNewAndDeletedObjects)
             AddResultDict("CheckNewAndDeletedObjects", DiffObjects());
@@ -157,6 +166,7 @@ namespace BIMRL
          DataTable delElemRes = queryMultipleRows(delElementReport, "Deleted Elements");
          qResults.Add(delElemRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
@@ -167,19 +177,19 @@ namespace BIMRL
          string elemTableRef = DBOperation.formatTabName("BIMRL_ELEMENT", compRefModel.Value);
          double tolNeg = -tol;
 
-         string diffGeomReport = "select a.elementid \"Elementid\", a.elementtype \"Element Type\", a.total_surface_area \"Surface Area (New)\", b.total_surface_area \"Surface Area (Ref)\", "
-                                    + "a.geometrybody_bbox_centroid \"Centroid (New)\", b.geometrybody_bbox_centroid \"Centroid (Ref)\", a.geometrybody_bbox \"Bounding Box (New)\", b.geometrybody_bbox \"Bounding Box (Ref)\""
-                                    + "from " + elemTableNew + " a, " + elemTableRef + " b "
-                                    + "where a.elementid = b.elementid and a.geometrybody is not null "
-                                    + "and((a.total_surface_area - b.total_surface_area) < " + tolNeg.ToString("G") + " or (a.total_surface_area - b.total_surface_area) > " + tol.ToString("G")
+         DBOperation.beginTransaction();
+         string diffGeomReport = "select a.elementid \"Elementid\", a.elementtype \"Element Type\", a.total_surface_area \"Surface Area (New)\", b.total_surface_area \"Surface Area (Ref)\","
+                                    + " a.geometrybody_bbox_centroid \"Centroid (New)\", b.geometrybody_bbox_centroid \"Centroid (Ref)\", a.geometrybody_bbox \"Bounding Box (New)\", b.geometrybody_bbox \"Bounding Box (Ref)\""
+                                    + " from " + elemTableNew + " a, " + elemTableRef + " b"
+                                    + " where a.elementid = b.elementid and a.geometrybody is not null"
+                                    + " and ((a.total_surface_area - b.total_surface_area) < " + tolNeg.ToString("G") + " or (a.total_surface_area - b.total_surface_area) > " + tol.ToString("G")
 #if ORACLE
-                                    + "or sdo_geom.sdo_difference(a.geometrybody_bbox, b.geometrybody_bbox, " + tol.ToString("G") + ") is not null "
-                                    + "or sdo_geom.sdo_difference(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid, " + tol.ToString("G") + ") is not null)";
+                                    + " or sdo_geom.sdo_difference(a.geometrybody_bbox, b.geometrybody_bbox, " + tol.ToString("G") + ") is not null"
+                                    + " or sdo_geom.sdo_difference(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid, " + tol.ToString("G") + ") is not null)";
 #endif
 #if POSTGRES
-                                    + "or diffbox(geometrybody_bbox, b.geometrybody_bbox, " + tol.ToString() + ") "
-                                    + "or distance(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid) < " + tol.ToString();
-                                    // TODO: Need function to compare bounding boxes and points!
+                                    + " or diffbox(a.geometrybody_bbox[1], a.geometrybody_bbox[2], b.geometrybody_bbox[1], b.geometrybody_bbox[2], " + tol.ToString("G") + ")=true"
+                                    + " or distance(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid) < " + tol.ToString("G") + ")";
 #endif
          DataTable geomDiffRes = queryMultipleRows(diffGeomReport, "Geometry Difference By Signature");
 
@@ -187,6 +197,8 @@ namespace BIMRL
          exportGraphicsDiff(geomDiffRes, compNewModel.Value, compRefModel.Value, graphicsOutputZip);
 
          qResults.Add(geomDiffRes);
+
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
@@ -195,6 +207,7 @@ namespace BIMRL
          string tempDirectory = Path.Combine(Path.GetTempPath(), Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
          Directory.CreateDirectory(tempDirectory);
 
+         DBOperation.beginTransaction();
          geomDiffRes.Columns.Add("GraphicFile");
          foreach (DataRow row in geomDiffRes.Rows)
          {
@@ -244,8 +257,10 @@ namespace BIMRL
          }
          catch (Exception e)
          {
+            DBOperation.rollbackTransaction();
             throw new Exception("Error during writing the zip file! " + e.Message);
          }
+         DBOperation.rollbackTransaction();
       }
 
       IList<DataTable> DiffType()
@@ -256,20 +271,21 @@ namespace BIMRL
          string typeTableNew = DBOperation.formatTabName("BIMRL_TYPE", compNewModel.Value);
          string typeTableRef = DBOperation.formatTabName("BIMRL_TYPE", compRefModel.Value);
 
-         //string newTypeReport = "select elementid, ifctype, name from " + typeTableNew + " minus "
+         //string newTypeReport = "select elementid, ifctype, name from " + typeTableNew + diffKeyword
          //                        + "select elementid, ifctype, name from " + typeTableRef;
 
          //DataTable newTypeRes = queryMultipleRows(newTypeReport);
          //newTypeRes.TableName = "New Types";
          //qResults.Add(newTypeRes);
 
-         //string delTypeReport = "select elementid, ifctype, name from " + typeTableRef + " minus "
+         //string delTypeReport = "select elementid, ifctype, name from " + typeTableRef + diffKeyword
          //               + "select elementid, ifctype, name from " + typeTableNew;
 
          //DataTable delTypeRes = queryMultipleRows(delTypeReport);
          //delTypeRes.TableName = "Deleted Types";
          //qResults.Add(delTypeRes);
 
+         DBOperation.beginTransaction();
          string TypeAssignmentReport = "select tab1.*, tab2.* from "
                                        + "(select a.elementid id_new, a.elementtype \"Element Type (New)\", a.name \"Element Name (New)\", b.ifcType \"IFC Type Entity (New)\", b.elementid as typeid_new, b.name as typename_new from " + elemTableNew + " a, " + typeTableNew + " b where b.elementid = a.typeid) tab1 "
                                        + "full outer join "
@@ -280,6 +296,7 @@ namespace BIMRL
          DataTable assigElemRes = queryMultipleRows(TypeAssignmentReport, "Type Assignment Changes");
          qResults.Add(assigElemRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
@@ -290,6 +307,7 @@ namespace BIMRL
          string elemTableNew = DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value);
          string elemTableRef = DBOperation.formatTabName("BIMRL_ELEMENT", compRefModel.Value);
 
+         DBOperation.beginTransaction();
          string containerReport = "select tab1.*, tab2.* from "
                                  + "(select a.elementid id_new, a.elementtype \"Element Type (New)\", a.name \"Element Name (New)\", b.elementid as containerid_new, b.name as containername_new, b.longname as containerlongname_new from " + elemTableNew + " a, " + elemTableNew + " b where b.elementid = a.container) tab1 "
                                  + "full outer join "
@@ -300,6 +318,7 @@ namespace BIMRL
          DataTable containerRes = queryMultipleRows(containerReport, "Container Assignment Changes");
          qResults.Add(containerRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
@@ -309,23 +328,27 @@ namespace BIMRL
          string oHTableNew = DBOperation.formatTabName("BIMRL_OWNERHISTORY", compNewModel.Value);
          string oHTableRef = DBOperation.formatTabName("BIMRL_OWNERHISTORY", compRefModel.Value);
 
+         DBOperation.beginTransaction();
          string oHReport = "select a.*, b.* from " + oHTableNew + " a "
                                  + "full outer join " + oHTableRef + " b "
                                  + "on ( a.id = b.id and a.modelid = b.modelid) ";
          DataTable oHRes = queryMultipleRows(oHReport, "Owner History Changes");
          qResults.Add(oHRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
       IList<DataTable> DiffProperty()
       {
          IList<DataTable> qResults = new List<DataTable>();
+
+         DBOperation.beginTransaction();
          string propTableNew = DBOperation.formatTabName("BIMRL_PROPERTIES", compNewModel.Value);
          string propTableRef = DBOperation.formatTabName("BIMRL_PROPERTIES", compRefModel.Value);
 
          string elemNewProps = "select elementid, fromtype, propertygroupname, propertyname from " + propTableNew
-                                + " minus "
+                                + diffKeyword
                                 + "select elementid, fromtype, propertygroupname, propertyname from " + propTableRef
                                 + " order by elementid, fromtype, propertygroupname, propertyname";
 
@@ -333,7 +356,7 @@ namespace BIMRL
          qResults.Add(elemNewRes);
 
          string elemDelProps = "select elementid, fromtype, propertygroupname, propertyname from " + propTableRef
-                                + " minus "
+                                + diffKeyword
                                 + "select elementid, fromtype, propertygroupname, propertyname from " + propTableNew
                                 + " order by elementid, fromtype, propertygroupname, propertyname";
 
@@ -350,24 +373,27 @@ namespace BIMRL
          DataTable changePropRes = queryMultipleRows(changeProps, "Elements with Chages in Property Value");
          qResults.Add(changePropRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
       IList<DataTable> DiffMaterial()
       {
          IList<DataTable> qResults = new List<DataTable>();
+
+         DBOperation.beginTransaction();
          string matTableNew = DBOperation.formatTabName("BIMRL_ELEMENTMATERIAL", compNewModel.Value);
          string matTableRef = DBOperation.formatTabName("BIMRL_ELEMENTMATERIAL", compRefModel.Value);
 
          string newMatReport = "select elementid, materialname, materialthickness from " + matTableNew + " where setname is null "
-                                 + "minus "
+                                 + diffKeyword
                                  + "select elementid, materialname, materialthickness from " + matTableRef + " where setname is null";
 
          DataTable newMatRes = queryMultipleRows(newMatReport, "New Material (Single/List)");
          qResults.Add(newMatRes);
 
          string delMatReport = "select elementid, materialname, materialthickness from " + matTableRef + " where setname is null "
-                        + "minus "
+                        + diffKeyword
                         + "select elementid, materialname, materialthickness from " + matTableNew + " where setname is null";
 
          DataTable delMatRes = queryMultipleRows(delMatReport, "Deleted Material (Single/List)");
@@ -389,12 +415,15 @@ namespace BIMRL
          DataTable delMatSetRes = queryMultipleRows(delMatSetReport, "Deleted Material Set");
          qResults.Add(delMatSetRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
       IList<DataTable> DiffClassification()
       {
          IList<DataTable> qResults = new List<DataTable>();
+
+         DBOperation.beginTransaction();
          string classifTableNew = DBOperation.formatTabName("BIMRL_CLASSIFASSIGNMENT", compNewModel.Value);
          string classifTableRef = DBOperation.formatTabName("BIMRL_CLASSIFASSIGNMENT", compRefModel.Value);
 
@@ -406,12 +435,15 @@ namespace BIMRL
          DataTable classifRes = queryMultipleRows(classifReport, "Classification Assignments");
          qResults.Add(classifRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
       IList<DataTable> DiffGroupMembership()
       {
          IList<DataTable> qResults = new List<DataTable>();
+
+         DBOperation.beginTransaction();
          string groupRelTableNew = DBOperation.formatTabName("BIMRL_RELGROUP", compNewModel.Value);
          string groupRelTableRef = DBOperation.formatTabName("BIMRL_RELGROUP", compRefModel.Value);
 
@@ -423,6 +455,7 @@ namespace BIMRL
          DataTable groupRelRes = queryMultipleRows(groupRelReport, "Group Membership");
          qResults.Add(groupRelRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
@@ -430,6 +463,8 @@ namespace BIMRL
       IList<DataTable> DiffAggregation()
       {
          IList<DataTable> qResults = new List<DataTable>();
+
+         DBOperation.beginTransaction();
          string aggrTableNew = DBOperation.formatTabName("BIMRL_RELAGGREGATION", compNewModel.Value);
          string aggrTableRef = DBOperation.formatTabName("BIMRL_RELAGGREGATION", compRefModel.Value);
 
@@ -441,6 +476,7 @@ namespace BIMRL
          DataTable aggrRes = queryMultipleRows(aggrReport, "Aggregation Changes");
          qResults.Add(aggrRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
@@ -450,6 +486,7 @@ namespace BIMRL
          string connTableNew = DBOperation.formatTabName("BIMRL_RELCONNECTION", compNewModel.Value);
          string connTableRef = DBOperation.formatTabName("BIMRL_RELCONNECTION", compRefModel.Value);
 
+         DBOperation.beginTransaction();
          string connReport = "Select a.CONNECTINGELEMENTID \"Connecting Elem ID (New)\", a.CONNECTINGELEMENTTYPE \"Connecting Type (New)\", a.CONNECTEDELEMENTID \"Connected Elem ID(New)\", a.CONNECTEDELEMENTTYPE \"Connected Type (New)\", "
                               + "b.CONNECTINGELEMENTID \"Connecting Elem ID (Ref)\", b.CONNECTINGELEMENTTYPE \"Connecting Type (Ref)\", b.CONNECTEDELEMENTID \"Connected Elem ID(Ref)\", b.CONNECTEDELEMENTTYPE \"Connected Type (Ref)\" "
                               + "from " + connTableNew + " a full outer join " + connTableRef + " b on (a.CONNECTINGELEMENTID=b.CONNECTINGELEMENTID and a.CONNECTEDELEMENTID=b.CONNECTEDELEMENTID) "
@@ -471,6 +508,7 @@ namespace BIMRL
          DataTable connAttrRes = queryMultipleRows(connAttrReport, "Connection Atrribute Changes");
          qResults.Add(connAttrRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
@@ -480,6 +518,7 @@ namespace BIMRL
          string dependTableNew = DBOperation.formatTabName("BIMRL_ELEMENTDEPENDENCY", compNewModel.Value);
          string dependTableRef = DBOperation.formatTabName("BIMRL_ELEMENTDEPENDENCY", compRefModel.Value);
 
+         DBOperation.beginTransaction();
          string dependReport = "Select a.elementid \"Element ID (New)\", a.elementtype \"Element Type (New)\", a.DEPENDENTELEMENTID \"Dependent Element ID (New)\", a.DEPENDENTELEMENTTYPE \"Dependent Element Type (New)\", a.dependencytype \"Dependency Type (New)\", "
                                  + "b.elementid \"Element ID (Ref)\", b.elementtype \"Element Type (Ref)\", b.DEPENDENTELEMENTID \"Dependent Element ID (Ref)\", b.DEPENDENTELEMENTTYPE \"Dependent Element Type (Ref)\", b.dependencytype \"Dependency Type (Ref)\" "
                                  + "from " + dependTableNew + " a full outer join " + dependTableRef + " b on (a.elementid=b.elementid and a.dependentelementid=b.dependentelementid) "
@@ -488,6 +527,7 @@ namespace BIMRL
          DataTable dependRes = queryMultipleRows(dependReport, "Element Dependency Changes");
          qResults.Add(dependRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
@@ -497,6 +537,7 @@ namespace BIMRL
          string spacebTableNew = DBOperation.formatTabName("BIMRL_RELSPACEBOUNDARY", compNewModel.Value);
          string spacebTableRef = DBOperation.formatTabName("BIMRL_RELSPACEBOUNDARY", compRefModel.Value);
 
+         DBOperation.beginTransaction();
          string spacebReport = "select a.spaceelementid \"Space ID (New)\", a.boundaryelementid \"Boundary ID (New)\", a.boundaryelementtype \"Boundary Elem Type (New)\", a.boundarytype \"Boundary Type (New)\", a.internalorexternal \"Internal or External (New)\", "
                                  + "b.spaceelementid \"Space ID (Ref)\", b.boundaryelementid \"Boundary ID (Ref)\", b.boundaryelementtype \"Boundary Elem Type (Ref)\", b.boundarytype \"Boundary Type (Ref)\", b.internalorexternal \"Internal or External (Ref)\" "
                                  + "from " + spacebTableNew + " a full outer join " + spacebTableRef + " b on(a.spaceelementid = b.spaceelementid and a.boundaryelementid = b.boundaryelementid) "
@@ -505,6 +546,7 @@ namespace BIMRL
          DataTable spacebRes = queryMultipleRows(spacebReport, "Space Boundary Changes");
          qResults.Add(spacebRes);
 
+         DBOperation.rollbackTransaction();
          return qResults;
       }
 
@@ -513,6 +555,7 @@ namespace BIMRL
          if (String.IsNullOrEmpty(sqlStmt))
             return null;
 
+         DBOperation.beginTransaction();
          DataTable queryDataTableBuffer = new DataTable(tabName);
 
 #if ORACLE
@@ -553,14 +596,16 @@ namespace BIMRL
          }
 
          command.Dispose();
+         DBOperation.rollbackTransaction();
          return queryDataTableBuffer;
       }
 
-      public int runNonQuery(string sqlStmt, bool ignoreError)
+      public int runNonQuery(string sqlStmt, bool ignoreError, bool commit=false)
       {
          if (String.IsNullOrEmpty(sqlStmt))
             return 0;
 
+         DBOperation.beginTransaction();
 #if ORACLE
          OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
 #endif
@@ -570,6 +615,10 @@ namespace BIMRL
          try
          {
             int status = command.ExecuteNonQuery();
+            if (commit)
+               DBOperation.commitTransaction();
+            else
+               DBOperation.rollbackTransaction();
             return status;
          }
 #if ORACLE
@@ -582,11 +631,13 @@ namespace BIMRL
             if (ignoreError)
             {
                command.Dispose();
+               DBOperation.rollbackTransaction();
                return 0;
             }
             string excStr = "%%Error - " + e.Message + "\n" + command.CommandText;
             m_BIMRLCommonRef.StackPushError(excStr);
             command.Dispose();
+            DBOperation.rollbackTransaction();
             return 0;
          }
       }

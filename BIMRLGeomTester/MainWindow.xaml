@@ -237,6 +237,31 @@
                <TextBox x:Name="textBox_AreaPH2" HorizontalAlignment="Left" Height="23" Margin="812,404,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="70" IsReadOnly="True"/>
             </Grid>
          </TabItem>
+         <TabItem x:Name="TabItem_ElementID" Header="ElementID" HorizontalAlignment="Right" Height="20" VerticalAlignment="Top" Width="54" Margin="-2,-2,2,0">
+            <Grid x:Name="tabItem_elementID" Background="#FFE5E5E5">
+               <Rectangle HorizontalAlignment="Left" Height="144" Margin="498,112,0,0" Stroke="Black" VerticalAlignment="Top" Width="394">
+                  <Rectangle.Fill>
+                     <SolidColorBrush Color="#FF02021D" Opacity="0"/>
+                  </Rectangle.Fill>
+               </Rectangle>
+               <Label x:Name="label" Content="ElementID string" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Height="26"/>
+               <TextBox x:Name="textBox_elementidstr" HorizontalAlignment="Left" Height="23" Margin="10,41,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="379"/>
+               <TextBox x:Name="textBox_elementidGuid" HorizontalAlignment="Left" Height="23" Margin="498,41,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="394"/>
+               <Label x:Name="label_Copy" Content="ElementID (guid)" HorizontalAlignment="Left" Margin="498,10,0,0" VerticalAlignment="Top" Height="26"/>
+               <TextBox x:Name="textBox_elementidUpper" HorizontalAlignment="Left" Height="23" Margin="618,125,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="205"/>
+               <Label x:Name="label1" Content="ElementID number components" HorizontalAlignment="Left" Margin="498,81,0,0" VerticalAlignment="Top"/>
+               <Label x:Name="label2" Content="Upper part" HorizontalAlignment="Left" Margin="512,122,0,0" VerticalAlignment="Top"/>
+               <TextBox x:Name="textBox_elementidLower" HorizontalAlignment="Left" Height="23" Margin="618,151,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="205"/>
+               <Label x:Name="label2_Copy" Content="Lower part" HorizontalAlignment="Left" Margin="512,148,0,0" VerticalAlignment="Top"/>
+               <TextBox x:Name="textBox_elementidAdd" HorizontalAlignment="Left" Height="23" Margin="618,177,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="205"/>
+               <Label x:Name="label2_Copy1" Content="Additional part" HorizontalAlignment="Left" Margin="512,174,0,0" VerticalAlignment="Top"/>
+               <Button x:Name="button_str2guid" Content="&gt;&gt;" HorizontalAlignment="Left" Margin="454,44,0,0" VerticalAlignment="Top" Width="26" Click="button_str2guid_Click"/>
+               <Button x:Name="button_guid2str" Content="&lt;&lt;" HorizontalAlignment="Left" Margin="413,44,0,0" VerticalAlignment="Top" Width="26" Click="button_guid2str_Click"/>
+               <Button x:Name="button_component2str" Content="&lt;&lt;" HorizontalAlignment="Left" Margin="454,162,0,0" VerticalAlignment="Top" Width="26" Click="button_component2str_Click"/>
+               <Button x:Name="button_guid2component" Content="V" HorizontalAlignment="Left" Margin="729,81,0,0" VerticalAlignment="Top" Width="26" Click="button_guid2component_Click"/>
+               <Button x:Name="button_component2guid" Content="^" HorizontalAlignment="Left" Margin="770,81,0,0" VerticalAlignment="Top" Width="26" Click="button_component2guid_Click"/>
+            </Grid>
+         </TabItem>
       </TabControl>
       <Button x:Name="Button_Close" Content="Close" HorizontalAlignment="Left" Margin="392,547,0,0" VerticalAlignment="Top" Width="75" Height="20" Click="Button_Close_Click" RenderTransformOrigin="8.013,0.7"/>
    </Grid>

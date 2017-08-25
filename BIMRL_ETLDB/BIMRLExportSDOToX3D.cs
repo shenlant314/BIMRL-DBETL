@@ -24,6 +24,7 @@ using System.Text;
 using System.Data;
 using System.IO;
 using System.Xml;
+using System.Xml.Linq;
 using Xbim.Common.Geometry;
 #if ORACLE
 using Oracle.DataAccess.Types;
@@ -107,10 +108,15 @@ namespace BIMRL
          XmlWriterSettings settings = new XmlWriterSettings();
          settings.Indent = true;
          settings.IndentChars = "\t";
-         settings.ConformanceLevel = ConformanceLevel.Auto;
+         settings.ConformanceLevel = ConformanceLevel.Document;
+         settings.Encoding = Encoding.UTF8;
          oFile = XmlWriter.Create(_outfile, settings);
-
-         oFile.WriteStartElement("X3D");
+         oFile.WriteStartDocument();
+         oFile.WriteStartElement("X3D", "");
+         oFile.WriteAttributeString("profile", "Immersive");
+         oFile.WriteAttributeString("version", "3.3");
+         oFile.WriteAttributeString("xmlns", "xsd", null, "http://www.w3.org/2001/XMLSchema-instance");
+         oFile.WriteAttributeString("xsd", "noNamespaceSchemaLocation", "http://www.web3d.org/specifications/x3d-3.3.xsd");
          oFile.WriteStartElement("Scene");
       }
 
@@ -282,8 +288,8 @@ namespace BIMRL
 #endif
 #if POSTGRES
                Point3D[] bboxPts = reader.GetValue(0) as Point3D[];
-               Point3D llb = bboxPts[0];
-               Point3D urt = bboxPts[1];
+               Point3D llb = transformToX3D.Transform(bboxPts[0]);
+               Point3D urt = transformToX3D.Transform(bboxPts[1]);
 #endif
                Octree.WorldBB = new BoundingBox3D(llb, urt);
 
@@ -438,7 +444,6 @@ namespace BIMRL
 #if POSTGRES
                GeometryTypeEnum geomType = reader.GetFieldValue<GeometryTypeEnum>(2);
                string geomJStr = reader.GetString(3);
-               //IList<Polyhedron> polyHs = JsonConvert.DeserializeObject<IList<Polyhedron>>(geomJStr);
                object geomObj = JsonGeomUtils.generateGeometryFromJson(geomType, geomJStr);
                List<Polyhedron> geomList = geomObj as List<Polyhedron>;
                if (geomObj == null || geomList == null || geomList.Count == 0)

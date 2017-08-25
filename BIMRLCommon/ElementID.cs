@@ -112,10 +112,17 @@ namespace BIMRL.Common
             _EIDstr = new string(tmpChar);
         }
 
-      public static string GetElementIDstrFromKey(Tuple<Guid,int> elemidKey, bool userGeom=false)
+      public static string GetElementIDstrFromKey(Tuple<Guid, int> elemidKey, bool userGeom = false)
       {
-         UInt64 upperPart = 0;
-         UInt64 lowerPart = 0;
+         UInt64 upperPart;
+         UInt64 lowerPart;
+         return GetElementIDCompFromKey(elemidKey, out upperPart, out lowerPart, userGeom);
+      }
+
+      public static string GetElementIDCompFromKey(Tuple<Guid, int> elemidKey, out UInt64 upperPart, out UInt64 lowerPart, bool userGeom = false)
+      { 
+         upperPart = 0;
+         lowerPart = 0;
 
          if (elemidKey.Item2 == 0)
          {

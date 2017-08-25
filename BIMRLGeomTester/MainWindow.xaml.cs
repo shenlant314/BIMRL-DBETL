@@ -1391,5 +1391,118 @@ namespace BIMRL.BIMGeomTester
             TextBox_F3D_Tol.Text = MathUtils.tol.ToString("E2");
         }
 
+      #region ElementID test
+      private void button_guid2str_Click(object sender, RoutedEventArgs e)
+      {
+         UInt64 upperPart;
+         UInt64 lowerPart;
+         if (textBox_elementidGuid.Text.Length >= 36)
+         {
+            Guid guidPart;
+            int addNo = 0;
+            // This is Revit based Elementid
+            if (!Guid.TryParse(textBox_elementidGuid.Text.Substring(0, 36), out guidPart))
+            {
+               // fail
+               return;
+            }
+            if (textBox_elementidstr.Text.Length > 37)
+            {
+               addNo = int.Parse(textBox_elementidGuid.Text.Substring(37, 8), System.Globalization.NumberStyles.HexNumber);
+            }
+            string eidStr = ElementID.GetElementIDCompFromKey(new Tuple<Guid, int>(guidPart, addNo), out upperPart, out lowerPart, false);
+            ElementID elemID = new ElementID(new Tuple<UInt64,UInt64>(upperPart,lowerPart));
+            if (elemID != null)
+               textBox_elementidstr.Text = elemID.ElementIDString;
+         }
+      }
+
+      private void button_str2guid_Click(object sender, RoutedEventArgs e)
+      {
+         if (string.IsNullOrEmpty(textBox_elementidstr.Text))
+            return;
+
+         if (textBox_elementidstr.Text.Length < 22)
+            return;
+
+         string eid = textBox_elementidstr.Text;
+         // Make sure ElementID string is 22 character long for correct encoding/decoding
+         if (eid.Length < 22)
+            eid = eid.PadLeft(22, '0');
+
+         ElementID eidNo = new ElementID(eid);
+         if (eidNo != null)
+         {
+            textBox_elementidGuid.Text = eidNo.ElementIDGuid.ToString();
+            textBox_elementidUpper.Text = eidNo.ElementIDNo.Item1.ToString();
+            textBox_elementidLower.Text = eidNo.ElementIDNo.Item2.ToString();
+         }
+      }
+
+      private void button_component2str_Click(object sender, RoutedEventArgs e)
+      {
+         UInt64 upperPart;
+         UInt64 lowerPart;
+
+         if (UInt64.TryParse(textBox_elementidUpper.Text, out upperPart))
+         {
+            if (UInt64.TryParse(textBox_elementidLower.Text, out lowerPart))
+            {
+               ElementID elemid = new ElementID(new Tuple<UInt64, UInt64>(upperPart, lowerPart));
+               if (elemid != null)
+                  textBox_elementidstr.Text = elemid.ElementIDString;
+            }
+         }
+      }
+
+      private void button_guid2component_Click(object sender, RoutedEventArgs e)
+      {
+         UInt64 upperPart = 0;
+         UInt64 lowerPart = 0;
+         if (textBox_elementidGuid.Text.Length >= 36)
+         {
+            Guid guidPart;
+            int addNo = 0;
+            // This is Revit based Elementid
+            if (!Guid.TryParse(textBox_elementidGuid.Text.Substring(0, 36), out guidPart))
+            {
+               // fail
+               return;
+            }
+            if (textBox_elementidGuid.Text.Length > 37)
+            {
+               addNo = int.Parse(textBox_elementidGuid.Text.Substring(37, 8), System.Globalization.NumberStyles.HexNumber);
+            }
+            string eidStr = ElementID.GetElementIDCompFromKey(new Tuple<Guid, int>(guidPart, addNo), out upperPart, out lowerPart, false);
+            textBox_elementidUpper.Text = upperPart.ToString();
+            textBox_elementidLower.Text = lowerPart.ToString();
+            textBox_elementidAdd.Text = addNo.ToString();
+         }
+      }
+
+      private void button_component2guid_Click(object sender, RoutedEventArgs e)
+      {
+         UInt64 upperPart;
+         UInt64 lowerPart;
+         int addNo = 0;
+
+         int.TryParse(textBox_elementidAdd.Text, out addNo);
+
+         if (UInt64.TryParse(textBox_elementidUpper.Text, out upperPart))
+         {
+            if (UInt64.TryParse(textBox_elementidLower.Text, out lowerPart))
+            {
+               ElementID elemid = new ElementID(new Tuple<UInt64, UInt64>(upperPart, lowerPart));
+               if (elemid != null)
+               {
+                  if (addNo > 0)
+                     textBox_elementidGuid.Text = elemid.ElementIDGuid.ToString() + "-" + addNo.ToString("x8");
+                  else
+                     textBox_elementidGuid.Text = elemid.ElementIDGuid.ToString();
+               }
+            }
+         }
+      }
+      #endregion
    }
 }

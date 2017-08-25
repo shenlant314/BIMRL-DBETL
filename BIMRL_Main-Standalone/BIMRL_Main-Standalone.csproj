@@ -58,7 +58,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug_Postgres|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\Debug_Postgres\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;POSTGRES</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;POSTGRES</DefineConstants>
     <DebugType>full</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>

@@ -105,6 +105,7 @@ namespace BIMRL_Main_Standalone
       private void Button_Close_Click(object sender, RoutedEventArgs e)
       {
          Close();
+         DBOperation.rollbackTransaction();
       }
 
       private void Button_genX3D_Click(object sender, RoutedEventArgs e)
@@ -153,6 +154,7 @@ namespace BIMRL_Main_Standalone
                showError(null);
             DBOperation.rollbackTransaction();
          }
+         DBOperation.rollbackTransaction();
       }
 
       private void Button_Browse_Click(object sender, RoutedEventArgs e)
@@ -179,6 +181,7 @@ namespace BIMRL_Main_Standalone
             TextBox_X3D_filename.Text = filename;
             Button_genX3D.IsEnabled = true;
          }
+         DBOperation.rollbackTransaction();
       }
 
       private void DataGrid_FedModels_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -413,6 +416,7 @@ namespace BIMRL_Main_Standalone
             DBOperation.rollbackTransaction();
          }
          MathUtils.tol = currentTol;
+         DBOperation.commitTransaction();
       }
 
       private void CheckBox_FacesOnly_Checked(object sender, RoutedEventArgs e)
@@ -507,6 +511,7 @@ namespace BIMRL_Main_Standalone
                showError(null);
             DBOperation.rollbackTransaction();
          }
+         DBOperation.commitTransaction();
       }
 
       static bool _majorAxes = true;
@@ -584,6 +589,7 @@ namespace BIMRL_Main_Standalone
             DBOperation.rollbackTransaction();
          }
          MathUtils.tol = currentTol;
+         DBOperation.commitTransaction();
       }
 
       private void CheckBox_DrawWorldBB_Checked(object sender, RoutedEventArgs e)
@@ -644,6 +650,7 @@ namespace BIMRL_Main_Standalone
                showError(null);
             DBOperation.rollbackTransaction();
          }
+         DBOperation.rollbackTransaction();
       }
 
       public void showError(string message)
@@ -714,6 +721,7 @@ namespace BIMRL_Main_Standalone
                showError(null);
             DBOperation.rollbackTransaction();
          }
+         DBOperation.commitTransaction();
       }
 
       //private IXbimXplorerPluginMasterWindow _parentWindow;

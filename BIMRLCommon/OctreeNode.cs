@@ -223,41 +223,6 @@ namespace BIMRL.Common
                 }
 
                 return;
-
-                // We will do only one time split from the result of the fisrt step (min encl cell) because even BBox operation takes a lot of time during recursion
-
-                //if (childToTraverse.Count == 1)
-                //    OctreeNodeProcess.ProcessBB(node._children[childToTraverse[0]], boundingBox);
-                //else if (childToTraverse.Count > 1)
-                //{
-                //    ParallelOptions po = new ParallelOptions();
-                //    po.MaxDegreeOfParallelism = 8;
-
-                //    Parallel.ForEach(childToTraverse, po, i => OctreeNodeProcess.ProcessBB(node._children[i], boundingBox));
-
-                //    // Non-parallel option for easier debugging
-                //    //foreach (int i in childToTraverse)
-                //    //{
-                //    //    OctreeNodeProcess.ProcessBB(node._children[i], boundingBox);
-                //    //}
-                //}
-
-                //// If there is any disjoint, we need to keep this node as it is. This should be done after we processed all the children to be traversed!!
-                //if (disjointCount > 0 && disjointCount < 8)
-                //    return;
-
-                //int countGrandChildren = 0;
-                //// If there is no disjoint, we need to check whether all children are terminal (i.e. child._children.Count == 0)
-                //foreach (OctreeNode child in node._children)
-                //    countGrandChildren += child._children.Count;
-
-                //// All children are terminal and no disjoint (by implication of previous steps). Remove children
-                //if (countGrandChildren == 0)
-                //{
-                //    node._children.Clear();
-                //    node._flag = PolyhedronIntersectEnum.IntersectOrInside;
-                //    return;
-                //}
             }
             else
             {
@@ -331,43 +296,28 @@ namespace BIMRL.Common
                         continue;
                     }
 
-                    // If doesn't intersect (passes the check above), either it is fully contained, full contains or disjoint
-                    // To optimize the operation, we will use a single sampling point instead of checking the entire polyhedron since a single point can tell if a polyhedron is inside the other one
-                    //if (Polyhedron.inside(childNode.nodeCellCuboid.cuboidPolyhedron, polyH))
-
-                    //// No need to check this since the previous step (no 1) would have removed the fullycontaining cells
- 
-                    // Fully contains check only valid if the parent is fully contains, if intersect, it should never be full contains
-                    //if (node._flag == PolyhedronIntersectEnum.FullyContains)
-                    //{
-                    //    if (Polyhedron.insideCuboid(childNode.nodeCellCuboid.cuboidPolyhedron, faceList[0].vertices[0]))
-                    //    {
-                    //        // if polyH is entirely inside the cuboid, we will set this for further split (the same as intersection
-                    //        childToTraverse.Add(i);       // We will remove the node if it is disjoint, otherwise it will continue splitting until the condition met
-                    //        childNode._flag = PolyhedronIntersectEnum.FullyContains;
-                    //        childNode.nodeCellID.setBorderCell();
-                    //        continue;
-                    //    }
-                    //}
-
-                    //if (Polyhedron.inside(polyH, childNode.nodeCellCuboid.cuboidPolyhedron))
-                    if (Polyhedron.inside(_polyH, childNode.nodeCellCuboid.cuboidPolyhedron.Vertices[3]))
-                    {
-                        childNode._flag = PolyhedronIntersectEnum.Inside;
-                        insideCount++;
-#if (DBG_OCTREE)
-                        if (childNode._depth >= _dbgDepth)
+                     // If doesn't intersect (passes the check above), either it is fully contained, full contains or disjoint
+                     // Inside check should only be done for a Solid. Surface geometry will not be reliable
+                     if (_polyH.IsSolid)
+                     {
+                        if (Polyhedron.inside(_polyH, childNode.nodeCellCuboid.cuboidPolyhedron.Vertices[3]))
                         {
-                            BIMRLCommon refCommon = new BIMRLCommon();
-                            string dbgFile = "c:\\temp\\octree\\" + childNode.nodeCellID.ToString() + " - inside polyH.x3d";
-                            BIMRLExportSDOToX3D x3d = new BIMRLExportSDOToX3D(refCommon, dbgFile);
-                            x3d.drawCellInX3d(childNode.nodeCellID.ToString());     // draw the cell
-                            x3d.exportFacesToX3D(_polyH.Faces);
-                            x3d.endExportToX3D();
+                           childNode._flag = PolyhedronIntersectEnum.Inside;
+                           insideCount++;
+      #if (DBG_OCTREE)
+                              if (childNode._depth >= _dbgDepth)
+                              {
+                                  BIMRLCommon refCommon = new BIMRLCommon();
+                                  string dbgFile = "c:\\temp\\octree\\" + childNode.nodeCellID.ToString() + " - inside polyH.x3d";
+                                  BIMRLExportSDOToX3D x3d = new BIMRLExportSDOToX3D(refCommon, dbgFile);
+                                  x3d.drawCellInX3d(childNode.nodeCellID.ToString());     // draw the cell
+                                  x3d.exportFacesToX3D(_polyH.Faces);
+                                  x3d.endExportToX3D();
+                              }
+      #endif
+                           continue;
                         }
-#endif
-                        continue;
-                    }
+                     }
 
                     // If the 2 polyH do not intersect, the cuboid does not fully contain the polyH, nor the cuboid is fully inside the polyH, it must be disjoint
                     childNode._flag = PolyhedronIntersectEnum.Disjoint;

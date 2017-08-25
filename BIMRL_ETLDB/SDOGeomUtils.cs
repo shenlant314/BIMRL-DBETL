@@ -83,7 +83,7 @@ namespace BIMRL
             return sdoGtype;
         }
 
-        public static bool generate_Polyhedron(SdoGeometry geom, out Polyhedron pH)
+        public static bool generate_Polyhedron(SdoGeometry geom, out Polyhedron pH, bool isSolid=true)
         {
             List<double> pointCoordList = new List<double>();
             List<int> coordIndexList = new List<int>();
@@ -162,7 +162,7 @@ namespace BIMRL
             }
 
 //            pH = new Polyhedron(PolyhedronFaceTypeEnum.TriangleFaces, true, pointCoordList, coordIndexList, null);
-            pH = new Polyhedron(PolyhedronFaceTypeEnum.ArbitraryFaces, true, pointCoordList, coordIndexList, noFaceVertList);
+            pH = new Polyhedron(PolyhedronFaceTypeEnum.ArbitraryFaces, isSolid, pointCoordList, coordIndexList, noFaceVertList);
             return true;
         }
 

@@ -270,9 +270,9 @@ namespace BIMRL
                      }
                      else
                      {
+#if ORACLE
                         double surfaceArea = CalculateAreaOfTriangle(triangleCoords);
                         totalSurfArea += surfaceArea;
-#if ORACLE
                         // Close the polygon with the starting point (i=0)
                         arrCoord.Add(v0.X);
                         arrCoord.Add(v0.Y);
@@ -285,13 +285,15 @@ namespace BIMRL
                   polyHFaces.Add(face);
 #endif
                }
+               bool isSolid = IsSolidGeometry(product);
 #if ORACLE
                startingOffset = startingOffset + prodGeom.TriangleIndexCount * 4;
                //polyHStartingOffset = currFVindex + 3;
 #endif
 #if POSTGRES
-               Polyhedron pH = new Polyhedron(polyHFaces.ToList());
+               Polyhedron pH = new Polyhedron(polyHFaces.ToList(), isSolid);
                ProdGeometries.Add(pH);
+               totalSurfArea += pH.Area;
 #endif
             }
 
@@ -324,8 +326,9 @@ namespace BIMRL
             {
                // Found match, update the table with geometry data
 #if ORACLE
-               string sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT") + " set GEOMETRYBODY=:1, TRANSFORM_COL1=:2, TRANSFORM_COL2=:3, TRANSFORM_COL3=:4, TRANSFORM_COL4=:5, TOTAL_SURFACE_AREA=:6"
-               + " Where elementid = '" + prodGuid + "'";
+               string sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT") + " set GEOMETRYBODY=:1,"
+                  + " TRANSFORM_COL1=:2, TRANSFORM_COL2=:3, TRANSFORM_COL3=:4, TRANSFORM_COL4=:5, TOTAL_SURFACE_AREA=:6, IsSolidGeometry=:7"
+                  + " Where elementid = '" + prodGuid + "'";
                command.CommandText = sqlStmt;
 #endif
 #if POSTGRES
@@ -339,7 +342,7 @@ namespace BIMRL
                try
                {
 #if ORACLE
-                  OracleParameter[] sdoGeom = new OracleParameter[6];
+                  OracleParameter[] sdoGeom = new OracleParameter[7];
                   for (int i = 0; i < sdoGeom.Count()-1; ++i)
                   {
                         sdoGeom[i] = command.Parameters.Add((i+1).ToString(), OracleDbType.Object);
@@ -400,10 +403,25 @@ namespace BIMRL
                   sdoGeom[5] = command.Parameters.Add("6", OracleDbType.Double);
                   sdoGeom[5].Direction = ParameterDirection.Input;
                   sdoGeom[5].Value = totalSurfArea;
+
+                  sdoGeom[6] = command.Parameters.Add("7", OracleDbType.Varchar2);
+                  sdoGeom[6].Direction = ParameterDirection.Input;
+                  if (isSolid)
+                     sdoGeom[6].Value = "Y";
+                  else
+                     sdoGeom[6].Value = "N";
 #endif
 #if POSTGRES
                   command.Parameters.Clear();
-                  command.Parameters.AddWithValue("@gtyp", NpgsqlDbType.Enum, GeometryTypeEnum.geomsolid3d);
+                  bool solidGeom = true;
+                  foreach (Polyhedron polyhGeom in ProdGeometries)
+                     solidGeom = solidGeom && polyhGeom.IsSolid;
+
+                  if (solidGeom)
+                     command.Parameters.AddWithValue("@gtyp", NpgsqlDbType.Enum, GeometryTypeEnum.geomsolid3d);
+                  else
+                     command.Parameters.AddWithValue("@gtyp", NpgsqlDbType.Enum, GeometryTypeEnum.geomsurface3d);
+
                   string geomJson = JsonConvert.SerializeObject(ProdGeometries);
                   command.Parameters.AddWithValue("@gbody", NpgsqlDbType.Jsonb, geomJson);
                   // Organized the data according to 
@@ -475,7 +493,7 @@ namespace BIMRL
 
          DBOperation.commitTransaction();
          command.Dispose();
-      }  
+      }
 
       private double CalculateAreaOfTriangle(IList<Point3D> triangleCoords)
       {
@@ -496,8 +514,7 @@ namespace BIMRL
          return area;
       }
 
-      public void 
-         processElements()
+      public void processElements()
       {
          DBOperation.beginTransaction();
 
@@ -712,6 +729,8 @@ namespace BIMRL
 
          // After all elements are processed, proceed with Geometries
          processGeometries();
+         // We will use uniform bounding box
+         BoundingBox3D newWorlBB = WorlBoundingBoxUniform();
 
          processProperties();
       }
@@ -1973,5 +1992,85 @@ namespace BIMRL
          }
       }
 #endif
+
+      /// <summary>
+      /// Make the world bounding box a cuboid, i.e. having uniform sides starting from the LLB
+      /// </summary>
+      /// <returns>the new World Bounding Box</returns>
+      BoundingBox3D WorlBoundingBoxUniform()
+      {
+         BoundingBox3D wbb = new BoundingBox3D(_refBIMRLCommon.LLB, _refBIMRLCommon.URT);
+         double maxSize = wbb.XLength;
+         if (wbb.YLength > maxSize)
+            maxSize = wbb.YLength;
+         if (wbb.ZLength > maxSize)
+            maxSize = wbb.ZLength;
+
+         _refBIMRLCommon.URT = new Point3D(_refBIMRLCommon.LLB.X + maxSize, _refBIMRLCommon.LLB.Y + maxSize, _refBIMRLCommon.LLB_Z + maxSize);
+         BoundingBox3D newWbb = new BoundingBox3D(_refBIMRLCommon.LLB, _refBIMRLCommon.URT);
+         return newWbb;
+      }
+
+      bool IsSolidGeometry(IIfcProduct product)
+      {
+         bool ret = false;
+         if (product.Representation == null)
+            return ret;
+
+         foreach (IIfcRepresentation rep in product.Representation.Representations)
+         {
+            if (rep.IsBodyRepresentation())
+               ret = BodyRepIsSolid(rep);
+         }
+         return ret;
+      }
+
+      bool BodyRepIsSolid(IIfcRepresentation rep)
+      {
+         bool ret = true;
+         if (rep.RepresentationType.ToString().Equals("SurfaceModel")
+               || rep.RepresentationType.ToString().Equals("Surface")
+               || rep.RepresentationType.ToString().Equals("Surface2D")
+               || rep.RepresentationType.ToString().Equals("Surface3D")
+               || rep.RepresentationType.ToString().Equals("AdvancedSurface"))
+         {
+            ret = false;
+         }
+         else if (rep.RepresentationType.ToString().Equals("SolidModel")
+                  || rep.RepresentationType.ToString().Equals("SweptSolid")
+                  || rep.RepresentationType.ToString().Equals("AdvancedSweptSolid")
+                  || rep.RepresentationType.ToString().Equals("Brep")
+                  || rep.RepresentationType.ToString().Equals("AdvancedBrep")
+                  || rep.RepresentationType.ToString().Equals("CSG")
+                  || rep.RepresentationType.ToString().Equals("Clipping")
+                  || rep.RepresentationType.ToString().Equals("SectionedSpine")
+                  || rep.RepresentationType.ToString().Equals("Tessellation"))
+         {
+            // Tesselation will be treated as a solid as it is used in many cases for complex geometry especially in Reference View MVD
+            ret = true;
+         }
+         else if (rep.RepresentationType.ToString().Equals("MappedRepresentation"))
+         {
+            // Need to follow the MappedRepresentation to get the actual geometry type
+            foreach (IIfcRepresentationItem item in rep.Items)
+            {
+               IIfcMappedItem mapItem = item as IIfcMappedItem;
+               if (mapItem == null)
+                  continue;
+
+               IIfcRepresentation repMap = mapItem.MappingSource.MappedRepresentation;
+               // The Solid status is set only if ALL mapped items are of the solid type
+               if (repMap.IsBodyRepresentation())
+                  ret = ret && BodyRepIsSolid(repMap);
+            }
+         }
+         else
+         {
+            // Anything else will be false
+            ret = false;
+         }
+
+         return ret;
+      }
    }
 }

@@ -24,11 +24,12 @@ namespace BIMRL
          switch (geomType)
          {
             case GeometryTypeEnum.geomsolid3d:
-            case GeometryTypeEnum.geomsurface3d:
             case GeometryTypeEnum.geomtriangulatedfaceset3d:
                ret = Generate_Polyhedron(geomDyn);
                break;
-
+            case GeometryTypeEnum.geomsurface3d:
+               ret = Generate_Polyhedron(geomDyn, isSolid:false);
+               break;
             case GeometryTypeEnum.geomface3d:
                ret = Generate_Face3D(geomDyn);
                break;
@@ -66,7 +67,7 @@ namespace BIMRL
       /// </summary>
       /// <param name="geomDyn">the jsonb string containing the list of one or more Polyhedron</param>
       /// <returns>the list of Polyhedron</returns>
-      public static List<Polyhedron> Generate_Polyhedron(dynamic geomDyn)
+      public static List<Polyhedron> Generate_Polyhedron(dynamic geomDyn, bool isSolid=true)
       {
          List<Polyhedron> polyHList = new List<Polyhedron>();
 
@@ -85,7 +86,7 @@ namespace BIMRL
             }
             if (faceList.Count > 0)
             {
-               polyH = new Polyhedron(faceList);
+               polyH = new Polyhedron(faceList, isSolid);
                polyHList.Add(polyH);
             }
          }

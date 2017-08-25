@@ -88,13 +88,14 @@ namespace BIMRL.Common
          _isSolid = isSolid;
       }
 
-      public Polyhedron(List<Face3D> faceList)
+      public Polyhedron(List<Face3D> faceList, bool isSolid=true)
       {
          _Faces = faceList;
          foreach (Face3D f in faceList)
          {
             _vertices.AddRange(f.outerAndInnerVertices);
          }
+         _isSolid = isSolid;
       }
 
       /// <summary>
@@ -411,13 +412,15 @@ namespace BIMRL.Common
             return null;
 
          List<Face3D> unionFaces = new List<Face3D>();
+         bool isSolid = true;
          foreach (Polyhedron pH in polyHList)
          {
             unionFaces.AddRange(pH.Faces);
+            isSolid = isSolid && pH.IsSolid;
          }
          if (unionFaces.Count > 0)
          {
-            polyH = new Polyhedron(unionFaces);
+            polyH = new Polyhedron(unionFaces, isSolid);
          }
          return polyH;
       }
@@ -434,5 +437,7 @@ namespace BIMRL.Common
             return area;
          }
       }
+
+      public bool IsSolid { get { return _isSolid; } }
    }
 }

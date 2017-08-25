@@ -136,34 +136,31 @@ namespace BIMRL.Common
 
       void init(int ID, int initDictNo, int maxDepth, bool forUserDict, bool skipRegenDict)
       {
-         if (_ID != ID || masterDict == null)
+         _ID = ID;
          {
-            _ID = ID;
-            //if (!deSerializeMasterDict())
+            // If not empty, clear first before reallocating a new ones
+            if (masterDict != null)
+               masterDict.Clear();
+            if (elemIDDict != null)
+               elemIDDict.Clear();
+            if (elemIDList != null)
+               elemIDList.Clear();
+
+            masterDict = new Dictionary<UInt64, CellData>(initDictNo);
+            elemIDDict = new Dictionary<Tuple<Guid, int>, int>(initDictNo);
+            elemIDList = new Dictionary<int, Tuple<Guid, int>>(initDictNo);
+
+            CellID64 cell = new CellID64("000000000000");
+            masterDict.Add(cell.iCellID, new CellData { nodeType = 0, data = new SortedSet<int>() });
+            if (!skipRegenDict)
             {
-               // If not empty, claer first before reallocating a new ones
-               if (masterDict != null)
-                  masterDict.Clear();
-               if (elemIDDict != null)
-                  elemIDDict.Clear();
-               if (elemIDList != null)
-                  elemIDList.Clear();
-
-               masterDict = new Dictionary<UInt64, CellData>(initDictNo);
-               elemIDDict = new Dictionary<Tuple<Guid, int>, int>(initDictNo);
-               elemIDList = new Dictionary<int, Tuple<Guid, int>>(initDictNo);
-
-               CellID64 cell = new CellID64("000000000000");
-               masterDict.Add(cell.iCellID, new CellData { nodeType = 0, data = new SortedSet<int>() });
-               if (!skipRegenDict)
-               {
-                  regenSpatialIndexDict(ID, ref masterDict);
-                  _regen = true;
-               }
+               regenSpatialIndexDict(ID, ref masterDict);
+               _regen = true;
             }
-            _maxDepth = maxDepth;
-            candidates = new List<string>();
          }
+         _maxDepth = maxDepth;
+         candidates = new List<string>();
+
          if (forUserDict)
          {
             if (userDict != null)
@@ -239,41 +236,13 @@ namespace BIMRL.Common
       {
          Tuple<Guid, int> elementIDNo = ElementIDstrToKey(elementID);
 
-         //if (elementID.Length >= 36)
-         //{
-         //   Guid guidPart;
-         //   int addNo = 0;
-         //   // This is Revit based Elementid
-         //   if (!Guid.TryParse(elementID.Substring(0, 36), out guidPart))
-         //   {
-         //      // There is problem with Guid format
-         //      Exception e = new Exception();
-         //      string excStr = "%%ElementID format Error - " + elementID + " : " + e.Message + "\n\t";
-         //      refCellBIMRLCommon.StackPushError(excStr);
-         //      throw e;
-         //   }
-         //   if (elementID.Length > 37)
-         //   {
-         //      int.TryParse(elementID.Substring(37, 8), out addNo);
-         //   }
-         //}
-         //else
-         //{
-         //   // Make sure ElementID string is 22 character long for correct encoding/decoding
-         //   if (elementID.Length < 22)
-         //      elementID = elementID.PadLeft(22, '0');
-
-         //   ElementID eidNo = new ElementID(elementID);
-         //   elementIDNo = new Tuple<Guid,int>(eidNo.ElementIDGuid, 0);
-         //}
-
          OctreeNode theTree = new OctreeNode();
          // Do it in steps:
          // 1. Find the smallest containing cell based on the PolyH BB, it it to quickly eliminate the irrelevant cells very quickly
          theTree.nodeCellID = OctreeNodeProcess.getSmallestContainingCell(polyH);
          theTree._depth = theTree.nodeCellID.Level;
 
-         // 2. Perform subdivision using the BB first: quick division since there is no expensive intersection. It leaves all the leaves based on BB
+         // 2. Perform subdivision using the BB first: quick division since there is not expensive intersection. It leaves all the leaves based on BB
          OctreeNodeProcess.ProcessBB(theTree, polyH.boundingBox);
 
          // 3. Evaluate each leaf nodes for further subdivision using the actual polyhedron (the original algorithm)
@@ -301,13 +270,6 @@ namespace BIMRL.Common
       public void ComputeOctree(string elementID, Face3D face, bool forUserDict)
       {
          Tuple<Guid, int> elementIDNo = ElementIDstrToKey(elementID);
-
-         //// Make sure ElementID string is 22 character long for correct encoding/decoding
-         //if (elementID.Length < 22)
-         //   elementID = elementID.PadLeft(22, '0');
-
-         //ElementID eidNo = new ElementID(elementID);
-         //Tuple<Guid, int> elementIDNo = eidNo.ElementIDNo;
 
          OctreeNode theTree = new OctreeNode();
             
@@ -339,13 +301,6 @@ namespace BIMRL.Common
       public void ComputeOctree(string elementID, LineSegment3D lineS, bool forUserDict)
       {
          Tuple<Guid, int> elementIDNo = ElementIDstrToKey(elementID);
-
-         //// Make sure ElementID string is 22 character long for correct encoding/decoding
-         //if (elementID.Length < 22)
-         //   elementID = elementID.PadLeft(22, '0');
-
-         //ElementID eidNo = new ElementID(elementID);
-         //Tuple<UInt64, UInt64> elementIDNo = eidNo.ElementIDNo;
 
          OctreeNode theTree = new OctreeNode();
 
@@ -733,16 +688,6 @@ namespace BIMRL.Common
             return OctreeCheck.NOTFOUND;
       }
 
-      //void serializeMasterDict()
-      //{
-      //   return;
-      //}
-
-      //bool deSerializeMasterDict()
-      //{
-      //   return false;
-      //}
-
       /// <summary>
       /// Collect ALL the cellids from userDict for populating transient geometry(ies)
       /// </summary>
@@ -780,20 +725,6 @@ namespace BIMRL.Common
                foreach (int tupEID in dictEntry.Value.data)
                {
                   string userGeomID = ElementID.GetElementIDstrFromKey(getElementIDByIndex(tupEID));
-
-                  //ElementID eID = new ElementID(getElementIDByIndex(tupEID));
-                        
-                  //// For UserGeom, the ID i s generated from string of a simple number padded left with '0'. Now we need to remove them
-                  //int end0Pos = 0;
-                  //for (int i = 0; i < eID.ElementIDString.Length; ++i)
-                  //{
-                  //      if (eID.ElementIDString[i] != '0')
-                  //      {
-                  //         end0Pos = i;
-                  //         break;
-                  //      }
-                  //}
-                  //string userGeomID = eID.ElementIDString.Remove(0, end0Pos);
 
                   elementIDList.Add(userGeomID);
                   cellIDStrList.Add(cellID.ToString());

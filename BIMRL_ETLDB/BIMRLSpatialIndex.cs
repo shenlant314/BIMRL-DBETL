@@ -68,7 +68,7 @@ namespace BIMRL
          Octree.MaxDepth = DBOperation.OctreeSubdivLevel;
 
 #if ORACLE
-         string sqlStmt = "select elementid, elementtype, geometrybody from " + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " where geometrybody is not null ";
+         string sqlStmt = "select elementid, elementtype, geometrybody, IsSolidGeometry from " + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " where geometrybody is not null ";
          if (!string.IsNullOrEmpty(whereCond))
          {
             sqlStmt += " and " + whereCond;
@@ -150,9 +150,15 @@ namespace BIMRL
 
 #if ORACLE
                SdoGeometry sdoGeomData = reader.GetValue(2) as SdoGeometry;
-
+               bool isSolid = true;    // for backward compatibility
+               if (!reader.IsDBNull(3))
+               {
+                  string solid = reader.GetString(3);
+                  if (solid.Equals("N"))
+                     isSolid = false;
+               }
                Polyhedron geom;
-               if (!SDOGeomUtils.generate_Polyhedron(sdoGeomData, out geom))
+               if (!SDOGeomUtils.generate_Polyhedron(sdoGeomData, out geom, isSolid))
                   continue;                                       // if there is something not right, skip the geometry
 
                // - Update geometry info with BBox information
@@ -343,7 +349,7 @@ namespace BIMRL
 #if ORACLE
          SdoGeometry sdoGeomData = new SdoGeometry();
 
-         string sqlStmt = "select elementid, geometrybody from " + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " where geometrybody is not null ";
+         string sqlStmt = "select elementid, geometrybody, issolidgeometry from " + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " where geometrybody is not null ";
          if (!string.IsNullOrEmpty(whereCond))
             sqlStmt += " and " + whereCond;
 
@@ -371,9 +377,13 @@ namespace BIMRL
 
 #if ORACLE
                sdoGeomData = reader.GetValue(1) as SdoGeometry;
+               string solid = reader.GetString(2);
+               bool isSolid = true;
+               if (solid.Equals("N"))
+                  isSolid = false;
 
                Polyhedron geom;
-               if (!SDOGeomUtils.generate_Polyhedron(sdoGeomData, out geom))
+               if (!SDOGeomUtils.generate_Polyhedron(sdoGeomData, out geom, isSolid))
                   continue;                                       // if there is something not right, skip the geometry
 #endif
 #if POSTGRES

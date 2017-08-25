@@ -19,6 +19,7 @@ CREATE TABLE BIMRL_ELEMENT_&1 (
 		  ObjectType varchar2(256),
 		  Tag varchar2(256),
 		  Container varchar2(22),
+		  IsSolidGeometry varchar2(1),
 		  GeometryBody SDO_GEOMETRY, 
 		  GeometryBody_BBOX SDO_GEOMETRY, 
 		  GeometryBody_BBOX_CENTROID SDO_GEOMETRY, 
