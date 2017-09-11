@@ -66,3 +66,61 @@ create table colordict (
 		  transparency real 
 );
 grant select on colordict to public;
+
+CREATE OR REPLACE FUNCTION boxequal (
+  "Box1_LL" public.point3d,
+  "Box1_UR" public.point3d,
+  "Box2_LL" public.point3d,
+  "Box2_UR" public.point3d,
+  "Tol" double precision
+)
+RETURNS boolean AS
+$body$
+DECLARE
+  dllb double precision;
+  durt double precision;
+BEGIN
+  dllb := distance($3, $1);
+  durt := distance($4, $2);
+  if (dllb <= $5 and durt <= $5) then 
+  	return true;
+  else 
+    return false;
+  end if;
+END;
+$body$
+LANGUAGE 'plpgsql'
+VOLATILE
+RETURNS NULL ON NULL INPUT
+SECURITY INVOKER
+COST 100;
+GRANT EXECUTE ON FUNCTION boxequal("Box1_LL" public.point3d, "Box1_UR" public.point3d, "Box2_LL" public.point3d, "Box2_UR" public.point3d, "Tol" double precision) TO PUBLIC;
+
+CREATE OR REPLACE FUNCTION bimrl.distance (
+  "Point1" public.point3d,
+  "Point2" public.point3d
+)
+RETURNS double precision AS
+$body$
+DECLARE
+  dist double precision;
+  dx double precision;
+  dy double precision;
+  dz double precision;
+BEGIN
+  dx := $2.x - $1.x;
+  dy := $2.y - $1.y;
+  dz := $2.z - $1.z;
+  dist := sqrt(dx * dx + dy * dy + dz * dz);
+  return dist;
+END;
+$body$
+LANGUAGE 'plpgsql'
+VOLATILE
+RETURNS NULL ON NULL INPUT
+SECURITY INVOKER
+COST 100;
+GRANT EXECUTE ON FUNCTION distance("Point1" public.point3d, "Point2" public.point3d) TO PUBLIC;
+
+
+

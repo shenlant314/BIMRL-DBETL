@@ -258,7 +258,7 @@ namespace BIMRLMainXplorerPlugin
          double currentTol = MathUtils.tol;
 
          var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
-         string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
+         string exePath = new FileInfo(location.AbsolutePath).Directory.FullName.Replace("%20", " ");
 
          // Temporarily change the tolerance if it is set in the UI
          if (!string.IsNullOrEmpty(TextBox_Tolerance.Text))
@@ -332,14 +332,14 @@ namespace BIMRLMainXplorerPlugin
                   DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), FedID);
                   DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace.sql"), FedID);
                   DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), FedID);
-                  updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel;
+                  updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel.ToString();
                }
                else if (regenSpatialIndex && regenBoundaryFaces && !_majorAxes)
                {
                   spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, true);
                   DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), FedID);
                   DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace.sql"), FedID);
-                  updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel;
+                  updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel.ToString();
                }
                // Update Spatial index (including major axes and OBB) only
                else if (regenSpatialIndex && !regenBoundaryFaces && _majorAxes)
@@ -348,7 +348,7 @@ namespace BIMRLMainXplorerPlugin
                   BIMRLUtils.updateMajorAxesAndOBB(FedID, whereCond);
                   DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), FedID);
                   DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), FedID);
-                  updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel;
+                  updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel.ToString();
                }
                // Update Boundary faces and MajorAxes
                else if (!regenSpatialIndex && regenBoundaryFaces && _majorAxes)
@@ -363,7 +363,7 @@ namespace BIMRLMainXplorerPlugin
                {
                   spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, false);
                   DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), FedID);
-                  updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel;
+                  updOctreeLevel = "MAXOCTREELEVEL=" + DBOperation.OctreeSubdivLevel.ToString();
                }
                // update faces only
                else if (!regenSpatialIndex && regenBoundaryFaces && !_majorAxes)

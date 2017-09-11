@@ -525,7 +525,7 @@ namespace BIMRL
                   DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
 
                   // for BIMRL_ELEMCLASSIFICATION
-                  if (!string.IsNullOrEmpty(arrGuid[i]))
+                  if (arrGuid.Count > 0 && !string.IsNullOrEmpty(arrGuid[i]))
                   {
                      Param2[0].Value = arrGuid[i];
                      Param2[1].Value = arrClName[i];
@@ -536,7 +536,7 @@ namespace BIMRL
                   }
 
                   // for BIMRL_TYPCLASSIFICATION
-                  if (!string.IsNullOrEmpty(arrTGuid[i]))
+                  if (arrTGuid.Count > 0 && !string.IsNullOrEmpty(arrTGuid[i]))
                   {
                      Param3[0].Value = arrTGuid[i];
                      Param3[1].Value = arrTClName[i];

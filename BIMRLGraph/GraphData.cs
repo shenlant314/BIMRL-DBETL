@@ -157,7 +157,7 @@ namespace BIMRL.BIMRLGraph
 #endif
 #if POSTGRES
             var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
-            string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
+            string exePath = new FileInfo(location.AbsolutePath).Directory.FullName.Replace("%20"," ");
             // Create tables for storing the graph
             DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_graphtab_cr.sql"), DBOperation.currFedModel.FederatedID);
 #endif
@@ -954,7 +954,7 @@ namespace BIMRL.BIMRLGraph
 #endif
 #if POSTGRES
          var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
-         string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
+         string exePath = new FileInfo(location.AbsolutePath).Directory.FullName.Replace("%20", " ");
          // Create tables for storing the graph
          int ret = DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_graphtab_dr.sql"), DBOperation.currFedModel.FederatedID);
 #endif

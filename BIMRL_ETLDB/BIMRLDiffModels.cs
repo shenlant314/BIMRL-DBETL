@@ -40,9 +40,20 @@ namespace BIMRL
 {
    public class BIMRLDiffModels
    {
-      static int? compNewModel;
-      static int? compRefModel;
-      static BIMRLCommon m_BIMRLCommonRef;
+      int? compNewModel;
+      int? compRefModel;
+      BIMRLCommon m_BIMRLCommonRef;
+
+      //string scopeNewTable = "diffscopenew";
+      //string scopeRefTable = "diffscoperef";
+      string scopeTable = "diffscope";
+      bool hasScope = false;
+
+      public string ScopeElement { get; set; } = null;
+      public string ScopeCondition { get; set; } = null;
+      public bool UseProperty { get; set; } = false;
+      public BoundingBox3D ScopeGeom { get; set; } = null;
+
       public string GraphicsZipFile { get; private set; }
       IDictionary<string, DataTable> diffResultsDict = new Dictionary<string, DataTable>();
 #if ORACLE
@@ -80,6 +91,8 @@ namespace BIMRL
 
          if ((!compNewModel.HasValue || !compRefModel.HasValue) && (!newModel.HasValue || !refModel.HasValue))
             throw new Exception("Model IDs must be supplied!");
+
+         DefineScope();
         
          string elemTableNew = DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value);
          string elemTableRef = DBOperation.formatTabName("BIMRL_ELEMENT", compRefModel.Value);
@@ -154,14 +167,25 @@ namespace BIMRL
          string elemTableNew = DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value);
          string elemTableRef = DBOperation.formatTabName("BIMRL_ELEMENT", compRefModel.Value);
 
-         string newElementReport = "select elementid, elementtype, name, longname, description, modelid, container, typeid from " + elemTableNew
-                                    + " where elementid in (select elementid from newelements)";
+         string whereNew = "";
+         if (hasScope)
+            whereNew = " where elementid in (select elementid from newelements intersect select elementid from " + scopeTable + ")";
+         else
+            whereNew = " where elementid in (select elementid from newelements)";
+         string newElementReport = "select elementid, elementtype, name, longname, description, modelid, container, typeid from " + elemTableNew 
+                                    + whereNew;
 
          DataTable newElemRes = queryMultipleRows(newElementReport, "New Elements");
          qResults.Add(newElemRes);
 
+         string whereDel = "";
+         if (hasScope)
+            whereDel = " where elementid in (select elementid from deletedelements intersect select elementid from " + scopeTable + ")";
+         else
+            whereDel = " where elementid in (select elementid from deletedelements)";
+
          string delElementReport = "select elementid, elementtype, name, longname, description, modelid, container, typeid from " + elemTableRef
-                                    + " where elementid in (select elementid from deletedelements)";
+                                    + whereDel;
 
          DataTable delElemRes = queryMultipleRows(delElementReport, "Deleted Elements");
          qResults.Add(delElemRes);
@@ -177,6 +201,10 @@ namespace BIMRL
          string elemTableRef = DBOperation.formatTabName("BIMRL_ELEMENT", compRefModel.Value);
          double tolNeg = -tol;
 
+         string scopeConditionJoin = "";
+         if (hasScope)
+            scopeConditionJoin = " and a.elementid in (select elementid from " + scopeTable + ") and b.elementid in (select elementid from " + scopeTable + ")";
+
          DBOperation.beginTransaction();
          string diffGeomReport = "select a.elementid \"Elementid\", a.elementtype \"Element Type\", a.total_surface_area \"Surface Area (New)\", b.total_surface_area \"Surface Area (Ref)\","
                                     + " a.geometrybody_bbox_centroid \"Centroid (New)\", b.geometrybody_bbox_centroid \"Centroid (Ref)\", a.geometrybody_bbox \"Bounding Box (New)\", b.geometrybody_bbox \"Bounding Box (Ref)\""
@@ -185,12 +213,14 @@ namespace BIMRL
                                     + " and ((a.total_surface_area - b.total_surface_area) < " + tolNeg.ToString("G") + " or (a.total_surface_area - b.total_surface_area) > " + tol.ToString("G")
 #if ORACLE
                                     + " or sdo_geom.sdo_difference(a.geometrybody_bbox, b.geometrybody_bbox, " + tol.ToString("G") + ") is not null"
-                                    + " or sdo_geom.sdo_difference(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid, " + tol.ToString("G") + ") is not null)";
+                                    + " or sdo_geom.sdo_difference(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid, " + tol.ToString("G") + ") is not null)"
 #endif
 #if POSTGRES
-                                    + " or diffbox(a.geometrybody_bbox[1], a.geometrybody_bbox[2], b.geometrybody_bbox[1], b.geometrybody_bbox[2], " + tol.ToString("G") + ")=true"
-                                    + " or distance(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid) < " + tol.ToString("G") + ")";
+                                    + " or boxequal(a.geometrybody_bbox[1], a.geometrybody_bbox[2], b.geometrybody_bbox[1], b.geometrybody_bbox[2], " + tol.ToString("G") + ")=false"
+                                    + " or distance(a.geometrybody_bbox_centroid, b.geometrybody_bbox_centroid) > " + tol.ToString("G") + ")"
 #endif
+                                    + scopeConditionJoin;
+
          DataTable geomDiffRes = queryMultipleRows(diffGeomReport, "Geometry Difference By Signature");
 
          // Go through the differences and show them in X3d file (need to add the X3d file name into the geomDiffRes
@@ -202,13 +232,119 @@ namespace BIMRL
          return qResults;
       }
 
-      void exportGraphicsDiff(DataTable geomDiffRes, int modelIDNew, int modelIDRef, string zippedX3DFiles)
+      void exportGraphicsDiff(DataTable geomDiffRes, int modelIDNew, int modelIDRef, string zippedX3DFiles, bool createSummary=true)
       {
          string tempDirectory = Path.Combine(Path.GetTempPath(), Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
          Directory.CreateDirectory(tempDirectory);
 
          DBOperation.beginTransaction();
-         geomDiffRes.Columns.Add("GraphicFile");
+         geomDiffRes.Columns.Add("GraphicsFile");
+
+         if (createSummary)
+         {
+            string x3dFile = "DiffSummary.x3d";
+            BIMRLExportSDOToX3D x3dExp = new BIMRLExportSDOToX3D(m_BIMRLCommonRef, Path.Combine(tempDirectory, x3dFile));    // Initialize first
+
+            string condition = "";
+            if (geomDiffRes.Rows.Count > 1000)
+            {
+               // Oracle has a limitation that expression can only have 1000 items. Use a temporary table to do this
+               DBOperation.beginTransaction();
+#if ORACLE
+               DBOperation.executeSingleStmt("Drop table DiffResTemp", commit: true);
+               DBOperation.executeSingleStmt("Create global temporary table DiffResTemp (Elementid varchar(48), NewOrOld integer)", commit: true);
+#endif
+#if POSTGRES
+               DBOperation.executeSingleStmt("Create temporary table DiffResTemp (Elementid varchar(48)) on commit drop", commit: false);
+#endif
+               foreach (DataRow row in geomDiffRes.Rows)
+               {
+                  string elemid = row["Elementid"].ToString();
+                  if (row["Bounding Box (New)"] != null)
+                  {
+                     x3dExp.IDsToHighlight.Add(elemid);
+                     x3dExp.highlightColor = new ColorSpec();
+                     x3dExp.highlightColor.emissiveColorRed = 0;      // Set the New object to GREEN color
+                     x3dExp.highlightColor.emissiveColorGreen = 255;
+                     x3dExp.highlightColor.emissiveColorBlue = 0;
+                     x3dExp.transparencyOverride = 0.30;
+                     DBOperation.insertRow("insert into DiffResTemp (Elementid) values ('" + elemid + ")");
+                  }
+               }
+               condition = "elementid in (select elementid from DiffResTemp)";
+               x3dExp.exportElemGeomToX3D(modelIDNew, condition);
+               DBOperation.executeSingleStmt("Truncate table DiffResTemp");
+
+               foreach (DataRow row in geomDiffRes.Rows)
+               {
+                  string elemid = row["Elementid"].ToString();
+                  if (row["Bounding Box (Ref)"] != null)
+                  {
+                     x3dExp.IDsToHighlight.Add(elemid);
+                     x3dExp.highlightColor.emissiveColorRed = 255;      // Set the New object to RED color
+                     x3dExp.highlightColor.emissiveColorGreen = 0;
+                     x3dExp.highlightColor.emissiveColorBlue = 0;
+                     x3dExp.transparencyOverride = 0.30;
+                     DBOperation.insertRow("insert into DiffResTemp (Elementid) values ('" + elemid + ")");
+                  }
+               }
+               condition = "elementid in (select elementid from DiffResTemp)";
+               x3dExp.exportElemGeomToX3D(modelIDRef, condition);
+               DBOperation.commitTransaction();
+            }
+            else
+            {
+               condition = "";
+               foreach (DataRow row in geomDiffRes.Rows)
+               {
+                  string elemid = row["Elementid"].ToString();
+                  if (row["Bounding Box (New)"] != null)
+                  {
+                     x3dExp.IDsToHighlight.Add(elemid);
+                     x3dExp.highlightColor = new ColorSpec();
+                     x3dExp.highlightColor.emissiveColorRed = 0;      // Set the New object to GREEN color
+                     x3dExp.highlightColor.emissiveColorGreen = 255;
+                     x3dExp.highlightColor.emissiveColorBlue = 0;
+                     x3dExp.transparencyOverride = 0.30;
+                     BIMRLCommon.appendToString("'" + elemid + "'", ",", ref condition);
+                  }
+               }
+               condition = "elementid in (" + condition + ")";
+               x3dExp.exportElemGeomToX3D(modelIDNew, condition);
+
+               condition = "";
+               foreach (DataRow row in geomDiffRes.Rows)
+               {
+                  string elemid = row["Elementid"].ToString();
+                  if (row["Bounding Box (Ref)"] != null)
+                  {
+                     x3dExp.IDsToHighlight.Add(elemid);
+                     x3dExp.highlightColor.emissiveColorRed = 255;      // Set the New object to RED color
+                     x3dExp.highlightColor.emissiveColorGreen = 0;
+                     x3dExp.highlightColor.emissiveColorBlue = 0;
+                     x3dExp.transparencyOverride = 0.30;
+                     BIMRLCommon.appendToString("'" + elemid + "'", ",", ref condition);
+                  }
+               }
+               condition = "elementid in (" + condition + ")";
+               x3dExp.exportElemGeomToX3D(modelIDRef, condition);
+            }
+
+            // Add background element from IFCSLAB to give a sense of spatial relative location
+            x3dExp.transparencyOverride = 0.8;
+            string whereCondElemGeom = "ELEMENTID IN (SELECT ELEMENTID FROM " + DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value)
+                                       + " WHERE upper(elementtype) like 'IFCSLAB%' or upper(elementtype) in ('OST_FLOORS','OST_ROOFS'))";
+            x3dExp.exportElemGeomToX3D(modelIDNew, whereCondElemGeom);
+
+            // Draw the scope box
+            if (ScopeGeom != null)
+               x3dExp.drawBBToX3D(ScopeGeom);
+
+            x3dExp.endExportToX3D();
+
+            DBOperation.commitTransaction();
+         }
+
          foreach (DataRow row in geomDiffRes.Rows)
          {
             string elemid = row["Elementid"].ToString();
@@ -219,8 +355,8 @@ namespace BIMRL
             {
                x3dExp.IDsToHighlight.Add(elemid);
                x3dExp.highlightColor = new ColorSpec();
-               x3dExp.highlightColor.emissiveColorRed = 255;      // Set the New object to RED color
-               x3dExp.highlightColor.emissiveColorGreen = 0;
+               x3dExp.highlightColor.emissiveColorRed = 0;      // Set the New object to GREEN color
+               x3dExp.highlightColor.emissiveColorGreen = 255;
                x3dExp.highlightColor.emissiveColorBlue = 0;
                x3dExp.transparencyOverride = 0.30;
                x3dExp.exportElemGeomToX3D(modelIDNew, "elementid='" + elemid + "'");
@@ -229,19 +365,25 @@ namespace BIMRL
             if (row["Bounding Box (Ref)"] != null)
             {
                x3dExp.IDsToHighlight.Add(elemid);
-               x3dExp.highlightColor.emissiveColorRed = 0;      // Set the New object to BLUE color
+               x3dExp.highlightColor.emissiveColorRed = 255;      // Set the New object to RED color
                x3dExp.highlightColor.emissiveColorGreen = 0;
-               x3dExp.highlightColor.emissiveColorBlue = 255;
+               x3dExp.highlightColor.emissiveColorBlue = 0;
                x3dExp.transparencyOverride = 0.30;
                x3dExp.exportElemGeomToX3D(modelIDRef, "elementid='" + elemid + "'");
             }
 
             // Add background element from IFCSLAB to give a sense of spatial relative location
-            x3dExp.transparencyOverride = 0.9;
-            string whereCondElemGeom = "ELEMENTID IN (SELECT ELEMENTID FROM " + DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value) + " WHERE upper(elementtype) like 'IFCSLAB%')";
+            x3dExp.transparencyOverride = 0.8;
+            string whereCondElemGeom = "ELEMENTID IN (SELECT ELEMENTID FROM " + DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value) 
+                                       + " WHERE upper(elementtype) like 'IFCSLAB%' or upper(elementtype) in ('OST_FLOORS','OST_ROOFS'))";
             x3dExp.exportElemGeomToX3D(modelIDNew, whereCondElemGeom);
+            
+            // Draw the scope box
+            if (ScopeGeom != null)
+               x3dExp.drawBBToX3D(ScopeGeom);
+
             x3dExp.endExportToX3D();
-            row["GraphicFile"] = x3dFile;
+            row["GraphicsFile"] = x3dFile;
          }
 
          if (File.Exists(zippedX3DFiles))
@@ -284,6 +426,9 @@ namespace BIMRL
          //DataTable delTypeRes = queryMultipleRows(delTypeReport);
          //delTypeRes.TableName = "Deleted Types";
          //qResults.Add(delTypeRes);
+         string scopeConditionJoin = "";
+         if (hasScope)
+            scopeConditionJoin = " and tab1.id_new in (select elementid from " + scopeTable + ") and tab2.id_ref in (select elementid from " + scopeTable + ")";
 
          DBOperation.beginTransaction();
          string TypeAssignmentReport = "select tab1.*, tab2.* from "
@@ -291,7 +436,8 @@ namespace BIMRL
                                        + "full outer join "
                                        + "(select c.elementid as id_ref, c.elementtype \"Element Type (Ref)\", c.name \"Element Name (Ref)\", d.ifcType \"IFC Type Entity (Ref)\", d.elementid as typeid_ref, d.name as typename_ref from " + elemTableRef + " c, " + typeTableRef + " d where d.elementid = c.typeid) tab2 "
                                        + "on tab1.id_new = tab2.id_ref "
-                                       + "where tab1.typename_new != tab2.typename_ref or (tab1.typename_new is not null and tab2.typename_ref is null) or (tab1.typename_new is null and tab2.typename_ref is not null)";
+                                       + "where tab1.typename_new != tab2.typename_ref or (tab1.typename_new is not null and tab2.typename_ref is null) or (tab1.typename_new is null and tab2.typename_ref is not null)"
+                                       + scopeConditionJoin;
 
          DataTable assigElemRes = queryMultipleRows(TypeAssignmentReport, "Type Assignment Changes");
          qResults.Add(assigElemRes);
@@ -306,6 +452,9 @@ namespace BIMRL
          IList<DataTable> qResults = new List<DataTable>();
          string elemTableNew = DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value);
          string elemTableRef = DBOperation.formatTabName("BIMRL_ELEMENT", compRefModel.Value);
+         string scopeConditionJoin = "";
+         if (hasScope)
+            scopeConditionJoin = " and tab1.id_new in (select elementid from " + scopeTable + ") and tab2.id_ref in (select elementid from " + scopeTable + ")";
 
          DBOperation.beginTransaction();
          string containerReport = "select tab1.*, tab2.* from "
@@ -313,7 +462,8 @@ namespace BIMRL
                                  + "full outer join "
                                  + "(select c.elementid as id_ref, c.elementtype \"Element Type (Ref)\", c.name \"Element Name (Ref)\", d.elementid as containerid_ref, d.name as containername_ref, d.longname as containerlongname_ref from " + elemTableRef + " c, " + elemTableRef + " d where d.elementid = c.container) tab2 "
                                  + "on tab1.id_new = tab2.id_ref "
-                                 + "where tab1.containerid_new != tab2.containerid_ref or(tab1.containerid_new is not null and tab2.containerid_ref is null) or(tab1.containerid_new is null and tab2.containerid_ref is not null)";
+                                 + "where tab1.containerid_new != tab2.containerid_ref or(tab1.containerid_new is not null and tab2.containerid_ref is null) or(tab1.containerid_new is null and tab2.containerid_ref is not null)"
+                                 + scopeConditionJoin;
 
          DataTable containerRes = queryMultipleRows(containerReport, "Container Assignment Changes");
          qResults.Add(containerRes);
@@ -346,18 +496,31 @@ namespace BIMRL
          DBOperation.beginTransaction();
          string propTableNew = DBOperation.formatTabName("BIMRL_PROPERTIES", compNewModel.Value);
          string propTableRef = DBOperation.formatTabName("BIMRL_PROPERTIES", compRefModel.Value);
+         string scopeConditionNew = "";
+         string scopeConditionDel = "";
+         string scopeConditionJoin = "";
+         if (hasScope)
+         {
+            scopeConditionNew = " where elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionDel = " where elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionJoin = " and a.elementid in (select elementid from " + scopeTable + ") and b.elementid in (select elementid from " + scopeTable + ")";
+         }
 
          string elemNewProps = "select elementid, fromtype, propertygroupname, propertyname from " + propTableNew
+                                + scopeConditionNew
                                 + diffKeyword
                                 + "select elementid, fromtype, propertygroupname, propertyname from " + propTableRef
+                                + scopeConditionDel
                                 + " order by elementid, fromtype, propertygroupname, propertyname";
 
          DataTable elemNewRes = queryMultipleRows(elemNewProps, "Elements with New Properties");
          qResults.Add(elemNewRes);
 
          string elemDelProps = "select elementid, fromtype, propertygroupname, propertyname from " + propTableRef
+                                + scopeConditionDel
                                 + diffKeyword
                                 + "select elementid, fromtype, propertygroupname, propertyname from " + propTableNew
+                                + scopeConditionNew
                                 + " order by elementid, fromtype, propertygroupname, propertyname";
 
          DataTable elemDelRes = queryMultipleRows(elemDelProps, "Elements with Deleted Properties");
@@ -368,7 +531,8 @@ namespace BIMRL
                               + "full outer join " + propTableRef 
                               + " b on (a.elementid = b.elementid and a.propertygroupname = b.propertygroupname and a.propertyname = b.propertyname) "
                               + "where (a.propertyvalue != b.propertyvalue or(a.propertyvalue is null and b.propertyvalue is not null) or(a.propertyvalue is not null and b.propertyvalue is null)) "
-                              + "and (a.elementid not in (select elementid from newelements) or b.elementid not in (select elementid from deletedelements))";
+                              + "and (a.elementid not in (select elementid from newelements) or b.elementid not in (select elementid from deletedelements))"
+                              + scopeConditionJoin;
 
          DataTable changePropRes = queryMultipleRows(changeProps, "Elements with Chages in Property Value");
          qResults.Add(changePropRes);
@@ -384,17 +548,30 @@ namespace BIMRL
          DBOperation.beginTransaction();
          string matTableNew = DBOperation.formatTabName("BIMRL_ELEMENTMATERIAL", compNewModel.Value);
          string matTableRef = DBOperation.formatTabName("BIMRL_ELEMENTMATERIAL", compRefModel.Value);
+         string scopeConditionNew = "";
+         string scopeConditionDel = "";
+         string scopeConditionJoin = "";
+         if (hasScope)
+         {
+            scopeConditionNew = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionDel = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionJoin = " and a.elementid in (select elementid from " + scopeTable + ") and b.elementid in (select elementid from " + scopeTable + ")";
+         }
 
          string newMatReport = "select elementid, materialname, materialthickness from " + matTableNew + " where setname is null "
+                                 + scopeConditionNew
                                  + diffKeyword
-                                 + "select elementid, materialname, materialthickness from " + matTableRef + " where setname is null";
+                                 + "select elementid, materialname, materialthickness from " + matTableRef + " where setname is null"
+                                 + scopeConditionDel;
 
          DataTable newMatRes = queryMultipleRows(newMatReport, "New Material (Single/List)");
          qResults.Add(newMatRes);
 
          string delMatReport = "select elementid, materialname, materialthickness from " + matTableRef + " where setname is null "
+                        + scopeConditionNew
                         + diffKeyword
-                        + "select elementid, materialname, materialthickness from " + matTableNew + " where setname is null";
+                        + "select elementid, materialname, materialthickness from " + matTableNew + " where setname is null"
+                        + scopeConditionDel;
 
          DataTable delMatRes = queryMultipleRows(delMatReport, "Deleted Material (Single/List)");
          qResults.Add(delMatRes);
@@ -402,7 +579,8 @@ namespace BIMRL
          string newMatSetReport = "select a.elementid, a.setname, a.materialname \"New Material\", b.materialname \"Ref Material\" from " + matTableNew + " a "
                                  + "left outer join " + matTableRef + " b on (a.elementid = b.elementid and a.setname=b.setname) "
                                  + "where a.setname is not null and b.setname is not null and ((a.materialname != b.materialname) "
-                                 + "or (a.materialname is null and b.materialname is not null) or (a.materialname is not null and b.materialname is null))"; 
+                                 + "or (a.materialname is null and b.materialname is not null) or (a.materialname is not null and b.materialname is null))"
+                                 + scopeConditionJoin; 
 
          DataTable newMatSetRes = queryMultipleRows(newMatSetReport, "New Material Set");
          qResults.Add(newMatSetRes);
@@ -410,7 +588,8 @@ namespace BIMRL
          string delMatSetReport = "select a.elementid, a.setname, a.materialname \"Deleted Material\" from " + matTableRef + " a "
                                  + "left outer join " + matTableNew + " b on (a.elementid = b.elementid and a.setname=b.setname) "
                                  + "where a.setname is not null and b.setname is not null and ((a.materialname != b.materialname) "
-                                 + "or (a.materialname is null and b.materialname is not null) or (a.materialname is not null and b.materialname is null))";
+                                 + "or (a.materialname is null and b.materialname is not null) or (a.materialname is not null and b.materialname is null))"
+                                 + scopeConditionJoin;
 
          DataTable delMatSetRes = queryMultipleRows(delMatSetReport, "Deleted Material Set");
          qResults.Add(delMatSetRes);
@@ -426,11 +605,21 @@ namespace BIMRL
          DBOperation.beginTransaction();
          string classifTableNew = DBOperation.formatTabName("BIMRL_CLASSIFASSIGNMENT", compNewModel.Value);
          string classifTableRef = DBOperation.formatTabName("BIMRL_CLASSIFASSIGNMENT", compRefModel.Value);
+         string scopeConditionNew = "";
+         string scopeConditionDel = "";
+         string scopeConditionJoin = "";
+         if (hasScope)
+         {
+            scopeConditionNew = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionDel = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionJoin = " and a.elementid in (select elementid from " + scopeTable + ") and b.elementid in (select elementid from " + scopeTable + ")";
+         }
 
          string classifReport = "select a.elementid \"ElementID (New)\", a.classificationname \"Classification Name (New)\", a.classificationitemcode \"Code (New)\", a.fromtype \"FromType?\", "
                                  + "b.elementid \"ElementID (Ref)\", b.classificationname \"Classification Name (Ref)\", b.classificationitemcode \"Code (Ref)\", b.fromtype \"FromType?\""
                                  + " from " + classifTableNew + " a full outer join " + classifTableRef + " b on (a.elementid = b.elementid and a.classificationname = b.classificationname and a.classificationitemcode = b.classificationitemcode) "
-                                 + "where (a.classificationitemcode is null and b.classificationitemcode is not null) or (a.classificationitemcode is not null and b.classificationitemcode is null)";
+                                 + "where (a.classificationitemcode is null and b.classificationitemcode is not null) or (a.classificationitemcode is not null and b.classificationitemcode is null)"
+                                 + scopeConditionJoin;
 
          DataTable classifRes = queryMultipleRows(classifReport, "Classification Assignments");
          qResults.Add(classifRes);
@@ -446,11 +635,21 @@ namespace BIMRL
          DBOperation.beginTransaction();
          string groupRelTableNew = DBOperation.formatTabName("BIMRL_RELGROUP", compNewModel.Value);
          string groupRelTableRef = DBOperation.formatTabName("BIMRL_RELGROUP", compRefModel.Value);
+         string scopeConditionNew = "";
+         string scopeConditionDel = "";
+         string scopeConditionJoin = "";
+         if (hasScope)
+         {
+            scopeConditionNew = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionDel = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionJoin = " and a.memberelementid in (select elementid from " + scopeTable + ") and b.memberelementid in (select elementid from " + scopeTable + ")";
+         }
 
          string groupRelReport = "Select a.groupelementid \"Group ID (New)\", a.groupelementtype \"Group Type (New)\", a.memberelementid \"Member ID (New)\", a.memberelementtype \"Member Type (New)\", "
                                  + "b.groupelementid \"Group ID (Ref)\", b.groupelementtype \"Group Type (Ref)\", b.memberelementid \"Member ID (Ref)\", b.memberelementtype \"Member Type (Ref)\" "
                                  + "from " + groupRelTableNew + " a full outer join " + groupRelTableRef + " b on (a.groupelementid=b.groupelementid and a.memberelementid=b.memberelementid) "
-                                 + "where (a.memberelementid is null and b.memberelementid is not null) or (a.memberelementid is not null and b.memberelementid is null)";
+                                 + "where (a.memberelementid is null and b.memberelementid is not null) or (a.memberelementid is not null and b.memberelementid is null)"
+                                 + scopeConditionJoin;
 
          DataTable groupRelRes = queryMultipleRows(groupRelReport, "Group Membership");
          qResults.Add(groupRelRes);
@@ -467,11 +666,21 @@ namespace BIMRL
          DBOperation.beginTransaction();
          string aggrTableNew = DBOperation.formatTabName("BIMRL_RELAGGREGATION", compNewModel.Value);
          string aggrTableRef = DBOperation.formatTabName("BIMRL_RELAGGREGATION", compRefModel.Value);
+         string scopeConditionNew = "";
+         string scopeConditionDel = "";
+         string scopeConditionJoin = "";
+         if (hasScope)
+         {
+            scopeConditionNew = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionDel = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionJoin = " and a.aggregateelementid in (select elementid from " + scopeTable + ") and b.aggregateelementid in (select elementid from " + scopeTable + ")";
+         }
 
          string aggrReport = "Select a.masterelementid \"Master ID (New)\", a.masterelementtype \"Master Type (New)\", a.aggregateelementid \"Aggre ID (New)\", a.aggregateelementtype \"Aggr Type (New)\", "
                               + "b.masterelementid \"Master ID (Ref)\", b.masterelementtype \"Master Type (Ref)\", b.aggregateelementid \"Aggre ID (Ref)\", b.aggregateelementtype \"Aggr Type (Ref)\" "
                               + "from " + aggrTableNew + " a full outer join " + aggrTableRef + " b on (a.masterelementid=b.masterelementid and a.aggregateelementid=b.aggregateelementid) "
-                              + "where (a.aggregateelementid is null and b.aggregateelementid is not null) or (a.aggregateelementid is not null and b.aggregateelementid is null)";
+                              + "where (a.aggregateelementid is null and b.aggregateelementid is not null) or (a.aggregateelementid is not null and b.aggregateelementid is null)"
+                              + scopeConditionJoin;
 
          DataTable aggrRes = queryMultipleRows(aggrReport, "Aggregation Changes");
          qResults.Add(aggrRes);
@@ -485,13 +694,23 @@ namespace BIMRL
          IList<DataTable> qResults = new List<DataTable>();
          string connTableNew = DBOperation.formatTabName("BIMRL_RELCONNECTION", compNewModel.Value);
          string connTableRef = DBOperation.formatTabName("BIMRL_RELCONNECTION", compRefModel.Value);
+         string scopeConditionNew = "";
+         string scopeConditionDel = "";
+         string scopeConditionJoin = "";
+         if (hasScope)
+         {
+            scopeConditionNew = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionDel = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionJoin = " and a.CONNECTINGELEMENTID in (select elementid from " + scopeTable + ") and b.CONNECTINGELEMENTID in (select elementid from " + scopeTable + ")";
+         }
 
          DBOperation.beginTransaction();
          string connReport = "Select a.CONNECTINGELEMENTID \"Connecting Elem ID (New)\", a.CONNECTINGELEMENTTYPE \"Connecting Type (New)\", a.CONNECTEDELEMENTID \"Connected Elem ID(New)\", a.CONNECTEDELEMENTTYPE \"Connected Type (New)\", "
                               + "b.CONNECTINGELEMENTID \"Connecting Elem ID (Ref)\", b.CONNECTINGELEMENTTYPE \"Connecting Type (Ref)\", b.CONNECTEDELEMENTID \"Connected Elem ID(Ref)\", b.CONNECTEDELEMENTTYPE \"Connected Type (Ref)\" "
                               + "from " + connTableNew + " a full outer join " + connTableRef + " b on (a.CONNECTINGELEMENTID=b.CONNECTINGELEMENTID and a.CONNECTEDELEMENTID=b.CONNECTEDELEMENTID) "
                               + "where (a.CONNECTINGELEMENTID is null and b.CONNECTINGELEMENTID is not null) or (a.CONNECTINGELEMENTID is not null and b.CONNECTINGELEMENTID is null) "
-                              + "or (a.CONNECTEDELEMENTID is null and b.CONNECTEDELEMENTID is not null) or (a.CONNECTEDELEMENTID is not null and b.CONNECTEDELEMENTID is null)";
+                              + "or (a.CONNECTEDELEMENTID is null and b.CONNECTEDELEMENTID is not null) or (a.CONNECTEDELEMENTID is not null and b.CONNECTEDELEMENTID is null)"
+                              + scopeConditionJoin;
 
          DataTable connRes = queryMultipleRows(connReport, "New and Deleted Connection");
          qResults.Add(connRes);
@@ -503,7 +722,8 @@ namespace BIMRL
                                  + "b.connectingelementattrname \"Connecting Attr Name (Ref)\", b.connectingelementattrvalue \"Connecting Attr Value (Ref)\", b.connectedelementattrname \"Connected Attr Name (Ref)\", b.connectedelementattrvalue \"Connected Attr Value (Ref)\", "
                                  + "b.connectionattrname \"Connection Attr Name (Ref)\", b.connectionattrvalue \"Connection Attr Value (Ref)\" from " + connTableNew + " a full outer join "
                                  + connTableRef + " b on (a.CONNECTINGELEMENTID = b.CONNECTINGELEMENTID and a.CONNECTEDELEMENTID = b.CONNECTEDELEMENTID and a.connectingelementattrname = b.connectingelementattrname and a.connectedelementattrname = b.connectedelementattrname) "
-                                 + "where a.connectingelementattrvalue != b.connectingelementattrvalue or a.connectedelementattrvalue != b.connectedelementattrvalue or(a.connectingelementattrvalue is null and b.connectingelementattrvalue is not null) or(a.connectedelementattrvalue is not null and b.connectedelementattrvalue is null)";
+                                 + "where a.connectingelementattrvalue != b.connectingelementattrvalue or a.connectedelementattrvalue != b.connectedelementattrvalue or(a.connectingelementattrvalue is null and b.connectingelementattrvalue is not null) or(a.connectedelementattrvalue is not null and b.connectedelementattrvalue is null)"
+                                 + scopeConditionJoin;
 
          DataTable connAttrRes = queryMultipleRows(connAttrReport, "Connection Atrribute Changes");
          qResults.Add(connAttrRes);
@@ -517,12 +737,22 @@ namespace BIMRL
          IList<DataTable> qResults = new List<DataTable>();
          string dependTableNew = DBOperation.formatTabName("BIMRL_ELEMENTDEPENDENCY", compNewModel.Value);
          string dependTableRef = DBOperation.formatTabName("BIMRL_ELEMENTDEPENDENCY", compRefModel.Value);
+         string scopeConditionNew = "";
+         string scopeConditionDel = "";
+         string scopeConditionJoin = "";
+         if (hasScope)
+         {
+            scopeConditionNew = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionDel = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionJoin = " and a.elementid in (select elementid from " + scopeTable + ") and b.elementid in (select elementid from " + scopeTable + ")";
+         }
 
          DBOperation.beginTransaction();
          string dependReport = "Select a.elementid \"Element ID (New)\", a.elementtype \"Element Type (New)\", a.DEPENDENTELEMENTID \"Dependent Element ID (New)\", a.DEPENDENTELEMENTTYPE \"Dependent Element Type (New)\", a.dependencytype \"Dependency Type (New)\", "
                                  + "b.elementid \"Element ID (Ref)\", b.elementtype \"Element Type (Ref)\", b.DEPENDENTELEMENTID \"Dependent Element ID (Ref)\", b.DEPENDENTELEMENTTYPE \"Dependent Element Type (Ref)\", b.dependencytype \"Dependency Type (Ref)\" "
                                  + "from " + dependTableNew + " a full outer join " + dependTableRef + " b on (a.elementid=b.elementid and a.dependentelementid=b.dependentelementid) "
-                                 + "where (a.dependentelementid is null and b.dependentelementid is not null) or (a.dependentelementid is not null and b.dependentelementid is null)";
+                                 + "where (a.dependentelementid is null and b.dependentelementid is not null) or (a.dependentelementid is not null and b.dependentelementid is null)"
+                                 + scopeConditionJoin;
 
          DataTable dependRes = queryMultipleRows(dependReport, "Element Dependency Changes");
          qResults.Add(dependRes);
@@ -536,12 +766,22 @@ namespace BIMRL
          IList<DataTable> qResults = new List<DataTable>();
          string spacebTableNew = DBOperation.formatTabName("BIMRL_RELSPACEBOUNDARY", compNewModel.Value);
          string spacebTableRef = DBOperation.formatTabName("BIMRL_RELSPACEBOUNDARY", compRefModel.Value);
+         string scopeConditionNew = "";
+         string scopeConditionDel = "";
+         string scopeConditionJoin = "";
+         if (hasScope)
+         {
+            scopeConditionNew = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionDel = " and elementid in (select elementid from " + scopeTable + ")";
+            scopeConditionJoin = " and a.boundaryelementid in (select elementid from " + scopeTable + ") and b.boundaryelementid in (select elementid from " + scopeTable + ")";
+         }
 
          DBOperation.beginTransaction();
          string spacebReport = "select a.spaceelementid \"Space ID (New)\", a.boundaryelementid \"Boundary ID (New)\", a.boundaryelementtype \"Boundary Elem Type (New)\", a.boundarytype \"Boundary Type (New)\", a.internalorexternal \"Internal or External (New)\", "
                                  + "b.spaceelementid \"Space ID (Ref)\", b.boundaryelementid \"Boundary ID (Ref)\", b.boundaryelementtype \"Boundary Elem Type (Ref)\", b.boundarytype \"Boundary Type (Ref)\", b.internalorexternal \"Internal or External (Ref)\" "
                                  + "from " + spacebTableNew + " a full outer join " + spacebTableRef + " b on(a.spaceelementid = b.spaceelementid and a.boundaryelementid = b.boundaryelementid) "
-                                 + "where a.boundaryelementid != b.boundaryelementid or (a.boundaryelementid is null and b.boundaryelementid is not null) or (a.boundaryelementid is not null and b.boundaryelementid is null)";
+                                 + "where a.boundaryelementid != b.boundaryelementid or (a.boundaryelementid is null and b.boundaryelementid is not null) or (a.boundaryelementid is not null and b.boundaryelementid is null)"
+                                 + scopeConditionJoin;
 
          DataTable spacebRes = queryMultipleRows(spacebReport, "Space Boundary Changes");
          qResults.Add(spacebRes);
@@ -648,6 +888,157 @@ namespace BIMRL
          {
             diffResultsDict.Add(name + ": " + tab.TableName, tab);
          }
+      }
+
+      void DefineScope()
+      {
+         // Makes no sense to define scope where no element nor geometry scope is defined
+         if (string.IsNullOrEmpty(ScopeElement) && ScopeGeom == null)
+         {
+            hasScope = false;
+            return;
+         }
+
+         string stmtNew = "select distinct sa.elementid from " + DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value) + " sa";
+         string stmtNewP = "";
+         string stmtNewG = "";
+         string stmtRef = "select distinct sa.elementid from " + DBOperation.formatTabName("BIMRL_ELEMENT", compRefModel.Value) + " sa";
+         string stmtRefP = "";
+         string stmtRefG = "";
+
+         if (!string.IsNullOrEmpty(ScopeElement))
+         {
+            // Define a scope by level or spaces with condition
+            string elemscope = "";
+            if (ScopeElement.Equals("Level"))
+            {
+               elemscope = " upper(sa.elementtype) in ('IFCBUILDINGSTOREY','OST_LEVELS') ";
+            }
+            else if (ScopeElement.Equals("Space"))
+            {
+               elemscope = " upper(sa.elementtype) in ('IFCSPACE','OST_ROOMS','OST_MEPSPACES','OST_AREAS') ";
+            }
+
+            // Check scope condition. It only make sense when the scope element is defined
+            string condition = null;
+            if (!string.IsNullOrEmpty(ScopeCondition))
+            {
+               if (ScopeCondition.StartsWith("Property", StringComparison.CurrentCultureIgnoreCase))
+               { 
+                  condition = ScopeCondition.Remove(ScopeCondition.Length - 1, 1).Remove(0, 8).Trim().Remove(0, 1);
+                  stmtNewP = stmtNew + ", " + DBOperation.formatTabName("BIMRL_PROPERTIES", compNewModel.Value) + " sb ";
+                  BIMRLCommon.appendToString("sa.elementid=sb.elementid", " where ", ref stmtNewP);
+                  BIMRLCommon.appendToString(elemscope, " and ", ref stmtNewP);
+                  BIMRLCommon.appendToString(condition, " and ", ref stmtNewP);
+
+                  stmtRefP = stmtRef + ", " + DBOperation.formatTabName("BIMRL_PROPERTIES", compRefModel.Value) + " sb ";
+                  BIMRLCommon.appendToString("sa.elementid=sb.elementid", " where ", ref stmtRefP);
+                  BIMRLCommon.appendToString(elemscope, " and ", ref stmtRefP);
+                  BIMRLCommon.appendToString(condition, " and ", ref stmtRefP);
+               }
+               else
+               {
+                  stmtNewP = stmtNew;
+                  stmtRefP = stmtRef;
+                  BIMRLCommon.appendToString(elemscope, " and ", ref stmtNewP);
+                  BIMRLCommon.appendToString(condition, " and ", ref stmtNewP);
+
+                  BIMRLCommon.appendToString(elemscope, " and ", ref stmtRefP);
+                  BIMRLCommon.appendToString(condition, " and ", ref stmtRefP);
+               }
+            }
+
+            stmtNewP = "select elementid from " + DBOperation.formatTabName("BIMRL_ELEMENT", compNewModel.Value)
+                        + " where container in (" + stmtNewP + ")";
+            stmtRefP = "select elementid from " + DBOperation.formatTabName("BIMRL_ELEMENT", compRefModel.Value)
+                        + " where container in (" + stmtRefP + ")";
+         }
+
+         // If Bounding box scope is defined, use it to limit the search using spatial index
+         if (ScopeGeom != null)
+         {
+            try
+            {
+               int newllbxidx, newllbyidx, newllbzidx, newurtxidx, newurtyidx, newurtzidx;
+               int new2llbxidx, new2llbyidx, new2llbzidx, new2urtxidx, new2urtyidx, new2urtzidx;
+               int refllbxidx, refllbyidx, refllbzidx, refurtxidx, refurtyidx, refurtzidx;
+               int ref2llbxidx, ref2llbyidx, ref2llbzidx, ref2urtxidx, ref2urtyidx, ref2urtzidx;
+
+               stmtNewG = stmtNew;
+               stmtRefG = stmtRef;
+
+               Point3D wbbLLBnew;
+               Point3D wbbURTnew;
+               DBOperation.getWorldBB(compNewModel.Value, out wbbLLBnew, out wbbURTnew);
+
+               Point3D wbbLLBref;
+               Point3D wbbURTref;
+               DBOperation.getWorldBB(compRefModel.Value, out wbbLLBref, out wbbURTref);
+
+               Octree.WorldBB = new BoundingBox3D(wbbLLBnew, wbbURTnew);
+               Octree.MaxDepth = 19;
+               CellID64 llbxxsCellnew = CellID64.cellAtMaxDepth(ScopeGeom.LLB);
+               CellID64.getCellIDComponents(llbxxsCellnew, out newllbxidx, out newllbyidx, out newllbzidx, out newurtxidx, out newurtyidx, out newurtzidx);
+
+               CellID64 urtxxsCellnew = CellID64.cellAtMaxDepth(ScopeGeom.URT);
+               CellID64.getCellIDComponents(urtxxsCellnew, out new2llbxidx, out new2llbyidx, out new2llbzidx, out new2urtxidx, out new2urtyidx, out new2urtzidx);
+
+               Octree.WorldBB = new BoundingBox3D(wbbLLBref, wbbURTref);
+               Octree.MaxDepth = 19;
+               CellID64 llbxxsCellref = CellID64.cellAtMaxDepth(ScopeGeom.LLB);
+               CellID64.getCellIDComponents(llbxxsCellnew, out refllbxidx, out refllbyidx, out refllbzidx, out refurtxidx, out refurtyidx, out refurtzidx);
+
+               CellID64 urtxxsCellref = CellID64.cellAtMaxDepth(ScopeGeom.URT);
+               CellID64.getCellIDComponents(urtxxsCellref, out ref2llbxidx, out ref2llbyidx, out ref2llbzidx, out ref2urtxidx, out ref2urtyidx, out ref2urtzidx);
+
+               BIMRLCommon.appendToString(DBOperation.formatTabName("BIMRL_SPATIALINDEX", compNewModel.Value) + " sc ", ", ", ref stmtNewG);
+               BIMRLCommon.appendToString("sc.elementid=sa.elementid and sc.xminbound>=" + newllbxidx.ToString() + " and sc.yminbound>=" + newllbyidx.ToString() 
+                                             + " and sc.zminbound>=" + newllbzidx.ToString() + " and sc.xmaxbound<=" + new2urtxidx.ToString() 
+                                             + " and sc.ymaxbound<=" + new2urtyidx.ToString() + " and sc.zmaxbound<=" + new2urtzidx.ToString(), " where ",
+                                             ref stmtNewG);
+
+               BIMRLCommon.appendToString(DBOperation.formatTabName("BIMRL_SPATIALINDEX", compRefModel.Value) + " sc ", ", ", ref stmtRefG);
+               BIMRLCommon.appendToString("sc.elementid=sa.elementid and sc.xminbound>=" + refllbxidx.ToString() + " and sc.yminbound>=" + refllbyidx.ToString() 
+                                             + " and sc.zminbound>=" + refllbzidx.ToString() + " and sc.xmaxbound<=" + ref2urtxidx.ToString() 
+                                             + " and sc.ymaxbound<=" + ref2urtyidx.ToString() + " and sc.zmaxbound<=" + ref2urtzidx.ToString(), " where ",
+                                             ref stmtRefG);
+            }
+            catch
+            {
+               // Ignore any error
+            }
+         }
+
+         DBOperation.beginTransaction();
+         // Create tables to keep track of the new or deleted objects
+         string queryNew = "";
+         if (!string.IsNullOrEmpty(stmtNewP) && !string.IsNullOrEmpty(stmtNewG))
+            queryNew = stmtNewP + " intersect " + stmtNewG;
+         else if (string.IsNullOrEmpty(stmtNewG))
+            queryNew = stmtNewP;
+         else if (string.IsNullOrEmpty(stmtNewP))
+            queryNew = stmtNewG;
+
+         string queryRef = "";
+         if (!string.IsNullOrEmpty(stmtRefP) && !string.IsNullOrEmpty(stmtRefG))
+            queryRef = stmtRefP + " intersect " + stmtRefG;
+         else if (string.IsNullOrEmpty(stmtRefG))
+            queryRef = stmtRefP;
+         else if (string.IsNullOrEmpty(stmtRefP))
+            queryRef = stmtRefG;
+
+         string queryUnion = "(" + queryNew + ") union (" + queryRef + ")";
+
+         //runNonQuery("drop table " + scopeNewTable, true, doCommit);
+         //runNonQuery("create table " + scopeNewTable + " as " + queryNew, true, doCommit);
+         //runNonQuery("drop table " + scopeRefTable, true, doCommit);
+         //runNonQuery("create table " + scopeRefTable + " as " + queryRef, true, doCommit);
+         runNonQuery("drop table " + scopeTable, true, doCommit);
+         runNonQuery("create table " + scopeTable + " as " + queryUnion, true, doCommit);
+
+         hasScope = true;
+         DBOperation.commitTransaction();
+         return;
       }
    }
 }

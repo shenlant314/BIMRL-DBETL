@@ -130,6 +130,17 @@ namespace BIMRL
                            + guid + "'," + IfcLineNo + ", '" + elementtype + "', " + BIMRLProcessModel.currModelID.ToString() + ", '" + sseName + "', '" + sseLongName + "','" + sseDescription + "', '" + sseObjectType 
                            + "', '" + container + "', '" + typeID + "')";
                command.CommandText = sqlStmt;
+               currStep = sqlStmt;
+               try
+               {
+                  commandStatus = command.ExecuteNonQuery();
+               }
+               catch (OracleException e)
+               {
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + currStep;
+                  _refBIMRLCommon.StackPushIgnorableError(excStr);
+                  // Ignore any error
+               }
 #endif
 #if POSTGRES
                command.Parameters["@eid"].Value = guid;
@@ -166,9 +177,29 @@ namespace BIMRL
                   command.Parameters["@typid"].Value = DBNull.Value;
                else
                   command.Parameters["@typid"].Value = typeID;
-#endif
+
                currStep = sqlStmt;
-               commandStatus = command.ExecuteNonQuery();
+               try
+               {
+                  DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
+                  commandStatus = command.ExecuteNonQuery();
+                  DBOperation.CurrTransaction.Release(DBOperation.def_savepoint);
+               }
+               catch (PostgresException pgex)
+               {
+                  DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
+                  // Ignore duplicate key error (duplicate GUID)
+                  if (pgex.SqlState.Equals("23505"))
+                  {
+                     _refBIMRLCommon.StackPushIgnorableError(string.Format("%Duplicate key: {0}", pgex.Message));
+                  }
+                  else
+                  {
+                     _refBIMRLCommon.StackPushError(string.Format("%Error: {0}", pgex.Message));
+                     throw;
+                  }
+               }
+#endif
 
                // Add intormation of the product label (LineNo into a List for the use later to update the Geometry 
                _refBIMRLCommon.insEntityLabelListAdd(Math.Abs(IfcLineNo));
@@ -188,7 +219,7 @@ namespace BIMRL
          catch (NpgsqlException e)
 #endif
          {
-            string excStr = "%%Error - " + e.Message + "\n\t" + currStep;
+            string excStr = "%%Error - " + e.Message + "\n\t" + currStep; 
             _refBIMRLCommon.StackPushError(excStr);
             command.Dispose();
             throw;

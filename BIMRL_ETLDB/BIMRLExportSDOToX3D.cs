@@ -264,7 +264,7 @@ namespace BIMRL
             NpgsqlDataReader reader = command.ExecuteReader();
 #endif      
             if (reader.Read())
-               {
+            {
                oFile.WriteStartElement("Transform");
                oFile.WriteStartElement("Shape");
                oFile.WriteStartElement("Appearance");
@@ -279,12 +279,10 @@ namespace BIMRL
                llb.X = sdoGeomData.OrdinatesArrayOfDoubles[0];
                llb.Y = sdoGeomData.OrdinatesArrayOfDoubles[1];
                llb.Z = sdoGeomData.OrdinatesArrayOfDoubles[2];
-               llb = transformToX3D.Transform(llb);
                Point3D urt = new Point3D();
                urt.X = sdoGeomData.OrdinatesArrayOfDoubles[3];
                urt.Y = sdoGeomData.OrdinatesArrayOfDoubles[4];
                urt.Z = sdoGeomData.OrdinatesArrayOfDoubles[5];
-               urt = transformToX3D.Transform(urt);
 #endif
 #if POSTGRES
                Point3D[] bboxPts = reader.GetValue(0) as Point3D[];
@@ -292,22 +290,8 @@ namespace BIMRL
                Point3D urt = transformToX3D.Transform(bboxPts[1]);
 #endif
                Octree.WorldBB = new BoundingBox3D(llb, urt);
+               drawBBToX3D(Octree.WorldBB);
 
-               string coordListStr = llb.X + " " + llb.Y + " " + llb.Z + " " + urt.X + " " + llb.Y + " " + llb.Z + " "
-                                    + urt.X + " " + urt.Y + " " + llb.Z + " " + llb.X + " " + urt.Y + " " + llb.Z + " "
-                                    + llb.X + " " + llb.Y + " " + urt.Z + " " + urt.X + " " + llb.Y + " " + urt.Z + " "
-                                    + urt.X + " " + urt.Y + " " + urt.Z + " " + llb.X + " " + urt.Y + " " + urt.Z;
-               string pointIdxStr = "0 1 2 3 0 4 5 6 7 4 5 1 2 6 7 3";
-
-               oFile.WriteStartElement("IndexedLineSet");
-               oFile.WriteAttributeString(null, "coordIndex", null, pointIdxStr);
-               oFile.WriteStartElement("Coordinate");
-               oFile.WriteAttributeString(null, "point", null, coordListStr);
-               oFile.WriteEndElement();  // Coordinate
-               oFile.WriteEndElement();  // IndexedLineSet
-               oFile.WriteEndElement();  // Shape
-               oFile.WriteEndElement();  // Transform
-               oFile.Flush();
                reader.Dispose();
             }
          }
@@ -330,6 +314,36 @@ namespace BIMRL
          command.Dispose();
       }
     
+      public void drawBBToX3D(BoundingBox3D box)
+      {
+         oFile.WriteStartElement("Transform");
+         oFile.WriteStartElement("Shape");
+         oFile.WriteStartElement("Appearance");
+         oFile.WriteStartElement("Material");
+         oFile.WriteAttributeString(null, "emissiveColor", null, "1 1 1");
+         oFile.WriteEndElement(); // Material
+         oFile.WriteEndElement(); // Appearance
+
+         Point3D llb = transformToX3D.Transform(box.LLB);
+         Point3D urt = transformToX3D.Transform(box.URT);
+
+         string coordListStr = llb.X + " " + llb.Y + " " + llb.Z + " " + urt.X + " " + llb.Y + " " + llb.Z + " "
+                              + urt.X + " " + urt.Y + " " + llb.Z + " " + llb.X + " " + urt.Y + " " + llb.Z + " "
+                              + llb.X + " " + llb.Y + " " + urt.Z + " " + urt.X + " " + llb.Y + " " + urt.Z + " "
+                              + urt.X + " " + urt.Y + " " + urt.Z + " " + llb.X + " " + urt.Y + " " + urt.Z;
+         string pointIdxStr = "0 1 2 3 0 4 5 6 7 4 5 1 2 6 7 3";
+
+         oFile.WriteStartElement("IndexedLineSet");
+         oFile.WriteAttributeString(null, "coordIndex", null, pointIdxStr);
+         oFile.WriteStartElement("Coordinate");
+         oFile.WriteAttributeString(null, "point", null, coordListStr);
+         oFile.WriteEndElement();  // Coordinate
+         oFile.WriteEndElement();  // IndexedLineSet
+         oFile.WriteEndElement();  // Shape
+         oFile.WriteEndElement();  // Transform
+         oFile.Flush();
+      }
+
       public void exportElemGeomToX3D(int fedModelID, string whereCond)
       {
          DBOperation.beginTransaction();
