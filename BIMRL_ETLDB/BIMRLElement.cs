@@ -102,6 +102,7 @@ namespace BIMRL
                shapeInstances = context.ShapeInstancesOf(product).Where(x => x.RepresentationType == XbimGeometryRepresentationType.OpeningsAndAdditionsIncluded);
             //if (shapeInstances == null)
             //   continue;
+            bool isSolid = IsSolidGeometry(product);
 
             bool trfOnly = false;
             XbimMatrix3D newRelTrf = XbimMatrix3D.Identity;
@@ -285,7 +286,6 @@ namespace BIMRL
                   polyHFaces.Add(face);
 #endif
                }
-               bool isSolid = IsSolidGeometry(product);
 #if ORACLE
                startingOffset = startingOffset + prodGeom.TriangleIndexCount * 4;
                //polyHStartingOffset = currFVindex + 3;
@@ -343,7 +343,7 @@ namespace BIMRL
                {
 #if ORACLE
                   OracleParameter[] sdoGeom = new OracleParameter[7];
-                  for (int i = 0; i < sdoGeom.Count()-1; ++i)
+                  for (int i = 0; i < sdoGeom.Count()-2; ++i)
                   {
                         sdoGeom[i] = command.Parameters.Add((i+1).ToString(), OracleDbType.Object);
                         sdoGeom[i].Direction = ParameterDirection.Input;

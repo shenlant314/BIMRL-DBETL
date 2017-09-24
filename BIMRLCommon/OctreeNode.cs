@@ -47,15 +47,20 @@ namespace BIMRL.Common
 
         public CellID64 nodeCellID { get; set; }
 
-        public Cuboid nodeCellCuboid
-        {
-            get 
+      private Cuboid _CellCuboid;
+      public Cuboid nodeCellCuboid
+      {
+         get 
+         {
+            if (_CellCuboid == null)
             {
-                Point3D loc = CellID64.getCellIdxLoc(nodeCellID);
-                Vector3D cellSize = CellID64.cellSize(CellID64.getLevel(nodeCellID));
-                return new Cuboid(loc, cellSize.X, cellSize.Y, cellSize.Z);
+               Point3D loc = CellID64.getCellIdxLoc(nodeCellID);
+               Vector3D cellSize = CellID64.cellSize(CellID64.getLevel(nodeCellID));
+               _CellCuboid = new Cuboid(loc, cellSize.X, cellSize.Y, cellSize.Z);
             }
-        }
+            return _CellCuboid;
+         }
+      }
 
         /// Creates a new octree.
         ///   

@@ -413,15 +413,15 @@ namespace BIMRL.Common
                t = (g * e - i * a) / (b * e - a * f);
             }
 
-            // calculate intersection point
-            ip.X = (1 - s) * L1.startPoint.X + s * L1.endPoint.X;
-            ip.Y = (1 - s) * L1.startPoint.Y + s * L1.endPoint.Y;
-            ip.Z = (1 - s) * L1.startPoint.Z + s * L1.endPoint.Z;
-            intersectionPoint = ip;
-
             if ((0 <= s && s <= 1) && (0 <= t && t <= 1))
             {
                // If the segments intersect s and t have to be between 0 and 1
+               // calculate intersection point
+               ip.X = (1 - s) * L1.startPoint.X + s * L1.endPoint.X;
+               ip.Y = (1 - s) * L1.startPoint.Y + s * L1.endPoint.Y;
+               ip.Z = (1 - s) * L1.startPoint.Z + s * L1.endPoint.Z;
+               intersectionPoint = ip;
+
                mode = LineSegmentIntersectEnum.IntersectedWithinSegments;
                return true;
             }
@@ -447,7 +447,7 @@ namespace BIMRL.Common
             double s3 = (d * i - h * f) / (d * e - c * f);
             double t3 = (e * h - i * c) / (d * e - c * f);
 
-            // When the result of calculation gives infinity or NaN, the line is somewhat aligned, so it can hav any value. Set it here to be the same with one other
+            // When the result of calculation gives infinity or NaN, the line is somewhat aligned, so it can have any value. Set it here to be the same with one other
             if (double.IsInfinity(s1) || double.IsNaN(s1))
             {
                if (double.IsInfinity(s2) || double.IsNaN(s2))

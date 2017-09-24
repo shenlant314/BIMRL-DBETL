@@ -266,15 +266,14 @@ namespace BIMRL.Common
             return false;
         }
 
-
-        /// <summary>
-        /// Plane and ray intersection. The ray is defined as a line starting from its point.
-        /// </summary>
-        /// <param name="P1">Plane</param>
-        /// <param name="L1">Line</param>
-        /// <param name="intersectingPoint">Point of intersection</param>
-        /// <returns></returns>
-        public static bool PRayintersect(Plane3D P1, Line3D L1, out Point3D intersectingPoint)
+      /// <summary>
+      /// Plane and ray intersection. The ray is defined as a line starting from its point.
+      /// </summary>
+      /// <param name="P1">Plane</param>
+      /// <param name="L1">Line</param>
+      /// <param name="intersectingPoint">Point of intersection</param>
+      /// <returns></returns>
+      public static bool PRayintersect(Plane3D P1, Line3D L1, out Point3D intersectingPoint)
         {
             intersectingPoint = new Point3D();
             double denom = Vector3D.DotProduct(P1.normalVector, L1.direction);

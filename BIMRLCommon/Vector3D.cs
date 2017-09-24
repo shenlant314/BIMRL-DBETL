@@ -210,18 +210,18 @@ namespace BIMRL.Common
         /// </summary>
         /// <param name="ob"></param>
         /// <returns></returns>
-        public static bool Parallels(Vector3D vec, object ob)
+        public static bool Parallels(Vector3D vec, Vector3D v)
         {
-            if (ob is Vector3D)
-            {
-                Vector3D v = (Vector3D)ob;
+            //if (ob is Vector3D)
+            //{
+                //Vector3D v = (Vector3D)ob;
                 Vector3D negV = new Vector3D(v.X, v.Y, v.Z);
                 negV.Negate();
                 return ((MathUtils.equalTol(vec.X, v._X, MathUtils.defaultTol) && MathUtils.equalTol(vec.Y, v._Y, MathUtils.defaultTol) && MathUtils.equalTol(vec.Z, v._Z, MathUtils.defaultTol))
                         || (MathUtils.equalTol(vec.X, negV._X, MathUtils.defaultTol) && MathUtils.equalTol(vec.Y, negV._Y, MathUtils.defaultTol) && MathUtils.equalTol(vec.Z, negV._Z, MathUtils.defaultTol)));
-            }
-            else
-                return false;
+            //}
+            //else
+            //    return false;
         }
 
         public override string ToString()

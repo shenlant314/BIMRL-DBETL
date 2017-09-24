@@ -106,7 +106,8 @@ namespace BIMRL.Common
       {
          get
          {
-            _containingBB = new BoundingBox3D(_vertices);
+            if (_containingBB == null)
+               _containingBB = new BoundingBox3D(_vertices);
             return _containingBB;
          }
       }
@@ -186,7 +187,7 @@ namespace BIMRL.Common
          for (int i=0; i<reducedList.Count; i++)
          {
             List<Point3D> intPts = new List<Point3D>();
-            if (Face3D.intersect(reducedList[i], ray, out intPts))
+            if (Face3D.intersect(reducedList[i], ray))
                iCount++;
          }
          if ((iCount % 2) == 1) return true;
@@ -226,7 +227,7 @@ namespace BIMRL.Common
          for (int i=0; i<reducedList.Count; i++)
          {
             List<Point3D> iPoints = new List<Point3D>();
-            if (Face3D.intersect(reducedList[i], lineS, out iPoints))
+            if (Face3D.intersect(reducedList[i], lineS))
                return false;
          }
          return true;
@@ -284,7 +285,7 @@ namespace BIMRL.Common
          for (int i = 0; i < reducedList.Count; i++)
          {
             List<Point3D> iPoints = new List<Point3D>();
-            if (Face3D.intersect(reducedList[i], lineS, out iPoints))
+            if (Face3D.intersect(reducedList[i], lineS))
                return true;
          }
          return false;

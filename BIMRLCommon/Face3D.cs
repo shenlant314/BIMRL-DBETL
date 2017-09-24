@@ -64,13 +64,25 @@ namespace BIMRL.Common
       { 
       }
 
-      public Face3D (List<Point3D> vertices)
+      public Face3D (List<Point3D> vertices, bool skipCheck=false)
       {
          _vertices = vertices;
-         generateEdges(vertices, out _boundaryLines, out _nonColinearEdgesIdx);
+         Vector3D faceNormal;
 
-         // Use Newell's method to calculate normal because any vertices > 3 can be concave
-         Vector3D faceNormal = normalByNewellMethod(_vertices);
+         // Allow skip check for faster creation. It is to be used only for a good data that guarantees non-colinear edges
+         if (skipCheck)
+         {
+            generateEdgesFromGoodSource(vertices, out _boundaryLines, out _nonColinearEdgesIdx);
+            faceNormal = createSimpleNormal(vertices);
+         }
+         else
+         {
+            generateEdges(vertices, out _boundaryLines, out _nonColinearEdgesIdx);
+
+            // Use Newell's method to calculate normal because any vertices > 3 can be concave
+            faceNormal = normalByNewellMethod(_vertices);
+         }
+
          _basePlane = new Plane3D(_vertices[0], faceNormal);
 
          containingBB = new BoundingBox3D(_vertices);
@@ -111,9 +123,9 @@ namespace BIMRL.Common
          }
       }
 
-      static void generateEdges(List<Point3D> vertices, out List<LineSegment3D> edgeLIst, out List<int> nonColinearEdgesIdx)
+      static void generateEdges(List<Point3D> vertices, out List<LineSegment3D> edgeList, out List<int> nonColinearEdgesIdx)
       {
-         edgeLIst = new List<LineSegment3D>();
+         edgeList = new List<LineSegment3D>();
          nonColinearEdgesIdx = new List<int>();
          for (int i = 0; i < vertices.Count; i++)
          {
@@ -127,16 +139,36 @@ namespace BIMRL.Common
                edge = new LineSegment3D(vertices[i], vertices[i + 1]);
             if (edge != null)
             {
-               edgeLIst.Add(edge);
+               edgeList.Add(edge);
                if (i > 0 && i < vertices.Count)
                {
-                  if (edgeLIst[i].baseLine.direction != edgeLIst[i - 1].baseLine.direction)
+                  if (edgeList[i].baseLine.direction != edgeList[i - 1].baseLine.direction)
                         nonColinearEdgesIdx.Add(i - 1);
                }
                if (i == vertices.Count - 1)
-                  if (edgeLIst[i].baseLine.direction != edgeLIst[0].baseLine.direction)
+                  if (edgeList[i].baseLine.direction != edgeList[0].baseLine.direction)
                         nonColinearEdgesIdx.Add(i);
             }
+         }
+      }
+
+      static void generateEdgesFromGoodSource(List<Point3D> vertices, out List<LineSegment3D> edgeList, out List<int> nonColinearEdgesIdx)
+      {
+         edgeList = new List<LineSegment3D>();
+         nonColinearEdgesIdx = new List<int>();
+         for (int i = 0; i < vertices.Count; i++)
+         {
+            LineSegment3D edge = null;
+            if (i == vertices.Count - 1)
+            {
+               if (vertices[i] != vertices[0])          // add only the last edge with the first vertex if they are not explicitly closed
+                  edge = new LineSegment3D(vertices[i], vertices[0]);
+            }
+            else
+               edge = new LineSegment3D(vertices[i], vertices[i + 1]);
+
+            edgeList.Add(edge);
+            nonColinearEdgesIdx.Add(i);
          }
       }
 
@@ -291,7 +323,7 @@ namespace BIMRL.Common
             List<Point3D> intPoints = new List<Point3D>();
             for (int i = 0; i < F2.boundaries.Count; ++i)
             {
-               if (Face3D.intersect(F1, F2.boundaries[i], out intPoints))
+               if (Face3D.intersect(F1, F2.boundaries[i]))
                   return true;
             }
          }
@@ -417,6 +449,44 @@ namespace BIMRL.Common
                intPoints.Add(intPt);
                return true;
             }
+         }
+         return false;
+      }
+
+      /// <summary>
+      /// Perform minimum intersection operation (no intersecting points need to be returned, just true/false answer)
+      /// </summary>
+      /// <param name="F1">the Face</param>
+      /// <param name="LS">the LineSegment</param>
+      /// <returns>true or false</returns>
+      public static bool intersect(Face3D F1, LineSegment3D LS)
+      {
+         // There are 2 possible cases: 1. Line punching the face, 2. Line lies on the same plane as the face
+         // Test whether the line is on the same plane
+         if (MathUtils.equalTol(Vector3D.DotProduct(F1.basePlane.normalVector, LS.baseLine.direction), 0.0, MathUtils.defaultTol))
+         {
+            // test whether at least one point of the segment is on the plane
+            if (!Plane3D.pointOnPlane(F1.basePlane, LS.startPoint))
+               return false;       // line is parallel with the plane, no intersection
+
+            LineSegmentIntersectEnum mode = LineSegmentIntersectEnum.Undefined;
+            for (int i = 0; i < F1.boundaries.Count; i++)
+            {
+               Point3D intP;
+               if (LineSegment3D.intersect(F1.boundaries[i], LS, out intP, out mode))
+                  return true;
+            }
+            return false;
+         }
+         else
+         {
+            Point3D intPt;
+            bool res = Plane3D.PLintersect(F1.basePlane, LS, out intPt);
+            if (res == false) return false;             // intersection occurs beyond the line segment
+
+            // There is intersection point, test whether the point in within (inside the boundary of the face boundaries
+            if (inside(F1, intPt))
+               return true;
          }
          return false;
       }
@@ -574,7 +644,7 @@ namespace BIMRL.Common
          // First we do intersection test between the face and the linesegment
          // Second we test at least one point must be inside the face
          List<Point3D> iPoints = new List<Point3D>();
-         bool ret = intersect(F1, LS, out iPoints);
+         bool ret = intersect(F1, LS);
          if (ret) return false;                  // The segment intersect the face
 
          // Test whether at least one point is inside the face
@@ -717,7 +787,7 @@ namespace BIMRL.Common
       public static List<Face3D> exclFacesLeftOfAxis(List<Face3D> faces, Plane3D axisPl)
       {
          List<Face3D> facesRightOfAxis = new List<Face3D>();
-         // Only deal with one axis set, either A, Y or Z, otherwise null List will be returned
+         // Only deal with one axis set, either X, Y or Z, otherwise null List will be returned
          if ((axisPl.normalVector.Y == 0.0 && axisPl.normalVector.Z == 0.0) || (axisPl.normalVector.X == 0.0 && axisPl.normalVector.Y == 0.0) || (axisPl.normalVector.X == 0.0 && axisPl.normalVector.Z == 0.0))
          {
             for (int i = 0; i < faces.Count; i++)
@@ -876,6 +946,23 @@ namespace BIMRL.Common
             //}
          }
          return true;
+      }
+
+      /// <summary>
+      /// Create a simple normal by using the first 3 vertices. This is supposed to be used only for good data, i.e. non colinear edges
+      /// </summary>
+      /// <param name="vertices">the vertices</param>
+      /// <returns>normal</returns>
+      static Vector3D createSimpleNormal(List<Point3D> vertices)
+      {
+         if (vertices.Count < 3)
+            return null;
+
+         Vector3D v1 = vertices[1] - vertices[0];
+         Vector3D v2 = vertices[2] - vertices[1];
+         Vector3D normal = Vector3D.CrossProduct(v1, v2);
+         normal.Normalize();
+         return normal;
       }
 
       static Vector3D normalByNewellMethod(List<Point3D> vertices)
