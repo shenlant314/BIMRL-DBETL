@@ -302,7 +302,7 @@ namespace BIMRL
             NpgsqlCommand commandUpdBbox = new NpgsqlCommand(sqlStmt3, DBOperation.DBConn);
             //commandUpdBbox.Parameters.Add("@bbox", NpgsqlDbType.Array | NpgsqlDbType.Composite);
             //commandUpdBbox.Parameters.Add("@cent", NpgsqlDbType.Composite);
-            //commandUpdBbox.Parameters.Add("@eid", NpgsqlDbType.Text);
+            //commandUpdBbox.Parameters.Add("@eid", NpgsqlDbType.Varchar);
             //commandUpdBbox.Prepare();
 
             for (int i = 0; i < bboxList.Count; ++i)
@@ -705,8 +705,8 @@ namespace BIMRL
          NpgsqlConnection arbConn = DBOperation.arbitraryConnection();
          NpgsqlCommand commandIns = new NpgsqlCommand(sqlStmt, arbConn);
          NpgsqlTransaction arbTrans = arbConn.BeginTransaction();
-         commandIns.Parameters.Add("@eid", NpgsqlDbType.Text);
-         commandIns.Parameters.Add("@cid", NpgsqlDbType.Text);
+         commandIns.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+         commandIns.Parameters.Add("@cid", NpgsqlDbType.Varchar);
          commandIns.Parameters.Add("@xmin", NpgsqlDbType.Integer);
          commandIns.Parameters.Add("@ymin", NpgsqlDbType.Integer);
          commandIns.Parameters.Add("@zmin", NpgsqlDbType.Integer);

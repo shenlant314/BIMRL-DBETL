@@ -156,12 +156,12 @@ namespace BIMRL
          sqlStmt = "Insert into " + DBOperation.formatTabName(tableName) + "(ElementId, PropertyGroupName, PropertyName, PropertyValue, PropertyDataType"
             + ", PropertyUnit) Values (@eid, @gname, @pname, @pvalue, @pdtyp, @punit)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
-         command.Parameters.Add("@eid", NpgsqlDbType.Text);
-         command.Parameters.Add("@gname", NpgsqlDbType.Text);
-         command.Parameters.Add("@pname", NpgsqlDbType.Text);
-         command.Parameters.Add("@pvalue", NpgsqlDbType.Text);
-         command.Parameters.Add("@pdtyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@punit", NpgsqlDbType.Text);
+         command.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@gname", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pname", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pvalue", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pdtyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@punit", NpgsqlDbType.Varchar);
          command.Prepare();
 #endif
          foreach (IIfcPropertySetDefinition p in psdefs)
@@ -735,12 +735,12 @@ namespace BIMRL
             + ", PropertyUnit) Values (@eid, @gname, @pname, @pvalue, @pdtyp, @punit)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
          string currStep = sqlStmt;
-         command.Parameters.Add("@eid", NpgsqlDbType.Text);
-         command.Parameters.Add("@gname", NpgsqlDbType.Text);
-         command.Parameters.Add("@pname", NpgsqlDbType.Text);
-         command.Parameters.Add("@pvalue", NpgsqlDbType.Text);
-         command.Parameters.Add("@pdtyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@punit", NpgsqlDbType.Text);
+         command.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@gname", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pname", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pvalue", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pdtyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@punit", NpgsqlDbType.Varchar);
          command.Prepare();
 
 #endif

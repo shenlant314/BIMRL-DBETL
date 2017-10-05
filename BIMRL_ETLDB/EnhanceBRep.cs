@@ -315,7 +315,7 @@ namespace BIMRL
                   foreach (IDnType it in spb.Value)
                   {
                      addCmd.Parameters.Clear();
-                     addCmd.Parameters.AddWithValue("@id1", NpgsqlDbType.Text, it.elementId);
+                     addCmd.Parameters.AddWithValue("@id1", NpgsqlDbType.Varchar, it.elementId);
                      addCmd.Prepare();
 
                      addCmd.ExecuteNonQuery();
@@ -1130,7 +1130,7 @@ namespace BIMRL
                   //foreach(string id in fIdList)
                   //{
                   //   addCmd.Parameters.Clear();
-                  //   addCmd.Parameters.AddWithValue(NpgsqlDbType.Text, id);
+                  //   addCmd.Parameters.AddWithValue(NpgsqlDbType.Varchar, id);
                   //   //addCmd.Prepare();
                   //   addCmd.ExecuteNonQuery();
                   //}
@@ -1410,9 +1410,9 @@ namespace BIMRL
             string sqlUpd = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPOFACEV") + " SET ATTRIBUTE=@attr WHERE ELEMENTID=@elemid AND ID=@id";
             NpgsqlCommand cmdUpd = new NpgsqlCommand(sqlUpd, arbConn);
 
-            cmdUpd.Parameters.Add("@elemid", NpgsqlDbType.Text);
-            cmdUpd.Parameters.Add("@attr", NpgsqlDbType.Text);
-            cmdUpd.Parameters.Add("@id", NpgsqlDbType.Text);
+            cmdUpd.Parameters.Add("@elemid", NpgsqlDbType.Varchar);
+            cmdUpd.Parameters.Add("@attr", NpgsqlDbType.Varchar);
+            cmdUpd.Parameters.Add("@id", NpgsqlDbType.Varchar);
             //cmdUpd.Prepare();
 #endif
             currStmt = sqlUpd;

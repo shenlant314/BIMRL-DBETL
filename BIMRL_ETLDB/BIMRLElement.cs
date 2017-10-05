@@ -449,7 +449,7 @@ namespace BIMRL
                   trf[3, 3] = 1;
                   command.Parameters.AddWithValue("@trf", NpgsqlDbType.Array | NpgsqlDbType.Double, trf);
                   command.Parameters.AddWithValue("@surfa", NpgsqlDbType.Double, totalSurfArea);
-                  command.Parameters.AddWithValue("@eid", NpgsqlDbType.Text, prodGuid);
+                  command.Parameters.AddWithValue("@eid", NpgsqlDbType.Varchar, prodGuid);
                   // This update statement will be repeated many times for each object with geometry. Prepare the statement.
                   command.Prepare();
 #endif
@@ -582,11 +582,13 @@ namespace BIMRL
                string elDesc = BIMRLUtils.checkSingleQuote(el.Description);
                int IfcLineNo = el.EntityLabel;
                string tag = elem.Tag.ToString();
-               IIfcRelContainedInSpatialStructure relContainer = elem.ContainedInStructure.FirstOrDefault();
-               if (relContainer == null)
+
+               // Leave the container empty at this stage due to performance issue in Postgres. The container will be processed at once in BIMRLRelationship
+               //IIfcRelContainedInSpatialStructure relContainer = elem.ContainedInStructure.FirstOrDefault();
+               //if (relContainer == null)
                   container = string.Empty;
-               else
-                  container = relContainer.RelatingStructure.GlobalId.ToString();
+               //else
+               //   container = relContainer.RelatingStructure.GlobalId.ToString();
 
                // from el, we can get all IFC related attributes (property set?), including relationships. But first we need to populate BIMRL_ELEMENT table first before building the relationships
                // Keep a mapping between IFC guid used as a key in BIMRL and the IFC line no of the entity
@@ -777,12 +779,12 @@ namespace BIMRL
          command.CommandText = SqlStmt;
          string currStep = SqlStmt;
 
-         command.Parameters.Add("@eid", NpgsqlDbType.Text);
-         command.Parameters.Add("@gname", NpgsqlDbType.Text);
-         command.Parameters.Add("@pname", NpgsqlDbType.Text);
-         command.Parameters.Add("@pvalue", NpgsqlDbType.Text);
-         command.Parameters.Add("@pdtyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@punit", NpgsqlDbType.Text);
+         command.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@gname", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pname", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pvalue", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pdtyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@punit", NpgsqlDbType.Varchar);
          command.Prepare();
 
          // Process Project "properties"

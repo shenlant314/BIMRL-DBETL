@@ -881,9 +881,9 @@ public class BIMRLGeometryPostProcess
 
          // Npgsql has problem with Prepare() for Composite type. It insists that the specific type has to be specified when the composite may mean many different items and types
          // Use AddWithValue instead without the need to specify the type explicitly
-         //cmd.Parameters.Add("@eid", NpgsqlDbType.Text);
-         //cmd.Parameters.Add("@id", NpgsqlDbType.Text);
-         //cmd.Parameters.Add("@ftyp", NpgsqlDbType.Text);
+         //cmd.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+         //cmd.Parameters.Add("@id", NpgsqlDbType.Varchar);
+         //cmd.Parameters.Add("@ftyp", NpgsqlDbType.Varchar);
          //cmd.Parameters.Add("@norm", NpgsqlDbType.Composite | NpgsqlDbType.Double);
          //cmd.Parameters.Add("@angle", NpgsqlDbType.Double);
          //cmd.Parameters.Add("@cent", NpgsqlDbType.Composite | NpgsqlDbType.Double);
@@ -1343,7 +1343,7 @@ public class BIMRLGeometryPostProcess
          typeList.Add(NpgsqlDbType.Jsonb);
 
          paramList.Add(_elementid);
-         typeList.Add(NpgsqlDbType.Text);
+         typeList.Add(NpgsqlDbType.Varchar);
 
          try
          {

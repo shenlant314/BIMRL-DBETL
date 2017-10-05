@@ -685,12 +685,12 @@ namespace BIMRL
 #if POSTGRES
       private void setParam(NpgsqlCommand command)
       {
-         command.Parameters.Add("@eid", NpgsqlDbType.Text);
-         command.Parameters.Add("@mname", NpgsqlDbType.Text);
-         command.Parameters.Add("@cat", NpgsqlDbType.Text);
-         command.Parameters.Add("@sname", NpgsqlDbType.Text);
-         command.Parameters.Add("@isv", NpgsqlDbType.Text);
-         command.Parameters.Add("@fprof", NpgsqlDbType.Text);
+         command.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@mname", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@cat", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@sname", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@isv", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@fprof", NpgsqlDbType.Varchar);
          command.Parameters.Add("@mseq", NpgsqlDbType.Integer);
          command.Parameters.Add("@mthick", NpgsqlDbType.Double);
          command.Prepare();

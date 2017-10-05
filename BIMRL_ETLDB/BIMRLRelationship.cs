@@ -53,6 +53,7 @@ namespace BIMRL
 
       public void processRelationships()
       {
+         processRelContainedInSpatialStructure();
          processRelAggregation();
          processRelConnections();
          processRelSpaceBoundary();
@@ -96,10 +97,10 @@ namespace BIMRL
                      + " (MASTERELEMENTID, MASTERELEMENTTYPE, AGGREGATEELEMENTID, AGGREGATEELEMENTTYPE) values (@mGuids, @mType, @aGuids, @aType )";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
 
-         command.Parameters.Add("@mGuids", NpgsqlDbType.Text);
-         command.Parameters.Add("@mType", NpgsqlDbType.Text);
-         command.Parameters.Add("@aGuids", NpgsqlDbType.Text);
-         command.Parameters.Add("@aType", NpgsqlDbType.Text);
+         command.Parameters.Add("@mGuids", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@mType", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@aGuids", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@aType", NpgsqlDbType.Varchar);
          command.Prepare();
 #endif
          currStep = sqlStmt;
@@ -282,22 +283,21 @@ namespace BIMRL
             + "VALUES (@ieid, @ietyp, @iattrn, @iattrv, @deid, @detyp, @dattrn, @dattrv, @cattrn, @cattrv, @reid, @retyp, @rtyp)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
 
-         command.Parameters.Add("@ieid", NpgsqlDbType.Text);
-         command.Parameters.Add("@ietyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@iattrn", NpgsqlDbType.Text);
-         command.Parameters.Add("@iattrv", NpgsqlDbType.Text);
-         command.Parameters.Add("@deid", NpgsqlDbType.Text);
-         command.Parameters.Add("@detyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@dattrn", NpgsqlDbType.Text);
-         command.Parameters.Add("@dattrv", NpgsqlDbType.Text);
-         command.Parameters.Add("@cattrn", NpgsqlDbType.Text);
-         command.Parameters.Add("@cattrv", NpgsqlDbType.Text);
-         command.Parameters.Add("@reid", NpgsqlDbType.Text);
-         command.Parameters.Add("@retyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@rtyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@ieid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@ietyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@iattrn", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@iattrv", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@deid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@detyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@dattrn", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@dattrv", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@cattrn", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@cattrv", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@reid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@retyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@rtyp", NpgsqlDbType.Varchar);
          command.Prepare();
 #endif
-         int commandStatus = -1;
          currStep = sqlStmt;
 
          // Do speacial step first by processing the IfcRelConnecsPortToElement to match FccDistributionPort and IfcElement for MEP connectivity
@@ -923,11 +923,11 @@ namespace BIMRL
                      + " (SPACEELEMENTID, BOUNDARYELEMENTID, BOUNDARYELEMENTTYPE, BOUNDARYTYPE, INTERNALOREXTERNAL) values (@sid, @bid, @betyp, @btyp, @intext)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
 
-         command.Parameters.Add("@sid", NpgsqlDbType.Text);
-         command.Parameters.Add("@bid", NpgsqlDbType.Text);
-         command.Parameters.Add("@betyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@btyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@intext", NpgsqlDbType.Text);
+         command.Parameters.Add("@sid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@bid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@betyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@btyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@intext", NpgsqlDbType.Varchar);
          command.Prepare();
 #endif
          currStep = sqlStmt;
@@ -1160,10 +1160,10 @@ namespace BIMRL
                      + " (GROUPELEMENTID, GROUPELEMENTTYPE, MEMBERELEMENTID, MEMBERELEMENTTYPE) values (@gid, @gtyp, @mid, @mtyp)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
 
-         command.Parameters.Add("@gid", NpgsqlDbType.Text);
-         command.Parameters.Add("@gtyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@mid", NpgsqlDbType.Text);
-         command.Parameters.Add("@mtyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@gid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@gtyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@mid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@mtyp", NpgsqlDbType.Varchar);
          command.Prepare();
 #endif
          currStep = sqlStmt;
@@ -1472,11 +1472,11 @@ namespace BIMRL
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
          string currStep = sqlStmt;
          int commandStatus = -1;
-         command.Parameters.Add("@eid", NpgsqlDbType.Text);
-         command.Parameters.Add("@etyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@did", NpgsqlDbType.Text);
-         command.Parameters.Add("@detyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@dtyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@etyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@did", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@detyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@dtyp", NpgsqlDbType.Varchar);
          command.Prepare();
 
          DBOperation.beginTransaction();
@@ -1698,5 +1698,113 @@ namespace BIMRL
 
       }
 #endif
+
+      private void processRelContainedInSpatialStructure()
+      {
+         string sqlStmt;
+         DBOperation.beginTransaction();
+
+         int commandStatus = -1;
+         int recCount = 0;
+
+#if ORACLE
+         sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT") + " set container=:cont where elementid=:eid";
+         OracleCommand command = new OracleCommand(sqlStmt, DBOperation.DBConn);
+
+         OracleParameter[] Param = new OracleParameter[2];
+         Param[0] = command.Parameters.Add("cont", OracleDbType.Varchar2);
+         Param[0].Direction = ParameterDirection.Input;
+         Param[1] = command.Parameters.Add("eid", OracleDbType.Varchar2);
+         Param[1].Direction = ParameterDirection.Input;
+
+#endif
+#if POSTGRES
+         sqlStmt = "update " + DBOperation.formatTabName("BIMRL_ELEMENT") + " set container=@cont where elementid=@eid";
+         NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
+
+         command.Parameters.Add("@cont", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+
+#endif
+         IEnumerable<IIfcRelContainedInSpatialStructure> rels = _model.Instances.OfType<IIfcRelContainedInSpatialStructure>();
+         foreach (IIfcRelContainedInSpatialStructure relCont in rels)
+         {
+            string contGuid = relCont.RelatingStructure.GlobalId.ToString();
+            if (_refBIMRLCommon.getLineNoFromMapping(contGuid) == null)
+               continue;       // skip "non" element guid in the relationship object
+
+            foreach (IIfcProduct prod in relCont.RelatedElements)
+            {
+#if ORACLE
+               string prodGuid = prod.GlobalId.ToString();
+               if (_refBIMRLCommon.getLineNoFromMapping(prodGuid) == null)
+                  continue;       // skip "non" element guid in the relationship object
+
+               Param[0].Value = contGuid;
+               Param[1].Value = prodGuid;
+               recCount++;
+               try
+               {
+                  commandStatus = command.ExecuteNonQuery();
+                  if (recCount >= DBOperation.commitInterval)
+                  {
+                     DBOperation.commitTransaction();
+                     recCount = 0;
+                  }
+               }
+               catch (OracleException e)
+               {
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+                  _refBIMRLCommon.StackPushIgnorableError(excStr);
+                  // Ignore any error
+                  continue;
+               }
+               catch (SystemException e)
+               {
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+                  _refBIMRLCommon.StackPushError(excStr);
+                  throw;
+               }
+#endif
+#if POSTGRES
+               string prodGuid = prod.GlobalId.ToString();
+               if (_refBIMRLCommon.getLineNoFromMapping(prodGuid) == null)
+                  continue;       // skip "non" element guid in the relationship object
+
+               command.Parameters["@cont"].Value = contGuid;
+               command.Parameters["@eid"].Value = prodGuid;
+               recCount++;
+               try
+               {
+                  DBOperation.CurrTransaction.Save(DBOperation.def_savepoint);
+                  commandStatus = command.ExecuteNonQuery();
+                  DBOperation.CurrTransaction.Release(DBOperation.def_savepoint);
+                  if (recCount >= DBOperation.commitInterval)
+                  {
+                     DBOperation.commitTransaction();
+                     recCount = 0;
+                  }
+               }
+               catch (NpgsqlException e)
+               {
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+                  _refBIMRLCommon.StackPushIgnorableError(excStr);
+                  DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
+                  continue;
+               }
+               catch (SystemException e)
+               {
+                  string excStr = "%%Insert Error - " + e.Message + "\n\t" + command.CommandText;
+                  _refBIMRLCommon.StackPushError(excStr);
+                  throw;
+               }
+#endif
+            }
+         }
+
+         DBOperation.commitTransaction();
+         command.Dispose();
+      }
+
    }
 }

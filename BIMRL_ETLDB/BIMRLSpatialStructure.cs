@@ -74,16 +74,16 @@ namespace BIMRL
             + "Values (@eid, @line, @etyp, @modid, @name, @lname, @desc, @otyp, @cont, @typid)";
          command.CommandText = sqlStmt;
 
-         command.Parameters.Add("@eid", NpgsqlDbType.Text);
+         command.Parameters.Add("@eid", NpgsqlDbType.Varchar);
          command.Parameters.Add("@line", NpgsqlDbType.Integer);
-         command.Parameters.Add("@etyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@etyp", NpgsqlDbType.Varchar);
          command.Parameters.Add("@modid", NpgsqlDbType.Integer);
-         command.Parameters.Add("@name", NpgsqlDbType.Text);
-         command.Parameters.Add("@lname", NpgsqlDbType.Text);
-         command.Parameters.Add("@desc", NpgsqlDbType.Text);
-         command.Parameters.Add("@otyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@cont", NpgsqlDbType.Text);
-         command.Parameters.Add("@typid", NpgsqlDbType.Text);
+         command.Parameters.Add("@name", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@lname", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@desc", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@otyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@cont", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@typid", NpgsqlDbType.Varchar);
          command.Prepare();
 #endif
          try
@@ -292,18 +292,18 @@ namespace BIMRL
                            + " values (@sid, @setyp, @pid, @ptyp, @lvrm)";
                   command.CommandText = SqlStmt;
                   command.Parameters.Clear();
-                  command.Parameters.AddWithValue("@sid", NpgsqlDbType.Text, sse.GlobalId.ToString());
-                  command.Parameters.AddWithValue("@setyp", NpgsqlDbType.Text, sse.GetType().Name.ToUpper());
+                  command.Parameters.AddWithValue("@sid", NpgsqlDbType.Varchar, sse.GlobalId.ToString());
+                  command.Parameters.AddWithValue("@setyp", NpgsqlDbType.Varchar, sse.GetType().Name.ToUpper());
 
                   if (string.IsNullOrEmpty(parentGuid))
-                     command.Parameters.AddWithValue("@pid", NpgsqlDbType.Text, DBNull.Value);
+                     command.Parameters.AddWithValue("@pid", NpgsqlDbType.Varchar, DBNull.Value);
                   else
-                     command.Parameters.AddWithValue("@pid", NpgsqlDbType.Text, parentGuid);
+                     command.Parameters.AddWithValue("@pid", NpgsqlDbType.Varchar, parentGuid);
 
                   if (string.IsNullOrEmpty(parentType))
-                     command.Parameters.AddWithValue("@ptyp", NpgsqlDbType.Text, DBNull.Value);
+                     command.Parameters.AddWithValue("@ptyp", NpgsqlDbType.Varchar, DBNull.Value);
                   else
-                     command.Parameters.AddWithValue("@ptyp", NpgsqlDbType.Text, parentType);
+                     command.Parameters.AddWithValue("@ptyp", NpgsqlDbType.Varchar, parentType);
 
                   command.Parameters.AddWithValue("@lvrm", NpgsqlDbType.Integer, levelRemoved);
 

@@ -152,17 +152,17 @@ namespace BIMRL
                            + " Values (@eid, @ifctyp, @name, @desc, @applo, @tag, @etyp, @pdtyp, @asspl, @optyp, @ctyp, @ownh, @modid)";
          NpgsqlCommand command = new NpgsqlCommand(sqlStmt, DBOperation.DBConn);
 
-         command.Parameters.Add("@eid", NpgsqlDbType.Text);
-         command.Parameters.Add("@ifctyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@name", NpgsqlDbType.Text);
-         command.Parameters.Add("@desc", NpgsqlDbType.Text);
-         command.Parameters.Add("@applo", NpgsqlDbType.Text);
-         command.Parameters.Add("@tag", NpgsqlDbType.Text);
-         command.Parameters.Add("@etyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@pdtyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@asspl", NpgsqlDbType.Text);
-         command.Parameters.Add("@optyp", NpgsqlDbType.Text);
-         command.Parameters.Add("@ctyp", NpgsqlDbType.Text);
+         command.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@ifctyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@name", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@desc", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@applo", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@tag", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@etyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@pdtyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@asspl", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@optyp", NpgsqlDbType.Varchar);
+         command.Parameters.Add("@ctyp", NpgsqlDbType.Varchar);
          command.Parameters.Add("@ownh", NpgsqlDbType.Integer);
          command.Parameters.Add("@modid", NpgsqlDbType.Integer);
          command.Prepare();
