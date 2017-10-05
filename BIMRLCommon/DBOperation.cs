@@ -354,9 +354,9 @@ namespace BIMRL.Common
          {
             string excStr = "%%Error - " + e.Message + "\n\t" + stmt;
             refBIMRLCommon.StackPushError(excStr);
-            DBOperation.rollbackTransaction();
+            shortTrans.Rollback();
             cmdShort.Dispose();
-            throw;
+            //throw;
          }
       }
 

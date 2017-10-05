@@ -8,7 +8,7 @@ using BIMRL.Common;
 
 namespace BIMRL
 {
-   class JsonGeomUtils
+   public class JsonGeomUtils
    {
 #if POSTGRES
       /// <summary>
