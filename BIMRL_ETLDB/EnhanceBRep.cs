@@ -1016,7 +1016,7 @@ namespace BIMRL
                faceIdxColl.Clear();
                prevIdx = -1;
                prevVal = -0.4999;
-               // No BOTTOM face found: find alternative for TOPSIDE, which is defined as the largest positive -Z (above 0.5) and highest boundingbox
+               // No BOTTOM face found: find alternative for TOPSIDE, which is defined as the largest positive -Z (above 0.5) and lowest boundingbox
                for (int i = 0; i < faceidList.Count; ++i)
                {
                   Face3D face;
@@ -1394,7 +1394,7 @@ namespace BIMRL
             }
 
 #if ORACLE
-            string sqlUpd = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPOFACEV") + " SET ATTRIBUTE=:1 WHERE ELEMENTID='" + elemid + "' AND ID=:2";
+            string sqlUpd = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ATTRIBUTE=:1 WHERE ELEMENTID='" + elemid + "' AND ID=:2";
             OracleCommand cmdUpd = new OracleCommand(sqlUpd, DBOperation.DBConn);
             OracleParameter[] pars = new OracleParameter[2];
             pars[0] = cmdUpd.Parameters.Add("1", OracleDbType.Varchar2);
@@ -1407,7 +1407,7 @@ namespace BIMRL
 #if POSTGRES
             NpgsqlConnection arbConn = DBOperation.arbitraryConnection();
             NpgsqlTransaction arbTrans = arbConn.BeginTransaction();
-            string sqlUpd = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPOFACEV") + " SET ATTRIBUTE=@attr WHERE ELEMENTID=@elemid AND ID=@id";
+            string sqlUpd = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ATTRIBUTE=@attr WHERE ELEMENTID=@elemid AND ID=@id";
             NpgsqlCommand cmdUpd = new NpgsqlCommand(sqlUpd, arbConn);
 
             cmdUpd.Parameters.Add("@elemid", NpgsqlDbType.Text);
