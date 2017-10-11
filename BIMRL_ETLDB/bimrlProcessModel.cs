@@ -432,7 +432,7 @@ namespace BIMRL
             string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
 
             // (Re)-Create the spatial indexes
-            DBOperation.ExecuteSystemScript("BIMRL_Idx_SpatialIndexes_cr.sql", "BIMRL_Idx_TopoFace_cr.sql", "BIMRL_Idx_MajorAxes.sql");
+            DBOperation.ExecuteSystemScript(DBOperation.currFedModel.FederatedID, "BIMRL_Idx_SpatialIndexes_cr.sql", "BIMRL_Idx_TopoFace_cr.sql", "BIMRL_Idx_MajorAxes.sql");
 
             //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes_cr.sql"), DBOperation.currFedModel.FederatedID);
             //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace_cr.sql"), DBOperation.currFedModel.FederatedID);

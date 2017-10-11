@@ -159,7 +159,7 @@ namespace BIMRL.Common
             try
             {
                beginTransaction();
-               ExecuteSystemScript("bimrl_addgeom.sql");
+               ExecuteSystemScript(0, "bimrl_addgeom.sql");
                commitTransaction();
             }
             catch (Exception e)
@@ -960,7 +960,7 @@ namespace BIMRL.Common
          //exePath = exePath.Replace("%20", " ");
          //string crtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_crtab.sql");
          //return executeScript(crtabScript, ID);
-         ExecuteSystemScript("BIMRL_crtab.sql");
+         ExecuteSystemScript(ID, "BIMRL_crtab.sql");
          return 0;
       }
 
@@ -1044,7 +1044,7 @@ namespace BIMRL.Common
          //exePath = exePath.Replace("%20", " ");
          //string drtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_drtab.sql");
          //return executeScript(drtabScript, ID);
-         ExecuteSystemScript("BIMRL_drtab.sql");
+         ExecuteSystemScript(ID, "BIMRL_drtab.sql");
          return 0;
       }
 
@@ -1269,13 +1269,13 @@ namespace BIMRL.Common
       /// </summary>
       /// <param name="scriptFileName"></param>
       /// <returns>false if command result is < 0</returns>
-      public static void ExecuteSystemScript(params string[] scriptFileNames)
+      public static void ExecuteSystemScript(int IDtoSubs, params string[] scriptFileNames)
       {
          var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
          string exePath = new FileInfo(location.AbsolutePath).Directory.FullName.Replace("%20", " ");
 
          foreach (string scriptName in scriptFileNames)
-            executeScript(Path.Combine(exePath, DBOperation.ScriptPath, scriptName), 0);
+            executeScript(Path.Combine(exePath, DBOperation.ScriptPath, scriptName), IDtoSubs);
       }
    }
 }

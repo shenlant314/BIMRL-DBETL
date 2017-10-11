@@ -853,7 +853,7 @@ public class BIMRLGeometryPostProcess
                sqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + "(ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID, AREA) "
                            + "VALUES (:1, :2, :3, :4, :5, :6, :7, :8)";
          OracleCommand cmd = new OracleCommand(sqlStmt, DBOperation.DBConn);
-         OracleParameter[] Params = new OracleParameter[7];
+         OracleParameter[] Params = new OracleParameter[8];
             
          Params[0] = cmd.Parameters.Add("1", OracleDbType.Varchar2);
          Params[1] = cmd.Parameters.Add("2", OracleDbType.Varchar2);
