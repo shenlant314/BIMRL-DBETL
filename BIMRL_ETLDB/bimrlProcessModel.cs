@@ -432,10 +432,11 @@ namespace BIMRL
             string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
 
             // (Re)-Create the spatial indexes
-            DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes.sql"), DBOperation.currFedModel.FederatedID);
-            DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace.sql"), DBOperation.currFedModel.FederatedID);
-            DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), DBOperation.currFedModel.FederatedID);
+            DBOperation.ExecuteSystemScript("BIMRL_Idx_SpatialIndexes_cr.sql", "BIMRL_Idx_TopoFace_cr.sql", "BIMRL_Idx_MajorAxes.sql");
 
+            //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes_cr.sql"), DBOperation.currFedModel.FederatedID);
+            //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace_cr.sql"), DBOperation.currFedModel.FederatedID);
+            //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), DBOperation.currFedModel.FederatedID);
             //sqlStmt = "Create Index IDX_BIMRLELEM_GEOM_" + currFedID.ToString("X4") + " on BIMRL_ELEMENT_" + currFedID.ToString("X4")
             //            + " (GEOMETRYBODY) INDEXTYPE is MDSYS.SPATIAL_INDEX PARAMETERS ('sdo_indx_dims=3')";
             //currStep = sqlStmt;

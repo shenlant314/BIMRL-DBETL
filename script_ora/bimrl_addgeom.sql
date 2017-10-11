@@ -28,7 +28,8 @@ CREATE GLOBAL TEMPORARY TABLE USERGEOM_TOPO_FACE (
 		  Normal SDO_GEOMETRY NOT NULL,
 		  AngleFromNorth number,
 		  Centroid SDO_GEOMETRY NOT NULL,
-		  Orientation varchar2(8)
+		  Orientation varchar2(8),
+		  Area number
 ) ON COMMIT PRESERVE ROWS;
 -- );
 CREATE INDEX I_USERG_TOPOF_GID ON USERGEOM_TOPO_FACE (ElementID);

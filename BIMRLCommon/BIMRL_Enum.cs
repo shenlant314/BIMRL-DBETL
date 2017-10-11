@@ -47,7 +47,6 @@ namespace BIMRL.Common
         TOPSIDE                 // A spacial case of a face that is at the overside of a geometry such as a roof
     }
 
-#if POSTGRES
    public enum GeometryTypeEnum
    {
       geompoint3d,
@@ -60,5 +59,4 @@ namespace BIMRL.Common
       geombox3d,
       geomtriangulatedfaceset3d
    }
-#endif
 }

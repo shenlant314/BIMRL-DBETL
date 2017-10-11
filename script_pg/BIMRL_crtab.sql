@@ -44,7 +44,8 @@ create table bimrl_topo_face_&1 (
 		  centroid point3d not null,
 		  orientation varchar(16),
 		  attribute varchar(128),
-		  toporbottom_z double precision
+		  toporbottom_z double precision,
+		  area double precision
 );
 
 grant select, update, insert, delete on bimrl_topo_face_&1 to public;
@@ -228,8 +229,8 @@ create table bimrl_spatialindex_&1 (
 		  xmaxbound integer,
 		  ymaxbound integer,
 		  zmaxbound integer,
-		  depth integer,
-		  primary key (elementid, cellid)
+		  depth integer
+--		  , primary key (elementid, cellid)
 );
 grant select, update, insert, delete on bimrl_spatialindex_&1 to public;
 
@@ -315,7 +316,7 @@ grant select, update, insert, delete on bimrl_elementdependency_&1 to public;
 
 create index idx_elementtype_&1 on bimrl_element_&1 (elementtype);
 
-create index idx_topofeid_&1 on bimrl_topo_face_&1 (elementid);
+-- create index idx_topofeid_&1 on bimrl_topo_face_&1 (elementid);
 
 create index bimrl_connectingelement_&1 on bimrl_relconnection_&1 (connectingelementid);
 
@@ -325,14 +326,14 @@ create index idx_typmaterial_id_&1 on bimrl_typematerial_&1 (elementid);
 
 create index idx_elemmaterial_id_&1 on bimrl_elementmaterial_&1 (elementid);
 
-create index idx_spatial_cellid_&1 on bimrl_spatialindex_&1 (cellid);
+-- create index idx_spatial_cellid_&1 on bimrl_spatialindex_&1 (cellid);
 
-create index ixminb_spatialindex_&1 on bimrl_spatialindex_&1 (xminbound);
-create index iyminb_spatialindex_&1 on bimrl_spatialindex_&1 (yminbound);
-create index izminb_spatialindex_&1 on bimrl_spatialindex_&1 (zminbound);
-create index ixmaxb_spatialindex_&1 on bimrl_spatialindex_&1 (xmaxbound);
-create index iymaxb_spatialindex_&1 on bimrl_spatialindex_&1 (ymaxbound);
-create index izmaxb_spatialindex_&1 on bimrl_spatialindex_&1 (zmaxbound);
+-- create index ixminb_spatialindex_&1 on bimrl_spatialindex_&1 (xminbound);
+-- create index iyminb_spatialindex_&1 on bimrl_spatialindex_&1 (yminbound);
+-- create index izminb_spatialindex_&1 on bimrl_spatialindex_&1 (zminbound);
+-- create index ixmaxb_spatialindex_&1 on bimrl_spatialindex_&1 (xmaxbound);
+-- create index iymaxb_spatialindex_&1 on bimrl_spatialindex_&1 (ymaxbound);
+-- create index izmaxb_spatialindex_&1 on bimrl_spatialindex_&1 (zmaxbound);
 
 alter table bimrl_element_&1 add constraint fk_mmodelid_&1 foreign key (modelid) references bimrl_modelinfo_&1 (modelid);
 

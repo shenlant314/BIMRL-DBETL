@@ -154,6 +154,18 @@ namespace BIMRL.Common
                m_connStr = constr;
             transactionActive = false;
             m_longTrans = null;
+
+            // Need to create the temporary tables for each session
+            try
+            {
+               beginTransaction();
+               ExecuteSystemScript("bimrl_addgeom.sql");
+               commitTransaction();
+            }
+            catch (Exception e)
+            {
+               rollbackTransaction();
+            }
          }
 #if ORACLE
          catch (OracleException e)
@@ -256,6 +268,17 @@ namespace BIMRL.Common
                      string constr = "User Id=" + DBUserID + ";Password=" + DBPassword + ";" + DBConnectstring + ";CommandTimeout=0";
                      m_DBconn2 = new NpgsqlConnection(constr);
                      m_DBconn2.Open();
+                     try
+                     {
+                        beginTransaction();
+                        NpgsqlCommand cmd = new NpgsqlCommand("create temporary sequence seq_geomid", m_DBconn2);
+                        cmd.ExecuteNonQuery();
+                        commitTransaction();
+                     }
+                     catch
+                     {
+                        rollbackTransaction();
+                     }
                   }
                }
                else if (m_DBconn2.State != ConnectionState.Open)
@@ -264,6 +287,53 @@ namespace BIMRL.Common
                return m_DBconn2;
             }
          }
+
+
+      /// <summary>
+      /// This method allows execution of a scalar statement that will be executed by a 2nd transaction (usually short duration)
+      /// </summary>
+      /// <param name="stmt">the SQL statement to be executed. If there are parameters specified, the "name" should be using the index, e.g. "@0", "@1", etc.</param>
+      /// <param name="stmtParams">parameter values</param>
+      /// <param name="commit">commit or rollback</param>
+      /// <returns></returns>
+      public static object ExecuteScalar(string stmt, IList<object> stmtParams = null, IList<NpgsqlDbType> paramTypeList = null, bool commit = false)
+      {
+         bool paramHasType = false;
+         NpgsqlCommand cmd = new NpgsqlCommand(stmt, DBConn);
+         if (stmtParams != null)
+         {
+            if (stmtParams.Count > 0)
+            {
+               if (paramTypeList != null)
+                  paramHasType = (stmtParams.Count == paramTypeList.Count);
+               for (int i = 0; i < stmtParams.Count; ++i)
+               {
+                  if (paramHasType && paramTypeList[i] != NpgsqlDbType.Unknown)
+                     cmd.Parameters.AddWithValue("@" + i.ToString(), paramTypeList[i], stmtParams[i]);
+                  else
+                     cmd.Parameters.AddWithValue("@" + i.ToString(), stmtParams[i]);
+               }
+            }
+         }
+         try
+         {
+            object retVal = cmd.ExecuteScalar();
+            if (commit)
+               DBOperation.commitTransaction();
+            else
+               DBOperation.rollbackTransaction();
+            cmd.Dispose();
+            return retVal;
+         }
+         catch (NpgsqlException e)
+         {
+            string excStr = "%%Error - " + e.Message + "\n\t" + stmt;
+            refBIMRLCommon.StackPushError(excStr);
+            DBOperation.rollbackTransaction();
+            cmd.Dispose();
+            throw;
+         }
+      }
 
       /// <summary>
       /// This method allows execution of a scalar statement that will be executed by a 2nd transaction (usually short duration)
@@ -306,11 +376,58 @@ namespace BIMRL.Common
             {
                string excStr = "%%Error - " + e.Message + "\n\t" + stmt;
                refBIMRLCommon.StackPushError(excStr);
-               DBOperation.rollbackTransaction();
+               shortTrans.Rollback();
                cmdShort.Dispose();
                throw;
             }
          }
+
+      /// <summary>
+      /// This method allows execution of an atomic statement (non query)
+      /// </summary>
+      /// <param name="stmt">the SQL statement to be executed. If there are parameters specified, the "name" should be using the index, e.g. "@0", "@1", etc.</param>
+      /// <param name="stmtParams">parameter values</param>
+      /// <returns>success or fail</returns>
+      public static void ExecuteNonQuery(string stmt, IList<object> stmtParams = null, IList<NpgsqlDbType> paramTypeList = null, bool commit = true)
+      {
+         NpgsqlCommand cmd = new NpgsqlCommand(stmt, DBConn);
+         bool paramHasType = false;
+
+         if (stmtParams != null)
+         {
+            if (stmtParams.Count > 0)
+            {
+               if (paramTypeList != null)
+                  paramHasType = (stmtParams.Count == paramTypeList.Count);
+
+               for (int i = 0; i < stmtParams.Count; ++i)
+               {
+                  if (paramHasType && paramTypeList[i] != NpgsqlDbType.Unknown)
+                     cmd.Parameters.AddWithValue("@" + i.ToString(), paramTypeList[i], stmtParams[i]);
+                  else
+                     cmd.Parameters.AddWithValue("@" + i.ToString(), stmtParams[i]);
+               }
+            }
+         }
+         try
+         {
+            int cmdStatus = cmd.ExecuteNonQuery();
+            if (commit)
+               DBOperation.commitTransaction();
+            else
+               DBOperation.rollbackTransaction();
+            cmd.Dispose();
+            return;
+         }
+         catch (NpgsqlException e)
+         {
+            string excStr = "%%Error - " + e.Message + "\n\t" + stmt;
+            refBIMRLCommon.StackPushError(excStr);
+            DBOperation.rollbackTransaction();
+            cmd.Dispose();
+            //throw;
+         }
+      }
 
       /// <summary>
       /// This method allows execution of an atomic statement (non query) that will be executed by a 2nd transaction (usually short duration)
@@ -357,6 +474,52 @@ namespace BIMRL.Common
             shortTrans.Rollback();
             cmdShort.Dispose();
             //throw;
+         }
+      }
+
+      /// <summary>
+      /// This method allows execution of an atomic statement into a DataTable
+      /// </summary>
+      /// <param name="stmt">the SQL statement to be executed. If there are parameters specified, the "name" should be using the index, e.g. "@0", "@1", etc.</param>
+      /// <param name="stmtParams">parameter values</param>
+      /// <returns>return DataTable or null</returns>
+      public static DataTable ExecuteToDataTable(string stmt, IList<object> stmtParams = null, IList<NpgsqlDbType> paramTypeList = null)
+      {
+         bool paramHasType = false;
+         DataTable qResult = new DataTable();
+         NpgsqlCommand cmd = new NpgsqlCommand(stmt, DBOperation.DBConn);
+         if (stmtParams != null)
+         {
+            if (stmtParams.Count > 0)
+            {
+               if (paramTypeList != null)
+                  paramHasType = (stmtParams.Count == paramTypeList.Count);
+
+               for (int i = 0; i < stmtParams.Count; ++i)
+               {
+                  if (paramHasType && paramTypeList[i] != NpgsqlDbType.Unknown)
+                     cmd.Parameters.AddWithValue("@" + i.ToString(), paramTypeList[i], stmtParams[i]);
+                  else
+                     cmd.Parameters.AddWithValue("@" + i.ToString(), stmtParams[i]);
+               }
+            }
+         }
+         try
+         {
+            cmd.Prepare();
+            NpgsqlDataAdapter qAdapter = new NpgsqlDataAdapter(cmd);
+            qAdapter.Fill(qResult);
+            cmd.Dispose();
+            if (qResult != null)
+               if (qResult.Rows.Count > 0)
+                  return qResult;
+            return null;
+         }
+         catch (NpgsqlException e)
+         {
+            string excStr = "%%Read Error - " + e.Message + "\n\t" + stmt;
+            refBIMRLCommon.StackPushError(excStr);
+            return null;
          }
       }
 
@@ -792,11 +955,13 @@ namespace BIMRL.Common
 
       public static int createModelTables (int ID)
       {
-         var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
-         string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
-         exePath = exePath.Replace("%20", " ");
-         string crtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_crtab.sql");
-         return executeScript(crtabScript, ID);
+         //var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
+         //string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
+         //exePath = exePath.Replace("%20", " ");
+         //string crtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_crtab.sql");
+         //return executeScript(crtabScript, ID);
+         ExecuteSystemScript("BIMRL_crtab.sql");
+         return 0;
       }
 
       public static int executeScript(string filename, int ID)
@@ -829,7 +994,7 @@ namespace BIMRL.Common
                commentStart = false;
                continue;
             }
-            if (line.StartsWith("//") || line.StartsWith("/") || commentStart) continue;  // PLSQL end line, skip
+            if (line.StartsWith("//") || line.StartsWith("--") || line.StartsWith("/") || commentStart) continue;  // PLSQL end line, skip
 
             line = line.Replace("&1", idStr);
             stmt += " " + line;
@@ -874,11 +1039,13 @@ namespace BIMRL.Common
 
       public static int dropModelTables(int ID)
       {
-         var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
-         string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
-         exePath = exePath.Replace("%20", " ");
-         string drtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_drtab.sql");
-         return executeScript(drtabScript, ID);
+         //var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
+         //string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
+         //exePath = exePath.Replace("%20", " ");
+         //string drtabScript = Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_drtab.sql");
+         //return executeScript(drtabScript, ID);
+         ExecuteSystemScript("BIMRL_drtab.sql");
+         return 0;
       }
 
       public static projectUnit getProjectUnitLength(int fedID)
@@ -1095,6 +1262,20 @@ namespace BIMRL.Common
             if (m_DBconn2.State == ConnectionState.Open)
                m_DBconn2.Close();
 #endif
+      }
+
+      /// <summary>
+      /// Execute script that is located in the BIMRL folder
+      /// </summary>
+      /// <param name="scriptFileName"></param>
+      /// <returns>false if command result is < 0</returns>
+      public static void ExecuteSystemScript(params string[] scriptFileNames)
+      {
+         var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
+         string exePath = new FileInfo(location.AbsolutePath).Directory.FullName.Replace("%20", " ");
+
+         foreach (string scriptName in scriptFileNames)
+            executeScript(Path.Combine(exePath, DBOperation.ScriptPath, scriptName), 0);
       }
    }
 }

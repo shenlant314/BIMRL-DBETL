@@ -843,14 +843,15 @@ public class BIMRLGeometryPostProcess
          List<SdoGeometry> arrNormal = new List<SdoGeometry>();
          List<double> arrAngle = new List<double>();
          List<SdoGeometry> arrCentroid = new List<SdoGeometry>();
+         List<double> arrArea = new List<double>();
 
          string sqlStmt;
          if (forUserDict)
-               sqlStmt = "INSERT INTO USERGEOM_TOPO_FACE (ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID) "
-                           + "VALUES (:1, :2, :3, :4, :5, :6, : 7)";
+               sqlStmt = "INSERT INTO USERGEOM_TOPO_FACE (ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID, AREA) "
+                           + "VALUES (:1, :2, :3, :4, :5, :6, :7, :8)";
          else
-               sqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + "(ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID) "
-                           + "VALUES (:1, :2, :3, :4, :5, :6, : 7)";
+               sqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + "(ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID, AREA) "
+                           + "VALUES (:1, :2, :3, :4, :5, :6, :7, :8)";
          OracleCommand cmd = new OracleCommand(sqlStmt, DBOperation.DBConn);
          OracleParameter[] Params = new OracleParameter[7];
             
@@ -861,20 +862,21 @@ public class BIMRLGeometryPostProcess
          Params[3].UdtTypeName = "MDSYS.SDO_GEOMETRY";
          Params[4] = cmd.Parameters.Add("5", OracleDbType.Object);
          Params[4].UdtTypeName = "MDSYS.SDO_GEOMETRY";
-         Params[5] = cmd.Parameters.Add("1", OracleDbType.Double);
+         Params[5] = cmd.Parameters.Add("6", OracleDbType.Double);
          Params[6] = cmd.Parameters.Add("7", OracleDbType.Object);
          Params[6].UdtTypeName = "MDSYS.SDO_GEOMETRY";
-         for (int i = 0; i < 7; i++)
+         Params[7] = cmd.Parameters.Add("7", OracleDbType.Double);
+         for (int i = 0; i < 8; i++)
                Params[i].Direction = ParameterDirection.Input;
 #endif
 #if POSTGRES
          string sqlStmt;
          if (forUserDict)
-            sqlStmt = "INSERT INTO USERGEOM_TOPO_FACE (ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID) "
-                        + "VALUES (@eid, @id, @ftyp, @polyg, @norm, @angle, @cent)";
+            sqlStmt = "INSERT INTO USERGEOM_TOPO_FACE (ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID, AREA) "
+                        + "VALUES (@eid, @id, @ftyp, @polyg, @norm, @angle, @cent, @area)";
          else
-            sqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + "(ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID) "
-                        + "VALUES (@eid, @id, @ftyp, @polyg, @norm, @angle, @cent)";
+            sqlStmt = "INSERT INTO " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + "(ELEMENTID, ID, TYPE, POLYGON, NORMAL, ANGLEFROMNORTH, CENTROID, AREA) "
+                        + "VALUES (@eid, @id, @ftyp, @polyg, @norm, @angle, @cent, @area)";
          NpgsqlConnection arbConn = DBOperation.arbitraryConnection();
          NpgsqlTransaction arbTrans = arbConn.BeginTransaction();
          NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt, arbConn);
@@ -944,6 +946,7 @@ public class BIMRLGeometryPostProcess
             centroid.SdoPoint = centroidP;
 
             arrCentroid.Add(centroid);
+            arrArea.Add(face.Area);
 
             List<double> arrCoord = new List<double>();
             List<int> elemInfoArr = new List<int>();
@@ -977,6 +980,7 @@ public class BIMRLGeometryPostProcess
             // For every hole, we will also create an independent face for the hole in addition of being a hole to the main face
             List<SdoGeometry> holeFaces = new List<SdoGeometry>();
             List<Point3D> holeCentroids = new List<Point3D>();
+            List<double> holeArea = new List<double>();
             if (face.verticesWithHoles.Count > 1)
             {
                for (int i = 1; i < face.verticesWithHoles.Count; i++)
@@ -1022,6 +1026,8 @@ public class BIMRLGeometryPostProcess
                   hole.ElemArrayOfInts = holeInfoArr.ToArray();
                   hole.OrdinatesArrayOfDoubles = arrHoleCoord.ToArray();
                   holeFaces.Add(hole);
+                  Face3D fHole = new Face3D(face.verticesWithHoles[i]);
+                  holeArea.Add(fHole.Area);
                }
             }
 
@@ -1052,7 +1058,7 @@ public class BIMRLGeometryPostProcess
                holeCentroidP.ZD = holeCentroids[noHole].Z;
                holeCentroid.SdoPoint = holeCentroidP;
                arrCentroid.Add(holeCentroid);
-
+               
                arrFaceGeom.Add(holeFaces[noHole]);
                noHole++;
             }
@@ -1114,7 +1120,8 @@ public class BIMRLGeometryPostProcess
             cmd.Parameters.AddWithValue("@id", faceID.ToString());
             cmd.Parameters.AddWithValue("@ftyp", _faceCategory);
 
-            Point3D normal = new Point3D(face.basePlane.normalVector.X, face.basePlane.normalVector.Y, face.basePlane.normalVector.Z);
+            //Point3D normal = new Point3D(face.basePlane.normalVector.X, face.basePlane.normalVector.Y, face.basePlane.normalVector.Z);
+            Point3D normal = face.basePlane.normalVector.ToPoint3D();
             cmd.Parameters.AddWithValue("@norm", normal);
             Vector3D normal2D = new Vector3D(normal.X, normal.Y, 0.0);
             double angleRad = Math.Atan2(normal2D.Y, normal2D.X) - Math.Atan2(_trueNorth.Y, _trueNorth.X);
@@ -1124,6 +1131,7 @@ public class BIMRLGeometryPostProcess
 
             string polygonStr = JsonConvert.SerializeObject(face);
             cmd.Parameters.AddWithValue("@polyg", NpgsqlDbType.Jsonb, polygonStr);
+            cmd.Parameters.AddWithValue("@area", NpgsqlDbType.Double, face.Area);
 
             try
             {
@@ -1155,6 +1163,7 @@ public class BIMRLGeometryPostProcess
 
                      polygonStr = JsonConvert.SerializeObject(holeFace);
                      cmd.Parameters.AddWithValue("@polyg", NpgsqlDbType.Jsonb, polygonStr);
+                     cmd.Parameters.AddWithValue("@area", NpgsqlDbType.Double, holeFace.Area);
                      commandStatus = cmd.ExecuteNonQuery();
                      insRec++;
                   }

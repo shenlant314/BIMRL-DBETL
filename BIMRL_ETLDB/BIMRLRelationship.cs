@@ -763,7 +763,7 @@ namespace BIMRL
                try
                {
                   command.ArrayBindCount = cIngEle.Count;    // No of values in the array to be inserted
-                  commandStatus = command.ExecuteNonQuery();
+                  command.ExecuteNonQuery();
                   DBOperation.commitTransaction();
 
                   cIngEle.Clear();
@@ -867,7 +867,7 @@ namespace BIMRL
             try
             {
                command.ArrayBindCount = cIngEle.Count;    // No of values in the array to be inserted
-               commandStatus = command.ExecuteNonQuery();
+               command.ExecuteNonQuery();
                DBOperation.commitTransaction();
             }
             catch (OracleException e)
