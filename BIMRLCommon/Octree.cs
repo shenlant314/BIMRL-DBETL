@@ -234,7 +234,7 @@ namespace BIMRL.Common
       /// <param name="forUserDict"></param>
       public void ComputeOctree(string elementID, Polyhedron polyH, bool forUserDict)
       {
-         Tuple<Guid, int> elementIDNo = ElementIDstrToKey(elementID);
+         Tuple<Guid, int> elementIDNo = ElementID.ElementIDstrToKey(elementID, forUserDict);
 
          OctreeNode theTree = new OctreeNode();
          // Do it in steps:
@@ -269,7 +269,7 @@ namespace BIMRL.Common
       /// <param name="forUserDict"></param>
       public void ComputeOctree(string elementID, Face3D face, bool forUserDict)
       {
-         Tuple<Guid, int> elementIDNo = ElementIDstrToKey(elementID);
+         Tuple<Guid, int> elementIDNo = ElementID.ElementIDstrToKey(elementID, forUserDict);
 
          OctreeNode theTree = new OctreeNode();
             
@@ -300,7 +300,7 @@ namespace BIMRL.Common
       /// <param name="forUserDict"></param>
       public void ComputeOctree(string elementID, LineSegment3D lineS, bool forUserDict)
       {
-         Tuple<Guid, int> elementIDNo = ElementIDstrToKey(elementID);
+         Tuple<Guid, int> elementIDNo = ElementID.ElementIDstrToKey(elementID, forUserDict);
 
          OctreeNode theTree = new OctreeNode();
 
@@ -724,7 +724,7 @@ namespace BIMRL.Common
             {
                foreach (int tupEID in dictEntry.Value.data)
                {
-                  string userGeomID = ElementID.GetElementIDstrFromKey(getElementIDByIndex(tupEID));
+                  string userGeomID = ElementID.GetElementIDstrFromKey(getElementIDByIndex(tupEID), userGeom:true);
 
                   elementIDList.Add(userGeomID);
                   cellIDStrList.Add(cellID.ToString());
@@ -769,7 +769,7 @@ namespace BIMRL.Common
             {
                string elementid = reader.GetString(0);
                //ElementID eID = new ElementID(elementid);
-               Tuple<Guid, int> eID = ElementIDstrToKey(elementid);
+               Tuple<Guid, int> eID = ElementID.ElementIDstrToKey(elementid, false);
                string cellid = reader.GetString(1);
                CellID64 cell = new CellID64(cellid);
                if (!regenSpIndexTree.ContainsKey(cell.iCellID))
@@ -857,41 +857,6 @@ namespace BIMRL.Common
       {
          return elemIDList[theIdx];
       }
-
-      static Tuple<Guid,int> ElementIDstrToKey(string elementID)
-      {
-         Tuple<Guid, int> elementIDNo = null;
-         if (elementID.Length >= 36)
-         {
-            Guid guidPart;
-            int addNo = 0;
-            // This is Revit based Elementid
-            if (!Guid.TryParse(elementID.Substring(0, 36), out guidPart))
-            {
-               // There is problem with Guid format
-               Exception e = new Exception();
-               string excStr = "%%ElementID format Error - " + elementID + " : " + e.Message + "\n\t";
-               refCellBIMRLCommon.StackPushError(excStr);
-               throw e;
-            }
-            if (elementID.Length > 37)
-            {
-               addNo = int.Parse(elementID.Substring(37, 8), System.Globalization.NumberStyles.HexNumber);
-            }
-            elementIDNo = new Tuple<Guid, int>(guidPart, addNo);
-         }
-         else
-         {
-            // Make sure ElementID string is 22 character long for correct encoding/decoding
-            if (elementID.Length < 22)
-               elementID = elementID.PadLeft(22, '0');
-
-            ElementID eidNo = new ElementID(elementID);
-            elementIDNo = new Tuple<Guid, int>(eidNo.ElementIDGuid, 0);
-         }
-         return elementIDNo;
-      }
-
    }
 }
 

@@ -160,7 +160,7 @@ namespace BIMRL.BIMRLGraph
             //string exePath = new FileInfo(location.AbsolutePath).Directory.FullName.Replace("%20"," ");
             //// Create tables for storing the graph
             //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_graphtab_cr.sql"), DBOperation.currFedModel.FederatedID);
-            DBOperation.ExecuteSystemScript("BIMRL_graphtab_cr.sql");
+            DBOperation.ExecuteSystemScript(FedID, "BIMRL_graphtab_cr.sql");
 #endif
             // 
             string elemList = "'IFCSPACE','IFCDOOR','IFCOPENINGELEMENT','IFCSTAIR','IFCSTAIRFLIGHT','IFCRAMP','IFCRAMPFLIGHT','IFCTRANSPORTELEMENT'";    // IFC source
@@ -958,7 +958,7 @@ namespace BIMRL.BIMRLGraph
          //string exePath = new FileInfo(location.AbsolutePath).Directory.FullName.Replace("%20", " ");
          //// Create tables for storing the graph
          //int ret = DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_graphtab_dr.sql"), DBOperation.currFedModel.FederatedID);
-         DBOperation.ExecuteSystemScript("BIMRL_graphtab_dr.sql");
+         DBOperation.ExecuteSystemScript(DBOperation.currFedModel.FederatedID, "BIMRL_graphtab_dr.sql");
 #endif
 
          return status;

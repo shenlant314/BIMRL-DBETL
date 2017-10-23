@@ -395,12 +395,15 @@ namespace BIMRL
                if (geomObj == null || polyHList == null || polyHList.Count == 0)
                   continue;
 
-               Polyhedron geom = Polyhedron.UnionPolyhedronList(polyHList);
+               //Polyhedron geom = Polyhedron.UnionPolyhedronList(polyHList);
+               foreach (Polyhedron geom in polyHList)
 #endif
-               // - Process face information and create consolidated faces and store them into BIMRL_TOPO_FACE table
-               BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(elemID, geom, _refBIMRLCommon, federatedId, null);
-               processFaces.simplifyAndMergeFaces();
-               processFaces.insertIntoDB(false);
+               {
+                  // - Process face information and create consolidated faces and store them into BIMRL_TOPO_FACE table
+                  BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(elemID, geom, _refBIMRLCommon, federatedId, null);
+                  processFaces.simplifyAndMergeFaces();
+                  processFaces.insertIntoDB(false);
+               }
             }
             reader.Dispose();
          }

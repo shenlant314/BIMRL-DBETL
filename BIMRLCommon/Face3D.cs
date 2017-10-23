@@ -98,10 +98,18 @@ namespace BIMRL.Common
          Initialize(vertices);
       }
 
+      private List<Point3D> removeDuplicateEndPoints(List<Point3D> vertices)
+      {
+         if (vertices[0].Equals(vertices[vertices.Count - 1]))
+            vertices.RemoveAt(vertices.Count - 1);
+         return vertices;
+      }
+
       private void Initialize(List<List<Point3D>> vertices)
       {
          // Initialize the outer boundary information
-         _vertices = vertices[0];
+         removeDuplicateEndPoints(vertices[0]);
+         _vertices = removeDuplicateEndPoints(vertices[0]);
          generateEdges(vertices[0], out _boundaryLines, out _nonColinearEdgesIdx);
 
          // Use Newell's method to calculate normal because any vertices > 3 can be concave
@@ -117,7 +125,7 @@ namespace BIMRL.Common
             List<LineSegment3D> innerBound = new List<LineSegment3D>();
             List<int> nonColinearBoundIdx = new List<int>();
 
-            _innerVertices.Add(vertices[i]);
+            _innerVertices.Add(removeDuplicateEndPoints(vertices[i]));
             generateEdges(vertices[i], out innerBound, out nonColinearBoundIdx);
             _innerBoundaries.Add(innerBound);
          }

@@ -929,7 +929,7 @@ namespace BIMRL
                tabName = altUserTable;
             string sqlStmt = "select A.ELEMENTID, GEOMETRY, A.BODY_MAJOR_AXIS1, A.BODY_MAJOR_AXIS2, A.BODY_MAJOR_AXIS3"
 #if POSTGRES
-                              + ", A.geometrybody_geomtype"
+                              + ", A.geomtype"
 #endif
                               + " from " + tabName + "_GEOMETRY A ";
             if (!string.IsNullOrEmpty(wherecond))

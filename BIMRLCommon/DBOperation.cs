@@ -196,7 +196,7 @@ namespace BIMRL.Common
          string defaultPassword = "bimrl";
 #endif
 #if POSTGRES
-         string defaultConnecstring = "server=localhost; port=5432; database=postgres";
+         string defaultConnecstring = "server=localhost; port=5432; database=postgres; CommandTimeout=0";
          string defaultUser = "bimrl";
          string defaultPassword = "bimrl";
 #endif
@@ -235,7 +235,7 @@ namespace BIMRL.Common
          {
             if (!string.IsNullOrEmpty(DBUserID) && !string.IsNullOrEmpty(DBPassword) && !string.IsNullOrEmpty(DBConnectstring))
             {
-               string constr = "User Id=" + DBUserID + ";Password=" + DBPassword + ";" + DBConnectstring;
+               string constr = "User Id=" + DBUserID + ";Password=" + DBPassword + ";" + DBConnectstring + ";CommandTimeout = 0";
                try
                {
                   NpgsqlConnection arbConn = new NpgsqlConnection(constr);

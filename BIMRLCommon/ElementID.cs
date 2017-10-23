@@ -112,6 +112,66 @@ namespace BIMRL.Common
             _EIDstr = new string(tmpChar);
         }
 
+      public static Tuple<Guid, int> ElementIDstrToKey(string elementID, bool forUserDict)
+      {
+         Guid guidPart;
+         int addNo = 0;
+         Tuple<Guid, int> elementIDNo = null;
+
+         if (forUserDict)
+         {
+            // User geometry id can come in 2 forms: a simple number, or a simple number '-' a simple number
+            string[] elemidComp = elementID.Split('-');
+            if (elemidComp.Count() == 2)
+            {
+               if (!int.TryParse(elemidComp[1].Trim(), out addNo))
+               {
+                  // There is problem with Guid format
+                  string excStr = "%%ElementID format Error - " + elementID + "!!\n\t";
+                  Exception e = new Exception(excStr);
+                  throw e;
+               }
+            }
+
+            if (!Guid.TryParse(elemidComp[0].Trim().PadLeft(32, '0'), out guidPart))
+            {
+               // There is problem with Guid format
+               string excStr = "%%ElementID format Error - " + elementID + "!!\n\t";
+               Exception e = new Exception(excStr);
+               throw e;
+            }
+            elementIDNo = new Tuple<Guid, int>(guidPart, addNo);
+            return elementIDNo;
+         }
+
+         if (elementID.Length >= 36)
+         {
+            // This is Revit based Elementid
+            if (!Guid.TryParse(elementID.Substring(0, 32), out guidPart))
+            {
+               // There is problem with Guid format
+               string excStr = "%%ElementID format Error - " + elementID + "!!\n\t";
+               Exception e = new Exception(excStr);
+               throw e;
+            }
+            if (elementID.Length > 37)
+            {
+               addNo = int.Parse(elementID.Substring(37, 8), System.Globalization.NumberStyles.HexNumber);
+            }
+            elementIDNo = new Tuple<Guid, int>(guidPart, addNo);
+         }
+         else
+         {
+            // Make sure ElementID string is 22 character long for correct encoding/decoding
+            if (elementID.Length < 22)
+               elementID = elementID.PadLeft(22, '0');
+
+            ElementID eidNo = new ElementID(elementID);
+            elementIDNo = new Tuple<Guid, int>(eidNo.ElementIDGuid, 0);
+         }
+         return elementIDNo;
+      }
+
       public static string GetElementIDstrFromKey(Tuple<Guid, int> elemidKey, bool userGeom = false)
       {
          UInt64 upperPart;
@@ -126,36 +186,37 @@ namespace BIMRL.Common
 
          if (elemidKey.Item2 == 0)
          {
-            // This is a traditional IFC encoded elementid in 22 Char (128 bits), ignore the Item2
-            Byte[] guid = elemidKey.Item1.ToByteArray();
-            Byte[] guidUpper = guid.Take(8).ToArray();
-            upperPart = BitConverter.ToUInt64(guidUpper, 0);
-            Byte[] guidLower = guid.Skip(8).Take(8).ToArray();
-            lowerPart = BitConverter.ToUInt64(guidLower, 0);
-            ElementID eID = new ElementID(new Tuple<UInt64, UInt64>(upperPart, lowerPart));
 
+            // For User geom only the simple number is required, trim away the leading '0'
             if (userGeom)
-            {
-               // For UserGeom, the ID i s generated from string of a simple number padded left with '0'. Now we need to remove them
-               int end0Pos = 0;
-               for (int i = 0; i < eID.ElementIDString.Length; ++i)
-               {
-                  if (eID.ElementIDString[i] != '0')
-                  {
-                     end0Pos = i;
-                     break;
-                  }
-               }
-               return eID.ElementIDString.Remove(0, end0Pos);
-            }
+               return elemidKey.Item1.ToString("N").TrimStart('0');
             else
+            {
+               // This is a traditional IFC encoded elementid in 22 Char (128 bits), ignore the Item2
+               Byte[] guid = elemidKey.Item1.ToByteArray();
+               Byte[] guidUpper = guid.Take(8).ToArray();
+               upperPart = BitConverter.ToUInt64(guidUpper, 0);
+               Byte[] guidLower = guid.Skip(8).Take(8).ToArray();
+               lowerPart = BitConverter.ToUInt64(guidLower, 0);
+               ElementID eID = new ElementID(new Tuple<UInt64, UInt64>(upperPart, lowerPart));
+
                return eID.ElementIDString;
+            }
          }
          else
          {
-            // This is Revit style element guid
-            string eidStr = elemidKey.Item1.ToString() + "-" + elemidKey.Item2.ToString("x8");
-            return eidStr;
+            // For User geom only the simple number is required, trim away the leading '0'
+            if (userGeom)
+            {
+               string eidStr = elemidKey.Item1.ToString("N").TrimStart('0') + "-" + elemidKey.Item2.ToString().TrimStart('0');
+               return eidStr;
+            }
+            else
+            {
+               // This is Revit style element guid
+               string eidStr = elemidKey.Item1.ToString() + "-" + elemidKey.Item2.ToString("x8");
+               return eidStr;
+            }
          }
       }
 
