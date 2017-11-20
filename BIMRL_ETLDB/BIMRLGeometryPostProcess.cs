@@ -281,7 +281,7 @@ public class BIMRLGeometryPostProcess
             int thisIdx = inputFaceList[idxF];
             Face3D theFace = facesColl[thisIdx];
             if (!addSegmentsToDIct(ref faceSegmentDict, ref theFace, thisIdx))
-               discardList.Add(idxF);
+               discardList.Add(thisIdx);
             //for (int seg=0; seg<theFace.outerAndInnerBoundaries.Count; ++seg)
             //{
             //   faceSegmentDict.Add(theFace.outerAndInnerBoundaries[seg], new Tuple<Face3D, int, int>(theFace, thisIdx, seg));
@@ -290,8 +290,8 @@ public class BIMRLGeometryPostProcess
          if (discardList.Count > 0)
          {
             // There are bad faces to discard (most likely duplicate face. Do it here in reversed order to maintain validity of the index
-            for (int disc = discardList.Count-1; disc == 0; --disc)
-               inputFaceList.RemoveAt(disc);
+            foreach (int disc in discardList)
+               inputFaceList.Remove(disc);
          }
 
          while (currEdgeIdx < firstF.outerAndInnerBoundaries.Count && inputFaceList.Count > 0)
@@ -344,12 +344,21 @@ public class BIMRLGeometryPostProcess
                   for (int coe = 0; coe < currFace.outerAndInnerBoundaries.Count; ++coe)
                      faceSegmentDict.Remove(currFace.outerAndInnerBoundaries[coe]);
                   currFace.Reverse();
+
                   //for (int coe = 0; coe < currFace.outerAndInnerBoundaries.Count; ++coe)
                   //   faceSegmentDict.Add(currFace.outerAndInnerBoundaries[coe], new Tuple<Face3D, int, int>(currFace, currFaceIdx, coe));
-                  addSegmentsToDIct(ref faceSegmentDict, ref currFace, currEdgeIdx);
+                  if (!addSegmentsToDIct(ref faceSegmentDict, ref currFace, currEdgeIdx))
+                  {
+                     // There is a problem with this face, skip
+                     currEdgeIdx++;
+                     merged = false;
+                     continue;
+                  }
+
                   if (!faceSegmentDict.TryGetValue(reversedEdge, out coEdgeFace))
                      if (!faceSegmentDict.TryGetValue(currEdge, out coEdgeFace))
                      {
+                        // There is a problem with this face, skip
                         currEdgeIdx++;
                         merged = false;
                         continue;
@@ -628,34 +637,43 @@ public class BIMRLGeometryPostProcess
 
       bool addSegmentsToDIct(ref IDictionary<LineSegment3D, Tuple<Face3D, int, int>> faceSegmentDict, ref Face3D theFace, int faceIdx)
       {
+         IList<LineSegment3D> rollbackList = new List<LineSegment3D>();
          IList<LineSegment3D> addFace = theFace.outerAndInnerBoundaries;
          // The Dictionary Add might fail because there may be coEdge that is in the same direction. In this case the face needs to be reversed
          try
          {
             for (int coe = 0; coe < addFace.Count; ++coe)
+            {
                faceSegmentDict.Add(addFace[coe], new Tuple<Face3D, int, int>(theFace, faceIdx, coe));
+               rollbackList.Add(addFace[coe]);
+            }
             return true;
          }
          catch
-         { }
+         {
+            // Remove segments that are already successfully added for this face before reversing
+            foreach (LineSegment3D l3d in rollbackList)
+               faceSegmentDict.Remove(l3d);
+            rollbackList.Clear();
+         }
 
-         // Remove segments that are already successfully added for this face before reversing
-         for (int coe = 0; coe < addFace.Count; ++coe)
-            faceSegmentDict.Remove(addFace[coe]);
-
-         Face3D theFaceRev = new Face3D(theFace.verticesWithHoles);
          theFace.Reverse();
          addFace = theFace.outerAndInnerBoundaries;
 
          try
          {
             for (int coe = 0; coe < addFace.Count; ++coe)
+            {
                faceSegmentDict.Add(addFace[coe], new Tuple<Face3D, int, int>(theFace, faceIdx, coe));
+               rollbackList.Add(addFace[coe]);
+            }
             return true;
          }
          catch
          {
             // Still unable to insert even after it is reversed. SOmething is not right. The face will not be added into the Dict
+            foreach (LineSegment3D l3d in rollbackList)
+               faceSegmentDict.Remove(l3d);
          }
          return false;
       }

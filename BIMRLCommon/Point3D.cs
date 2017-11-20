@@ -25,22 +25,6 @@ using Newtonsoft.Json;
 
 namespace BIMRL.Common
 {
-   //public class Point3DLW
-   //{
-   //    public double x { get; set; }
-   //    public double y { get; set; }
-   //    public double z { get; set; }
-   //    public Point3DLW()
-   //    {
-   //    }
-   //    public Point3DLW(Point3D p)
-   //    {
-   //        x = p.X;
-   //        y = p.Y;
-   //        z = p.Z;
-   //    }
-   //}
-
    public class Point3D 
    {
       private double _X;
@@ -119,7 +103,9 @@ namespace BIMRL.Common
          if (ob is Point3D)
          {
             Point3D v = (Point3D)ob;
-            return (MathUtils.equalTol(_X, v._X) && MathUtils.equalTol(_Y, v._Y) && MathUtils.equalTol(_Z, v._Z));
+            return (MathUtils.equalTol(_X, v._X, MathUtils.defaultTol) 
+                     && MathUtils.equalTol(_Y, v._Y, MathUtils.defaultTol) 
+                     && MathUtils.equalTol(_Z, v._Z, MathUtils.defaultTol));
          }
          else
             return false;
@@ -128,12 +114,11 @@ namespace BIMRL.Common
       public override int GetHashCode()
       {
          // Uses the precision set in MathUtils to round the values so that the HashCode will be consistent with the Equals method
-         double X = Math.Round(_X, MathUtils._doubleDecimalPrecision);
-         double Y = Math.Round(_Y, MathUtils._doubleDecimalPrecision);
-         double Z = Math.Round(_Z, MathUtils._doubleDecimalPrecision);
+         double X = Math.Round(_X, MathUtils.defaultDoubleDecimalPrecision);
+         double Y = Math.Round(_Y, MathUtils.defaultDoubleDecimalPrecision);
+         double Z = Math.Round(_Z, MathUtils.defaultDoubleDecimalPrecision);
 
          return X.GetHashCode() ^ Y.GetHashCode() ^ Z.GetHashCode();
-         //return _X.GetHashCode() ^ _Y.GetHashCode() ^ _Z.GetHashCode();
       }
 
       public static bool operator != (Point3D p1, Point3D p2)

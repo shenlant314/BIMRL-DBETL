@@ -100,15 +100,15 @@ namespace BIMRL.Common
 
       private List<Point3D> removeDuplicateEndPoints(List<Point3D> vertices)
       {
-         if (vertices[0].Equals(vertices[vertices.Count - 1]))
-            vertices.RemoveAt(vertices.Count - 1);
-         return vertices;
+         List<Point3D> retList = new List<Point3D>(vertices);
+         if (retList[0].Equals(retList[retList.Count - 1]))
+            retList.RemoveAt(retList.Count - 1);
+         return retList;
       }
 
       private void Initialize(List<List<Point3D>> vertices)
       {
          // Initialize the outer boundary information
-         removeDuplicateEndPoints(vertices[0]);
          _vertices = removeDuplicateEndPoints(vertices[0]);
          generateEdges(vertices[0], out _boundaryLines, out _nonColinearEdgesIdx);
 
@@ -553,7 +553,7 @@ namespace BIMRL.Common
             projIntP.X = 0.0;
             rayEndP.X = 0.0;
             if (Octree.WorldBB == null)
-               rayEndP.Y += Point3D.distance(F1.containingBB.URT, F1.containingBB.LLB) * 1000;
+               rayEndP.Y += Point3D.distance(F1.containingBB.URT, F1.containingBB.LLB) * 10000;
             else
                rayEndP.Y += Octree.WorldBB.extent * 2;
          }
@@ -567,7 +567,7 @@ namespace BIMRL.Common
             rayEndP.Y = 0.0;
             //rayEndP.Z += Point3D.distance(F1.containingBB.URT, F1.containingBB.LLB) * 2;
             if (Octree.WorldBB == null)
-               rayEndP.X += Point3D.distance(F1.containingBB.URT, F1.containingBB.LLB) * 2;    // Use X axis for the ray
+               rayEndP.X += Point3D.distance(F1.containingBB.URT, F1.containingBB.LLB) * 10000;    // Use X axis for the ray
             else
                rayEndP.X += Octree.WorldBB.extent * 2;
          }
@@ -580,7 +580,7 @@ namespace BIMRL.Common
             projIntP.Z = 0.0;
             rayEndP.Z = 0.0;
             if (Octree.WorldBB == null)
-               rayEndP.X += Point3D.distance(F1.containingBB.URT, F1.containingBB.LLB) * 2;
+               rayEndP.X += Point3D.distance(F1.containingBB.URT, F1.containingBB.LLB) * 10000;
             else
                rayEndP.X += Octree.WorldBB.extent * 2;
          }
@@ -1098,7 +1098,7 @@ namespace BIMRL.Common
          }
       }
 
-      private IList<Point3D> transformLoop(IList<Point3D> inputLoop, Matrix3D transformMatrix)
+      private static IList<Point3D> transformLoop(IList<Point3D> inputLoop, Matrix3D transformMatrix)
       {
          IList<Point3D> res = new List<Point3D>();
          foreach (Point3D p in inputLoop)
@@ -1108,6 +1108,17 @@ namespace BIMRL.Common
          }
 
          return res;
+      }
+
+      public static Face3D TransformFace(Face3D inputFace, Matrix3D transform)
+      {
+         List<List<Point3D>> newfaceloops = new List<List<Point3D>>();
+         newfaceloops.Add(transformLoop(inputFace.verticesWithHoles[0], transform).ToList());
+         for (int il = 1; il < inputFace.verticesWithHoles.Count; ++il)
+         {
+            newfaceloops.Add(transformLoop(inputFace.verticesWithHoles[il], transform).ToList());
+         }
+         return new Face3D(newfaceloops);
       }
 
       private double CalculateLoopArea(IList<Point3D> orgloop, Matrix3D facePlaneTrf)

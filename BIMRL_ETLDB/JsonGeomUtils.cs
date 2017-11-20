@@ -145,7 +145,7 @@ namespace BIMRL
       /// </summary>
       /// <param name="geomDyn">the linesegment data from jsonb</param>
       /// <returns>the LineSegment3D object</returns>
-      public static object Generate_LineSegment3D(dynamic geomDyn)
+      public static LineSegment3D Generate_LineSegment3D(dynamic geomDyn)
       {
          Point3D stPoint = Generate_Point3D(geomDyn.StartPoint);
          Point3D enPoint = Generate_Point3D(geomDyn.EndPoint);
@@ -159,7 +159,7 @@ namespace BIMRL
       /// </summary>
       /// <param name="geomDyn">the boundingbox data from jsonb</param>
       /// <returns>the BoundingBox3D object</returns>
-      public static object Generate_BoundingBox3D(dynamic geomDyn)
+      public static BoundingBox3D Generate_BoundingBox3D(dynamic geomDyn)
       {
          Point3D LLB = Generate_Point3D(geomDyn.LLB);
          Point3D URT = Generate_Point3D(geomDyn.URT);

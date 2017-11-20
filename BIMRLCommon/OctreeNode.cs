@@ -94,6 +94,9 @@ namespace BIMRL.Common
         /// 
         public static void Split(OctreeNode node)
         {
+         if (node._children.Count == 8)
+            return;
+
             node._children.Add(new OctreeNode(node, (node._depth + 1), 0));
             node._children.Add(new OctreeNode(node, (node._depth + 1), 1));
             node._children.Add(new OctreeNode(node, (node._depth + 1), 2));
@@ -459,13 +462,27 @@ namespace BIMRL.Common
                     return;
                 }
 
-                if (childToTraverse.Count == 1)
-                    OctreeNodeProcess.Process(node._children[childToTraverse[0]], face);
-                else if (childToTraverse.Count > 1)
-                    Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], face));
+            if (childToTraverse.Count == 1)
+               OctreeNodeProcess.Process(node._children[childToTraverse[0]], face);
+            else if (childToTraverse.Count > 1)
+            {
+               //Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], face));
+#if (DEBUG_NOPARALLEL)
+               // Non - parallel option for easier debugging
+               foreach (int i in childToTraverse)
+                  {
+                        OctreeNodeProcess.Process(node._children[i], face);
+                  }
+#else
+               ParallelOptions po = new ParallelOptions();
+               po.MaxDegreeOfParallelism = 8;
 
-                // If there is any disjoint, we need to keep this node as it is. This should be done after we processed all the children to be traversed!!
-                if (disjointCount > 0 && disjointCount < 8)
+               Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], face));
+#endif
+            }
+
+            // If there is any disjoint, we need to keep this node as it is. This should be done after we processed all the children to be traversed!!
+            if (disjointCount > 0 && disjointCount < 8)
                     return;
 
                 int countGrandChildren = 0;
@@ -546,13 +563,27 @@ namespace BIMRL.Common
                     return;
                 }
 
-                if (childToTraverse.Count == 1)
-                    OctreeNodeProcess.Process(node._children[childToTraverse[0]], lineSegment);
-                else if (childToTraverse.Count > 1)
-                    Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], lineSegment));
+            if (childToTraverse.Count == 1)
+               OctreeNodeProcess.Process(node._children[childToTraverse[0]], lineSegment);
+            else if (childToTraverse.Count > 1)
+            {
+               //Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], lineSegment));
+#if (DEBUG_NOPARALLEL)
+               // Non - parallel option for easier debugging
+               foreach (int i in childToTraverse)
+                  {
+                        OctreeNodeProcess.Process(node._children[i], lineSegment);
+                  }
+#else
+               ParallelOptions po = new ParallelOptions();
+               po.MaxDegreeOfParallelism = 8;
 
-                // If there is any disjoint, we need to keep this node as it is. This should be done after we processed all the children to be traversed!!
-                if (disjointCount > 0 && disjointCount < 8)
+               Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], lineSegment));
+#endif
+            }
+
+            // If there is any disjoint, we need to keep this node as it is. This should be done after we processed all the children to be traversed!!
+            if (disjointCount > 0 && disjointCount < 8)
                     return;
 
                 int countGrandChildren = 0;

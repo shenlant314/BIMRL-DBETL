@@ -162,7 +162,7 @@ namespace BIMRL.Common
                ExecuteSystemScript(0, "bimrl_addgeom.sql");
                commitTransaction();
             }
-            catch (Exception e)
+            catch
             {
                rollbackTransaction();
             }

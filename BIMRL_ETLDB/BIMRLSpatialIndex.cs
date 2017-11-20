@@ -416,6 +416,7 @@ namespace BIMRL
          {
             string excStr = "%%Read Error - " + e.Message + "\n\t" + currStep;
             _refBIMRLCommon.StackPushError(excStr);
+
          }
          catch (SystemException e)
          {
