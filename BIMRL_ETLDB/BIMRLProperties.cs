@@ -52,7 +52,7 @@ namespace BIMRL
             _refBIMRLCommon = refBIMRLCommon;
         }
 
-        public void processTypeProperties(IIfcTypeProduct typ)
+        public void processTypeProperties(IIfcTypeObject typ)
         {
          IList<IIfcPropertySet> pSets = new List<IIfcPropertySet>();
          IList<IIfcPropertySetDefinition> psetDefs = new List<IIfcPropertySetDefinition>();

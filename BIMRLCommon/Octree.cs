@@ -43,7 +43,7 @@ namespace BIMRL.Common
       //OctreeNode theTree;
 
       static Dictionary<UInt64, CellData> masterDict;
-      static Dictionary<string, Int16> masterDictDB;
+      //static Dictionary<string, Int16> masterDictDB;
 
       // A Pair of Dict and List to allow fast access to the index tat will be stored into a celldata
       static Dictionary<Tuple<Guid, int>, int> elemIDDict;  // Keeping the list of element ids in a Dictionary for int value of an index in the List
@@ -52,7 +52,6 @@ namespace BIMRL.Common
       List<string> candidates;
       Dictionary<UInt64, CellData> userDict;
       static int _ID = -1;
-      bool _regen = false;
       public bool userDictKeepOriginalCell { get; set; }
 
       [Serializable]
@@ -136,30 +135,32 @@ namespace BIMRL.Common
 
       void init(int ID, int initDictNo, int maxDepth, bool forUserDict, bool skipRegenDict)
       {
-         _ID = ID;
+         if (_ID != ID || masterDict == null || masterDict.Count == 0)
          {
-            // If not empty, clear first before reallocating a new ones
-            if (masterDict != null)
-               masterDict.Clear();
-            if (elemIDDict != null)
-               elemIDDict.Clear();
-            if (elemIDList != null)
-               elemIDList.Clear();
-
-            masterDict = new Dictionary<UInt64, CellData>(initDictNo);
-            elemIDDict = new Dictionary<Tuple<Guid, int>, int>(initDictNo);
-            elemIDList = new Dictionary<int, Tuple<Guid, int>>(initDictNo);
-
-            CellID64 cell = new CellID64("000000000000");
-            masterDict.Add(cell.iCellID, new CellData { nodeType = 0, data = new SortedSet<int>() });
-            if (!skipRegenDict)
+            _ID = ID;
             {
-               regenSpatialIndexDict(ID, ref masterDict);
-               _regen = true;
+               // If not empty, clear first before reallocating a new ones
+               if (masterDict != null)
+                  masterDict.Clear();
+               if (elemIDDict != null)
+                  elemIDDict.Clear();
+               if (elemIDList != null)
+                  elemIDList.Clear();
+
+               masterDict = new Dictionary<UInt64, CellData>(initDictNo);
+               elemIDDict = new Dictionary<Tuple<Guid, int>, int>(initDictNo);
+               elemIDList = new Dictionary<int, Tuple<Guid, int>>(initDictNo);
+
+               CellID64 cell = new CellID64("000000000000");
+               masterDict.Add(cell.iCellID, new CellData { nodeType = 0, data = new SortedSet<int>() });
+               if (!skipRegenDict)
+               {
+                  regenSpatialIndexDict(ID, ref masterDict);
+               }
             }
+            _maxDepth = maxDepth;
+            candidates = new List<string>();
          }
-         _maxDepth = maxDepth;
-         candidates = new List<string>();
 
          if (forUserDict)
          {
@@ -421,89 +422,89 @@ namespace BIMRL.Common
 
       static BIMRLCommon refCellBIMRLCommon = new BIMRLCommon();
 
-      void insertDataToDictDB(string elementID, CellID64 cellID)
-      {
-         CellData cellData;
-         cellData.nodeType = 1;
-         string sqlStmt = null;
+//      void insertDataToDictDB(string elementID, CellID64 cellID)
+//      {
+//         CellData cellData;
+//         cellData.nodeType = 1;
+//         string sqlStmt = null;
 
-         short cellType;
-         try
-         {
-            if (!masterDictDB.TryGetValue(cellID.ToString(), out cellType))
-            {
-               // no entry yet for this cell
-               createCellInDictDB(elementID, cellID);
-               masterDictDB.TryGetValue(cellID.ToString(), out cellType);
-            }
+//         short cellType;
+//         try
+//         {
+//            if (!masterDictDB.TryGetValue(cellID.ToString(), out cellType))
+//            {
+//               // no entry yet for this cell
+//               createCellInDictDB(elementID, cellID);
+//               masterDictDB.TryGetValue(cellID.ToString(), out cellType);
+//            }
 
-            if (cellType == 1)         //it's leaf, add the elementID
-            {
-               DBOperation.executeSingleStmt("INSERT INTO CELLTREEDETTMP (CELLID,ELEMENTID) VALUES ('" + cellID.ToString() + "','" + elementID.ToString() + "')" );
-            }
-            else   // it's a node, we must traverse down and add elementID to all the leaves. Not ideal to pass the same flag, but better than none
-            {
-               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 0));
-               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 1));
-               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 2));
-               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 3));
-               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 4));
-               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 5));
-               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 6));
-               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 7));
-            }
-         }
-#if ORACLE
-         catch (OracleException e)
-#endif
-#if POSTGRES
-         catch (NpgsqlException e)
-#endif
-         {
-            string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
-            refCellBIMRLCommon.StackPushError(excStr);
-         }
-      }
+//            if (cellType == 1)         //it's leaf, add the elementID
+//            {
+//               DBOperation.executeSingleStmt("INSERT INTO CELLTREEDETTMP (CELLID,ELEMENTID) VALUES ('" + cellID.ToString() + "','" + elementID.ToString() + "')" );
+//            }
+//            else   // it's a node, we must traverse down and add elementID to all the leaves. Not ideal to pass the same flag, but better than none
+//            {
+//               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 0));
+//               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 1));
+//               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 2));
+//               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 3));
+//               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 4));
+//               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 5));
+//               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 6));
+//               insertDataToDictDB(elementID, CellID64.newChildCellId(cellID, 7));
+//            }
+//         }
+//#if ORACLE
+//         catch (OracleException e)
+//#endif
+//#if POSTGRES
+//         catch (NpgsqlException e)
+//#endif
+//         {
+//            string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
+//            refCellBIMRLCommon.StackPushError(excStr);
+//         }
+//      }
 
-      void createCellInDictDB(string elementID, CellID64 cellID)
-      {
-         CellID64 parentID = CellID64.parentCell(cellID);
-         string sqlStmt = null;
+//      void createCellInDictDB(string elementID, CellID64 cellID)
+//      {
+//         CellID64 parentID = CellID64.parentCell(cellID);
+//         string sqlStmt = null;
 
-         try
-         {
-            short cellType;
-            if (!masterDictDB.TryGetValue(parentID.ToString(), out cellType))
-            {
-               createCellInDictDB(elementID, parentID);
-               masterDictDB.TryGetValue(parentID.ToString(), out cellType);
-            }
+//         try
+//         {
+//            short cellType;
+//            if (!masterDictDB.TryGetValue(parentID.ToString(), out cellType))
+//            {
+//               createCellInDictDB(elementID, parentID);
+//               masterDictDB.TryGetValue(parentID.ToString(), out cellType);
+//            }
 
-            DBOperation.executeSingleStmt("DELETE FROM CELLTREEDETTMP WHERE CELLID='" + parentID.ToString() + "' AND ELEMENTID='" + elementID.ToString() + "'");
-            for (int i = 0; i < 8; ++i)
-            {
-               string childID = CellID64.newChildCellId(parentID, i).ToString();
-               if (!masterDictDB.ContainsKey(childID))
-                  masterDictDB.Add(childID, 1);
+//            DBOperation.executeSingleStmt("DELETE FROM CELLTREEDETTMP WHERE CELLID='" + parentID.ToString() + "' AND ELEMENTID='" + elementID.ToString() + "'");
+//            for (int i = 0; i < 8; ++i)
+//            {
+//               string childID = CellID64.newChildCellId(parentID, i).ToString();
+//               if (!masterDictDB.ContainsKey(childID))
+//                  masterDictDB.Add(childID, 1);
 
-               DBOperation.executeSingleStmt("INSERT INTO CELLTREEDETTMP (CELLID,ELEMENTID) SELECT '" + childID 
-                  + "',ELEMENTID FROM CELLTREEDETTMP WHERE CELLID='" + parentID.ToString() +"'");
-            }
-            // reset cellData and set the nodeType to "node"
-            masterDictDB[parentID.ToString()] = 0;
-            DBOperation.executeSingleStmt("DELETE FROM CELLTREEDETTMP WHERE CELLID='" + parentID.ToString() + "'");
-         }
-#if ORACLE
-      catch (OracleException e)
-#endif
-#if POSTGRES
-      catch (NpgsqlException e)
-#endif
-      {
-         string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
-               refCellBIMRLCommon.StackPushError(excStr);
-         }
-      }
+//               DBOperation.executeSingleStmt("INSERT INTO CELLTREEDETTMP (CELLID,ELEMENTID) SELECT '" + childID 
+//                  + "',ELEMENTID FROM CELLTREEDETTMP WHERE CELLID='" + parentID.ToString() +"'");
+//            }
+//            // reset cellData and set the nodeType to "node"
+//            masterDictDB[parentID.ToString()] = 0;
+//            DBOperation.executeSingleStmt("DELETE FROM CELLTREEDETTMP WHERE CELLID='" + parentID.ToString() + "'");
+//         }
+//#if ORACLE
+//      catch (OracleException e)
+//#endif
+//#if POSTGRES
+//      catch (NpgsqlException e)
+//#endif
+//      {
+//         string excStr = "%%Read Error - " + e.Message + "\n\t" + sqlStmt;
+//               refCellBIMRLCommon.StackPushError(excStr);
+//         }
+//      }
 
       void insertDataToUserDict(Tuple<Guid, int> elementID, CellID64 cellID, int borderFlag, bool traverseDepth)
       {
@@ -680,6 +681,13 @@ namespace BIMRL.Common
                   if (outList.Count > 0)
                         outIDs.AddRange(outList);
                }
+            }
+            else
+            {
+               List<UInt64> outList;
+               OctreeCheck ret = findDescendantLeafNodesInDict(childID, out outList);
+               if (outList.Count > 0)
+                  outIDs.AddRange(outList);
             }
          }
          if (outIDs.Count > 0)

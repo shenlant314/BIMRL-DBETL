@@ -167,8 +167,8 @@ namespace BIMRL
          command.Parameters.Add("@modid", NpgsqlDbType.Integer);
          command.Prepare();
 
-         IEnumerable<IIfcTypeProduct> types = _model.Instances.OfType<IIfcTypeProduct>();
-         foreach (IIfcTypeProduct typ in types)
+         IEnumerable<IIfcTypeObject> types = _model.Instances.OfType<IIfcTypeObject>();
+         foreach (IIfcTypeObject typ in types)
          {
             string guid = typ.GlobalId.ToString();
             string ifcType = typ.GetType().Name.ToUpper();
@@ -186,8 +186,8 @@ namespace BIMRL
                appO = typ.ApplicableOccurrence.Value;
 
             string tag = null;
-            if (typ.Tag.HasValue)
-               tag = typ.Tag.Value;
+            if (typ is IIfcTypeProduct && (typ as IIfcTypeProduct).Tag.HasValue)
+               tag = (typ as IIfcTypeProduct).Tag.Value;
 
             string eType = null;
             string PDType = null;
@@ -200,8 +200,8 @@ namespace BIMRL
             dynamic dynTyp = typ;
             if (!(typ is IIfcDoorStyle || typ is IIfcWindowStyle))
             {
-               if (dynTyp.ElementType != null)
-                  eType = dynTyp.ElementType;
+               if (typ is IIfcElementType && (typ as IIfcElementType).ElementType != null && (typ as IIfcElementType).ElementType.HasValue)
+                  eType = (typ as IIfcElementType).ElementType.Value;
             }
 
             if (typ is IIfcFurnitureType)
@@ -241,7 +241,14 @@ namespace BIMRL
             }
             else
             {
-               PDType = dynTyp.PredefinedType.ToString();
+               try
+               {
+                  PDType = dynTyp.PredefinedType.ToString();
+               }
+               catch
+               { 
+                  //ignore exception if the type object does not have PreDefinedType (esp. in the IFC2x3)
+               }
             }
 
             Tuple<int, int> ownHEntry = new Tuple<int, int>(Math.Abs(typ.OwnerHistory.EntityLabel), BIMRLProcessModel.currModelID);
