@@ -940,9 +940,14 @@ namespace BIMRL
             if (propEnumerationValues != null)
             {
                string tmpStr = string.Empty;
-               for (int i = 0; i < propEnumerationValues.Count; i++)
+               if (propEnumerationValues.Count == 1)
+                  tmpStr = propEnumerationValues[0].ToString();
+               else
                {
-                  tmpStr += "(" + propEnumerationValues[i].ToString() + "); ";
+                  for (int i = 0; i < propEnumerationValues.Count; i++)
+                  {
+                     tmpStr += "(" + propEnumerationValues[i].ToString() + "); ";
+                  }
                }
                propValue = tmpStr;
                propDataType = propEnumerationValues[0].GetType().Name.ToUpper();

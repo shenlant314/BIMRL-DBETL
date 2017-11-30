@@ -18,18 +18,13 @@
 //
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Data;
 using Xbim.Presentation.XplorerPluginSystem;
 using Xbim.Ifc;
 using Xbim.Ifc4.Interfaces;
 using Xbim.Common;
-using BIMRL;
 using BIMRL.Common;
 
 

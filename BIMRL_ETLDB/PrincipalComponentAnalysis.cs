@@ -164,12 +164,16 @@ namespace BIMRL
             majorAxes[2].Y = eigenVectors[1];
             majorAxes[2].Z = eigenVectors[2];
 
-            _transformMatrix = new Matrix3D(majorAxes[0].X, majorAxes[1].X, majorAxes[2].X, 0,
-                                            majorAxes[0].Y, majorAxes[1].Y, majorAxes[2].Y, 0,
-                                            majorAxes[0].Z, majorAxes[1].Z, majorAxes[2].Z, 0,
-                                           -Centroid.X, -Centroid.Y, -Centroid.Z, 1);
+            //_transformMatrix = new Matrix3D(majorAxes[0].X, majorAxes[1].X, majorAxes[2].X, 0,
+            //                                majorAxes[0].Y, majorAxes[1].Y, majorAxes[2].Y, 0,
+            //                                majorAxes[0].Z, majorAxes[1].Z, majorAxes[2].Z, 0,
+            //                               -Centroid.X, -Centroid.Y, -Centroid.Z, 1);
+         _transformMatrix = new Matrix3D(majorAxes[0].X, majorAxes[0].Y, majorAxes[0].Z, Centroid.X,
+                                majorAxes[1].X, majorAxes[1].Y, majorAxes[1].Z, Centroid.Y,
+                                majorAxes[2].X, majorAxes[2].Y, majorAxes[2].Z, Centroid.Z,
+                               0, 0, 0, 1);
 
-            List<Point3D> trOBBV = transformPointSet();
+         List<Point3D> trOBBV = transformPointSet();
             BoundingBox3D trOBB = new BoundingBox3D(trOBBV);
             OBB = transformBackPointSet(trOBB.BBVertices);
             return majorAxes;
@@ -183,9 +187,11 @@ namespace BIMRL
         public List<Point3D> transformPointSet()
         {
             List<Point3D> transfPointSet = new List<Point3D>();
+         Matrix3D pcaCoordSys = new Matrix3D(_transformMatrix);
+         pcaCoordSys = pcaCoordSys.inverse();
             foreach (Point3D p in pointSet)
             {
-                Point3D pTransf = _transformMatrix.Transform(p);
+                Point3D pTransf = pcaCoordSys.Transform(p);
                 transfPointSet.Add(pTransf);
             }
             return transfPointSet;
@@ -194,7 +200,7 @@ namespace BIMRL
         public List<Point3D> transformBackPointSet(List<Point3D> pList)
         {
             Matrix3D invM = new Matrix3D(_transformMatrix);
-            invM = invM.inverse();
+            //invM = invM.inverse();
             List<Point3D> result = new List<Point3D>();
 
             foreach (Point3D p in pList)
@@ -279,11 +285,15 @@ namespace BIMRL
             if (modAxes[2].Z == 0)
                 modAxes[2].Z = 1;
 
-            transformMatrix = new Matrix3D(modAxes[0].X, modAxes[1].X, modAxes[2].X, 0,
-                                modAxes[0].Y, modAxes[1].Y, modAxes[2].Y, 0,
-                                modAxes[0].Z, modAxes[1].Z, modAxes[2].Z, 0,
-                               -centroid.X, -centroid.Y, -centroid.Z, 1);
-            List<Point3D> transfPoints = transformPointSet();
+            //transformMatrix = new Matrix3D(modAxes[0].X, modAxes[1].X, modAxes[2].X, 0,
+            //                    modAxes[0].Y, modAxes[1].Y, modAxes[2].Y, 0,
+            //                    modAxes[0].Z, modAxes[1].Z, modAxes[2].Z, 0,
+            //                   -centroid.X, -centroid.Y, -centroid.Z, 1);
+         transformMatrix = new Matrix3D(modAxes[0].X, modAxes[0].Y, modAxes[0].Z, Centroid.X,
+                    modAxes[1].X, modAxes[1].Y, modAxes[1].Z, Centroid.Y,
+                    modAxes[2].X, modAxes[2].Y, modAxes[2].Z, Centroid.Z,
+                   0, 0, 0, 1);
+         List<Point3D> transfPoints = transformPointSet();
             return transfPoints;
         }
     }
