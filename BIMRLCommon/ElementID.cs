@@ -147,7 +147,7 @@ namespace BIMRL.Common
          if (elementID.Length >= 36)
          {
             // This is Revit based Elementid
-            if (!Guid.TryParse(elementID.Substring(0, 32), out guidPart))
+            if (!Guid.TryParse(elementID.Substring(0, 36), out guidPart))
             {
                // There is problem with Guid format
                string excStr = "%%ElementID format Error - " + elementID + "!!\n\t";

@@ -320,7 +320,9 @@ namespace BIMRL
          oFile.WriteStartElement("Shape");
          oFile.WriteStartElement("Appearance");
          oFile.WriteStartElement("Material");
+         //oFile.WriteStartElement("TwoSidedMaterial");
          oFile.WriteAttributeString(null, "emissiveColor", null, "1 1 1");
+         //oFile.WriteAttributeString(null, "backEmissiveColor", null, "1 1 1");
          oFile.WriteEndElement(); // Material
          oFile.WriteEndElement(); // Appearance
 
@@ -483,45 +485,60 @@ namespace BIMRL
                   oFile.WriteAttributeString(null, "DEF", null, elemID);
                   oFile.WriteStartElement("Appearance");
                   oFile.WriteStartElement("Material");
+                  //oFile.WriteStartElement("TwoSidedMaterial");
                   if (theColor.ambientIntensity != null)
+                  {
                      oFile.WriteAttributeString(null, "ambientIntensity", null, theColor.ambientIntensity.ToString());
+                     //oFile.WriteAttributeString(null, "backAmbientIntensity", null, theColor.ambientIntensity.ToString());
+                  }
 
                   // minimum diffuse color should be set, at lease using default color
                   if (theColor.diffuseColorRed != null && theColor.diffuseColorGreen != null && theColor.diffuseColorBlue != null)
                   {
                      string diffuseColorStr = (theColor.diffuseColorRed / 255.0).ToString() + " " + (theColor.diffuseColorGreen / 255.0).ToString() + " " + (theColor.diffuseColorBlue / 255.0).ToString();
                      oFile.WriteAttributeString(null, "diffuseColor", null, diffuseColorStr);
+                     //oFile.WriteAttributeString(null, "backDiffuseColor", null, diffuseColorStr);
                   }
 
                   if (theColor.emissiveColorRed != null && theColor.emissiveColorGreen != null && theColor.emissiveColorBlue != null)
                   {
                      string emissiveColorStr = (theColor.emissiveColorRed / 255.0).ToString() + " " + (theColor.emissiveColorGreen / 255.0).ToString() + " " + (theColor.emissiveColorBlue / 255.0).ToString();
                      oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                     //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
                   }
                   else
                   {
                      string emissiveColorStr = "0 0 1";
                      oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                     //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
                   }
 
                   if (theColor.shininess != null)
+                  {
                      oFile.WriteAttributeString(null, "shininess", null, theColor.shininess.ToString());
+                     //oFile.WriteAttributeString(null, "backShininess", null, theColor.shininess.ToString());
+                  }
 
                   if (theColor.specularColorRed != null && theColor.specularColorGreen != null && theColor.specularColorBlue != null)
                   {
                      string specularColorStr = (theColor.specularColorRed / 255.0).ToString() + " " + (theColor.specularColorGreen / 255.0).ToString() + " " + (theColor.specularColorBlue / 255.0).ToString();
                      oFile.WriteAttributeString(null, "specularColor", null, specularColorStr);
+                     //oFile.WriteAttributeString(null, "backSpecularColor", null, specularColorStr);
                   }
 
                   // If the transparencyOverride is set, we will override the transparency setting with this one, except for IfcSpace
                   if (transparencyOverride >= 0 && string.Compare(elemTyp, "IFCSPACE") != 0 && !toBeHighlighted)
                   {
                      oFile.WriteAttributeString(null, "transparency", null, transparencyOverride.ToString());
+                     //oFile.WriteAttributeString(null, "backTransparency", null, transparencyOverride.ToString());
                   }
                   else
                   {
                      if (theColor.transparency != null)
+                     {
                         oFile.WriteAttributeString(null, "transparency", null, theColor.transparency.ToString());
+                        //oFile.WriteAttributeString(null, "backTransparency", null, theColor.transparency.ToString());
+                     }
                   }
 
                   oFile.WriteEndElement(); // Material
@@ -754,6 +771,7 @@ namespace BIMRL
                oFile.WriteAttributeString(null, "DEF", null, eid + ":" + fid);
                oFile.WriteStartElement("Appearance");
                oFile.WriteStartElement("Material");
+               //oFile.WriteStartElement("TwoSidedMaterial");
 
                string emissiveColorStr = "1 0 0";
                if (string.Compare(type, "HOLE") == 0)
@@ -763,20 +781,24 @@ namespace BIMRL
                if (string.Compare(type, "PROJOBB") == 0)
                   emissiveColorStr = "1 0 1";
                oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
-                    
+               //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
+
                // If the transparencyOverride is set, we will override the transparency settint with this one
                if (transparencyOverride >= 0)
                {
                   oFile.WriteAttributeString(null, "transparency", null, transparencyOverride.ToString());
+                  //oFile.WriteAttributeString(null, "backTransparency", null, transparencyOverride.ToString());
                }
                else if (string.Compare(type, "OBB") == 0 || string.Compare(type, "PROJOBB") == 0)
                {
                   oFile.WriteAttributeString(null, "transparency", null, "0.85");      // For OBB faces always forced to 85% transparency
+                  //oFile.WriteAttributeString(null, "backTransparency", null, "0.85");      // For OBB faces always forced to 85% transparency
                }
                else
                {
                   double transparency = 0.0;
                   oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+                  //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
                }
 
                oFile.WriteEndElement(); // Material
@@ -879,10 +901,13 @@ namespace BIMRL
          oFile.WriteStartElement("Appearance");
 
          oFile.WriteStartElement("Material");
+         //oFile.WriteStartElement("TwoSidedMaterial");
          string emissiveColorStr = "1 0 0";
          oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+         //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
          double transparency = 0.6;
          oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+         //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
          oFile.WriteEndElement(); // Material
 
          oFile.WriteEndElement(); // Appearance
@@ -1024,9 +1049,11 @@ namespace BIMRL
                      oFile.WriteAttributeString(null, "DEF", null, defStr);
                      oFile.WriteStartElement("Appearance");
                      oFile.WriteStartElement("Material");
+                     //oFile.WriteStartElement("TwoSidedMaterial");
 
                      string emissiveColorStr = (userGeomColor.emissiveColorRed / 255.0).ToString() + " " + (userGeomColor.emissiveColorGreen / 255.0).ToString() + " " + (userGeomColor.emissiveColorBlue / 255.0).ToString();
                      oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                     //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
                      //string emissiveColorStr = "0.25 0.75 0.8";
 
                      // If the transparencyOverride is set, we will override the transparency settint with this one
@@ -1046,6 +1073,7 @@ namespace BIMRL
                            transparency = transparencyOverride;
                         }
                         oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+                        //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
                      //}
 
                      oFile.WriteEndElement(); // Material
@@ -1097,10 +1125,11 @@ namespace BIMRL
                   oFile.WriteStartElement("Shape");
                   oFile.WriteAttributeString(null, "DEF", null, defStr);
                   oFile.WriteStartElement("Appearance");
-                  oFile.WriteStartElement("Material");
+                  oFile.WriteStartElement("TwoMaterial");
 
                   string emissiveColorStr = (userGeomColor.emissiveColorRed / 255.0).ToString() + " " + (userGeomColor.emissiveColorGreen / 255.0).ToString() + " " + (userGeomColor.emissiveColorBlue / 255.0).ToString();
                   oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                  oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
 
                   double transparency = 0.0;
                   if (userGeomColor.transparency.HasValue)
@@ -1139,11 +1168,14 @@ namespace BIMRL
                      oFile.WriteAttributeString(null, "DEF", null, "(HOLE) " + defStr);
                      oFile.WriteStartElement("Appearance");
                      oFile.WriteStartElement("Material");
+                     //oFile.WriteStartElement("TwoSidedMaterial");
 
                      emissiveColorStr = "1.0 1.0 0.0";
                      oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                     //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
                      transparency = 0.0;
                      oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+                     //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
 
                      oFile.WriteEndElement(); // Material
                      oFile.WriteEndElement(); // Appearance
@@ -1173,14 +1205,17 @@ namespace BIMRL
                   oFile.WriteAttributeString(null, "DEF", null, defStr);
                   oFile.WriteStartElement("Appearance");
                   oFile.WriteStartElement("Material");
+                  //oFile.WriteStartElement("TwoSidedMaterial");
 
                   string emissiveColorStr = (userGeomColor.emissiveColorRed / 255.0).ToString() + " " + (userGeomColor.emissiveColorGreen / 255.0).ToString() + " " + (userGeomColor.emissiveColorBlue / 255.0).ToString();
                   oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                  //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
 
                   double transparency = 0.0;
                   if (userGeomColor.transparency.HasValue)
                         transparency = userGeomColor.transparency.Value;
                   oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+                  //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
                   //string emissiveColorStr = "1.0 0.2 0.0";
                   //oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
                   //double transparency = 0.0;
@@ -1230,9 +1265,11 @@ namespace BIMRL
                   oFile.WriteAttributeString(null, "DEF", null, defStr);
                   oFile.WriteStartElement("Appearance");
                   oFile.WriteStartElement("Material");
+                  //oFile.WriteStartElement("TwoSidedMaterial");
 
                   string emissiveColorStr = (userGeomColor.emissiveColorRed / 255.0).ToString() + " " + (userGeomColor.emissiveColorGreen / 255.0).ToString() + " " + (userGeomColor.emissiveColorBlue / 255.0).ToString();
                   oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                  //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
 
                   double transparency = 0.0;
                   if (userGeomColor.transparency.HasValue)
@@ -1244,6 +1281,7 @@ namespace BIMRL
                      transparency = transparencyOverride;
                   }
                   oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+                  //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
 
                   oFile.WriteEndElement(); // Material
                   oFile.WriteEndElement(); // Appearance
@@ -1281,14 +1319,17 @@ namespace BIMRL
                   oFile.WriteAttributeString(null, "DEF", null, defStr);
                   oFile.WriteStartElement("Appearance");
                   oFile.WriteStartElement("Material");
+                  //oFile.WriteStartElement("TwoSidedMaterial");
 
                   string emissiveColorStr = (userGeomColor.emissiveColorRed / 255.0).ToString() + " " + (userGeomColor.emissiveColorGreen / 255.0).ToString() + " " + (userGeomColor.emissiveColorBlue / 255.0).ToString();
                   oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                  //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
 
                   double transparency = 0.0;
                   if (userGeomColor.transparency.HasValue)
                      transparency = userGeomColor.transparency.Value;
                   oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+                  //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
 
                   oFile.WriteEndElement(); // Material
                   oFile.WriteEndElement(); // Appearance
@@ -1317,11 +1358,14 @@ namespace BIMRL
                      oFile.WriteAttributeString(null, "DEF", null, "(HOLE) " + defStr);
                      oFile.WriteStartElement("Appearance");
                      oFile.WriteStartElement("Material");
+                     //oFile.WriteStartElement("TwoSidedMaterial");
 
                      emissiveColorStr = "1.0 1.0 0.0";
                      oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                     //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
                      transparency = 0.0;
                      oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+                     //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
 
                      oFile.WriteEndElement(); // Material
                      oFile.WriteEndElement(); // Appearance
@@ -1353,14 +1397,17 @@ namespace BIMRL
                   oFile.WriteAttributeString(null, "DEF", null, defStr);
                   oFile.WriteStartElement("Appearance");
                   oFile.WriteStartElement("Material");
+                  //oFile.WriteStartElement("TwoSidedMaterial");
 
                   string emissiveColorStr = (userGeomColor.emissiveColorRed / 255.0).ToString() + " " + (userGeomColor.emissiveColorGreen / 255.0).ToString() + " " + (userGeomColor.emissiveColorBlue / 255.0).ToString();
                   oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                  //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
 
                   double transparency = 0.0;
                   if (userGeomColor.transparency.HasValue)
                      transparency = userGeomColor.transparency.Value;
                   oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+                  //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
 
                   oFile.WriteEndElement(); // Material
                   oFile.WriteEndElement(); // Appearance
@@ -1393,14 +1440,17 @@ namespace BIMRL
                   oFile.WriteAttributeString(null, "DEF", null, defStr);
                   oFile.WriteStartElement("Appearance");
                   oFile.WriteStartElement("Material");
+                  //oFile.WriteStartElement("TwoSidedMaterial");
 
                   string emissiveColorStr = (userGeomColor.emissiveColorRed / 255.0).ToString() + " " + (userGeomColor.emissiveColorGreen / 255.0).ToString() + " " + (userGeomColor.emissiveColorBlue / 255.0).ToString();
                   oFile.WriteAttributeString(null, "emissiveColor", null, emissiveColorStr);
+                  //oFile.WriteAttributeString(null, "backEmissiveColor", null, emissiveColorStr);
 
                   double transparency = 0.0;
                   if (userGeomColor.transparency.HasValue)
                      transparency = userGeomColor.transparency.Value;
                   oFile.WriteAttributeString(null, "transparency", null, transparency.ToString());
+                  //oFile.WriteAttributeString(null, "backTransparency", null, transparency.ToString());
 
                   oFile.WriteEndElement(); // Material
                   oFile.WriteEndElement(); // Appearance

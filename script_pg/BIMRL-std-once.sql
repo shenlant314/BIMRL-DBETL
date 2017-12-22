@@ -67,7 +67,7 @@ create table colordict (
 );
 grant select on colordict to public;
 
-CREATE OR REPLACE FUNCTION boxequal (
+CREATE OR REPLACE FUNCTION public.boxequal (
   "Box1_LL" public.point3d,
   "Box1_UR" public.point3d,
   "Box2_LL" public.point3d,
@@ -94,9 +94,9 @@ VOLATILE
 RETURNS NULL ON NULL INPUT
 SECURITY INVOKER
 COST 100;
-GRANT EXECUTE ON FUNCTION boxequal("Box1_LL" public.point3d, "Box1_UR" public.point3d, "Box2_LL" public.point3d, "Box2_UR" public.point3d, "Tol" double precision) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.boxequal("Box1_LL" public.point3d, "Box1_UR" public.point3d, "Box2_LL" public.point3d, "Box2_UR" public.point3d, "Tol" double precision) TO PUBLIC;
 
-CREATE OR REPLACE FUNCTION bimrl.distance (
+CREATE OR REPLACE FUNCTION public.distance (
   "Point1" public.point3d,
   "Point2" public.point3d
 )
@@ -120,7 +120,126 @@ VOLATILE
 RETURNS NULL ON NULL INPUT
 SECURITY INVOKER
 COST 100;
-GRANT EXECUTE ON FUNCTION distance("Point1" public.point3d, "Point2" public.point3d) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.distance("Point1" public.point3d, "Point2" public.point3d) TO PUBLIC;
 
+CREATE OR REPLACE FUNCTION public.almostequal (
+  point1 double precision [],
+  point2 double precision [],
+  tol double precision
+)
+RETURNS boolean AS
+$body$
+DECLARE
+  countDim integer;
+  countTrue integer;
+  i integer;
+BEGIN
+countDim := 0;
+countTrue := 0;
+  FOR i IN 1 .. array_upper(point1, 1)
+  LOOP
+      countDim := countDim + 1;
+      IF (abs(point1[i] - point2[i])<=tol)
+      THEN
+        countTrue := countTrue + 1;
+      END IF;
+  END LOOP;
+  if (countTrue < countDim) then
+    return false;
+  else
+    return true;
+  end if;
+END;
+$body$
+LANGUAGE 'plpgsql'
+VOLATILE
+CALLED ON NULL INPUT
+SECURITY INVOKER
+COST 100;
 
+GRANT Execute on Function public.almostequal(point1 double precision[], point2 double precision[], tol double precision)to public;
 
+CREATE OR REPLACE FUNCTION public.almostequalval (
+  value1 double precision,
+  value2 double precision,
+  tol double precision
+)
+RETURNS boolean AS
+$body$
+DECLARE
+BEGIN
+  if (abs(value1 - value2)<=tol) then 
+  	return true;
+  else 
+    return false;
+  end if;
+END;
+$body$
+LANGUAGE 'plpgsql'
+VOLATILE
+CALLED ON NULL INPUT
+SECURITY INVOKER
+COST 100;
+
+GRANT Execute on Function public.almostequalval(value1 double precision, value2 double precision, tol double precision)to public;
+
+CREATE OR REPLACE FUNCTION public.movebyvector (
+  point public.point3d,
+  vectorbycomp double precision [],
+  extent double precision
+)
+RETURNS public.point3d AS
+$body$
+DECLARE
+  newpoint public.point3d;
+BEGIN
+  newpoint.x := point.x + extent * vectorbycomp[1];
+  newpoint.y := point.y + extent * vectorbycomp[2];
+  newpoint.z := point.z + extent * vectorbycomp[3];
+  return newpoint;
+END;
+$body$
+LANGUAGE 'plpgsql'
+VOLATILE
+CALLED ON NULL INPUT
+SECURITY DEFINER
+COST 100;
+
+Grant execute on function public.movebyvector(point public.point3d, vectorbycomp double precision[], extent double precision) to public;
+
+CREATE OR REPLACE FUNCTION public.vectorequal (
+  point1 double precision [],
+  point2 double precision [],
+  tol double precision
+)
+RETURNS boolean AS
+$body$
+DECLARE
+  countDim integer;
+  countTrue integer;
+  i integer;
+BEGIN
+countDim := 0;
+countTrue := 0;
+  FOR i IN 1 .. array_upper(point1, 1)
+  LOOP
+      countDim := countDim + 1;
+      IF ((abs(point1[i] - point2[i])<=tol) AND ((point1[i]<=0 AND point2[i]<=0) OR (point1[i]>0 AND point2[i]>0)))
+      THEN
+        countTrue := countTrue + 1;
+      END IF;
+  END LOOP;
+  if (countTrue < countDim) then
+    return false;
+  else
+    return true;
+  end if;
+END;
+$body$
+LANGUAGE 'plpgsql'
+VOLATILE
+CALLED ON NULL INPUT
+SECURITY INVOKER
+COST 100;
+
+grant execute on function public.vectorequal(point1 double precision[], point2 double precision[], tol double precision) to public;
