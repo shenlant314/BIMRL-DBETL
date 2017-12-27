@@ -20,5 +20,7 @@ REM **
 REM * Insert IFC object hierarchy into dictionary
 REM * (Not needed for this purpose)
 REM **
-REM @objhier_ins.sql
+@ins_objhier_IFC2x3_pg.sql
+@Revit2017BuiltinCategories.sql
+@Revit2017BuiltinCategories-all.sql
 REM **
