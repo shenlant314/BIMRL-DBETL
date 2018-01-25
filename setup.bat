@@ -1,21 +1,89 @@
-rm -rf C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins
-md C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins
-md C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETL.XplorerPlugin
-md C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETLConfig.XplorerPlugin
-md C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins\BIMRL_Main.XplorerPlugin
+set source=%~1
 
-cd BIMRL_ETL.XplorerPlugin\bin\x64\ReleaseWithPDB\
-cp -rf * C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETL.XplorerPlugin\
+rem rm -rf D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins
+rem md D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins
+md D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETL.XplorerPlugin
+md D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETLConfig.XplorerPlugin
+md D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins\BIMRL_Main.XplorerPlugin
 
-cd ..\..\..\..\BIMRL_ETLConfig.XplorerPlugin\bin\x64\ReleaseWithPDB\
-cp -rf * C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETLConfig.XplorerPlugin\
+if %source%==ReleaseWithPDB goto oraRel
+if %source%==Release goto oraRel
+if %source%==Debug goto oraDbg
+if %source%==RelWPDB_Postgres goto pgRel
+if %source%==Rel_Postgres goto pgRel 
+if %source%==Debug_Postgres goto pgDbg
+goto end
 
-cd ..\..\..\..\BIMRL_Main.XplorerPlugin\bin\x64\ReleaseWithPDB\
-cp -rf * C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins\BIMRL_Main.XplorerPlugin\
+:oraRel
+cd BIMRL_ETL.XplorerPlugin\bin_ora\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_ETL.XplorerPlugin_ora\
 
-cd ..\..\..\..\
-cp -rf script C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\
-cp -rf PluginConfig.xml C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETL.XplorerPlugin
-cp -rf PluginConfig.xml C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETLConfig.XplorerPlugin
-cp -rf PluginConfig.xml C:\Users\wsoli\Documents\GitHub\Xbim-Invicara\XbimWindowsUI\Output\Release\Plugins\BIMRL_Main.XplorerPlugin
+cd ..\..\..\BIMRL_ETLConfig.XplorerPlugin\bin_ora\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_ETLConfig.XplorerPlugin_ora\
 
+cd ..\..\..\BIMRL_Main.XplorerPlugin\bin_ora\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_Main.XplorerPlugin_ora\
+
+cd ..\..\..\
+md D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\script_ora
+cp -urf script_ora\*.sql D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\script_ora
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_ETL.XplorerPlugin_ora
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_ETLConfig.XplorerPlugin_ora
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_Main.XplorerPlugin_ora
+goto end
+
+:oraDbg
+cd BIMRL_ETL.XplorerPlugin\bin_ora\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_ETL.XplorerPlugin_ora\
+
+cd ..\..\..\BIMRL_ETLConfig.XplorerPlugin\bin_ora\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_ETLConfig.XplorerPlugin_ora\
+
+cd ..\..\..\BIMRL_Main.XplorerPlugin\bin_ora\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_Main.XplorerPlugin_ora\
+
+cd ..\..\..\
+md D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\script_ora\
+cp -urf script_ora\*.sql D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\script_ora\
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_ETL.XplorerPlugin_ora
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_ETLConfig.XplorerPlugin_ora
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release_OraPlugin\Plugins\BIMRL_Main.XplorerPlugin_ora
+goto end
+
+:pgRel
+cd BIMRL_ETL.XplorerPlugin\bin\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETL.XplorerPlugin\
+
+cd ..\..\..\BIMRL_ETLConfig.XplorerPlugin\bin\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETLConfig.XplorerPlugin\
+
+cd ..\..\..\BIMRL_Main.XplorerPlugin\bin\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins\BIMRL_Main.XplorerPlugin\
+
+cd ..\..\..\
+md D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\script_pg
+cp -urf script_pg\*.sql D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\script_pg
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETL.XplorerPlugin
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins\BIMRL_ETLConfig.XplorerPlugin
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Release\Plugins\BIMRL_Main.XplorerPlugin
+goto end
+
+:pgDbg
+cd BIMRL_ETL.XplorerPlugin\bin\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Debug\Plugins\BIMRL_ETL.XplorerPlugin\
+
+cd ..\..\..\BIMRL_ETLConfig.XplorerPlugin\bin\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Debug\Plugins\BIMRL_ETLConfig.XplorerPlugin\
+
+cd ..\..\..\BIMRL_Main.XplorerPlugin\bin\%source%\
+cp -urf * D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Debug\Plugins\BIMRL_Main.XplorerPlugin\
+
+cd ..\..\..\
+md D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Debug\script_pg
+cp -urf script_pg\*.sql D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Debug\script_pg
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Debug\Plugins\BIMRL_ETL.XplorerPlugin
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Debug\Plugins\BIMRL_ETLConfig.XplorerPlugin
+cp -urf PluginConfig.xml D:\Git-Repositories\Invicara\Xbim-forked\XbimWindowsUI\Output\Debug\Plugins\BIMRL_Main.XplorerPlugin
+goto end
+
+:end

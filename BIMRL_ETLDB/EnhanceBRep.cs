@@ -32,7 +32,7 @@ using NetSdoGeometry;
 using Npgsql;
 using NpgsqlTypes;
 #endif
-using Xbim.Common.Geometry;
+//using Xbim.Common.Geometry;
 using BIMRL.Common;
 using Newtonsoft.Json;
 
