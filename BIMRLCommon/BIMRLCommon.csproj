@@ -80,7 +80,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'RelWPDB_Postgres|x64'">
     <OutputPath>bin\x64\RelWPDB_Postgres\</OutputPath>
-    <DefineConstants>TRACE;POSTGRES_; ORACLE</DefineConstants>
+    <DefineConstants>TRACE;POSTGRES; ORACLE_</DefineConstants>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>

@@ -519,6 +519,7 @@ namespace BIMRL.Common
          {
             string excStr = "%%Read Error - " + e.Message + "\n\t" + stmt;
             refBIMRLCommon.StackPushError(excStr);
+            rollbackTransaction();
             return null;
          }
       }

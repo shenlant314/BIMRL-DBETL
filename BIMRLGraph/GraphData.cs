@@ -122,7 +122,7 @@ namespace BIMRL.BIMRLGraph
          string sqlStmt = null;
          int nodeID = 1;
          int linkID = 1;
-         string containerQuery;
+         //string containerQuery;
          Dictionary<string, int> nodeProcessed = new Dictionary<string, int>();
          Dictionary<string, int> parentNodeIdDict = new Dictionary<string, int>();
          Dictionary<string, Tuple<string, string>> dependencyDict = new Dictionary<string, Tuple<string, string>>();

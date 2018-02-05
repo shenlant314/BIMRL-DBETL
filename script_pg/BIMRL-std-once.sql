@@ -67,7 +67,7 @@ create table colordict (
 );
 grant select on colordict to public;
 
-CREATE OR REPLACE FUNCTION public.boxequal (
+CREATE OR REPLACE FUNCTION boxequal (
   "Box1_LL" public.point3d,
   "Box1_UR" public.point3d,
   "Box2_LL" public.point3d,
@@ -94,9 +94,9 @@ VOLATILE
 RETURNS NULL ON NULL INPUT
 SECURITY INVOKER
 COST 100;
-GRANT EXECUTE ON FUNCTION public.boxequal("Box1_LL" public.point3d, "Box1_UR" public.point3d, "Box2_LL" public.point3d, "Box2_UR" public.point3d, "Tol" double precision) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION boxequal("Box1_LL" public.point3d, "Box1_UR" public.point3d, "Box2_LL" public.point3d, "Box2_UR" public.point3d, "Tol" double precision) TO PUBLIC;
 
-CREATE OR REPLACE FUNCTION public.distance (
+CREATE OR REPLACE FUNCTION distance (
   "Point1" public.point3d,
   "Point2" public.point3d
 )
@@ -120,9 +120,9 @@ VOLATILE
 RETURNS NULL ON NULL INPUT
 SECURITY INVOKER
 COST 100;
-GRANT EXECUTE ON FUNCTION public.distance("Point1" public.point3d, "Point2" public.point3d) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION distance("Point1" public.point3d, "Point2" public.point3d) TO PUBLIC;
 
-CREATE OR REPLACE FUNCTION public.almostequal (
+CREATE OR REPLACE FUNCTION almostequal (
   point1 double precision [],
   point2 double precision [],
   tol double precision
@@ -157,9 +157,9 @@ CALLED ON NULL INPUT
 SECURITY INVOKER
 COST 100;
 
-GRANT Execute on Function public.almostequal(point1 double precision[], point2 double precision[], tol double precision)to public;
+GRANT Execute on Function almostequal(point1 double precision[], point2 double precision[], tol double precision)to public;
 
-CREATE OR REPLACE FUNCTION public.almostequalval (
+CREATE OR REPLACE FUNCTION almostequalval (
   value1 double precision,
   value2 double precision,
   tol double precision
@@ -181,7 +181,7 @@ CALLED ON NULL INPUT
 SECURITY INVOKER
 COST 100;
 
-GRANT Execute on Function public.almostequalval(value1 double precision, value2 double precision, tol double precision)to public;
+GRANT Execute on Function almostequalval(value1 double precision, value2 double precision, tol double precision)to public;
 
 CREATE OR REPLACE FUNCTION public.movebyvector (
   point public.point3d,
@@ -205,9 +205,9 @@ CALLED ON NULL INPUT
 SECURITY DEFINER
 COST 100;
 
-Grant execute on function public.movebyvector(point public.point3d, vectorbycomp double precision[], extent double precision) to public;
+Grant execute on function movebyvector(point public.point3d, vectorbycomp double precision[], extent double precision) to public;
 
-CREATE OR REPLACE FUNCTION public.vectorequal (
+CREATE OR REPLACE FUNCTION vectorequal (
   point1 double precision [],
   point2 double precision [],
   tol double precision
@@ -242,4 +242,4 @@ CALLED ON NULL INPUT
 SECURITY INVOKER
 COST 100;
 
-grant execute on function public.vectorequal(point1 double precision[], point2 double precision[], tol double precision) to public;
+grant execute on function vectorequal(point1 double precision[], point2 double precision[], tol double precision) to public;

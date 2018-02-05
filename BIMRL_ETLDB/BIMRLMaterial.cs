@@ -127,7 +127,7 @@ namespace BIMRL
          NpgsqlCommand command2 = new NpgsqlCommand(sqlStmt2, DBOperation.DBConn);
          setParam(command2);
 #endif
-         string currStep = "Processing Materials";
+         //string currStep = "Processing Materials";
 
          DBOperation.beginTransaction();
 

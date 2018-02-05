@@ -81,7 +81,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'RelWPDB_Postgres|x64'">
     <OutputPath>bin\x64\RelWPDB_Postgres\</OutputPath>
-    <DefineConstants>TRACE;ORACLE;POSTGRES_</DefineConstants>
+    <DefineConstants>TRACE;ORACLE_;POSTGRES</DefineConstants>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
@@ -257,8 +257,10 @@
     <Compile Include="EnhanceBRep.cs" />
     <Compile Include="JsonGeomUtils.cs" />
     <Compile Include="PrincipalComponentAnalysis.cs" />
+    <Compile Include="ProcFacesPar.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SDOGeomUtils.cs" />
+    <Compile Include="TopoFaceState.cs" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="BIMRLErrorDialog.xaml">
@@ -274,10 +276,6 @@
     <ProjectReference Include="..\BIMRLCommon\BIMRLCommon.csproj">
       <Project>{571c1a04-3d2f-43c4-9bbc-e42a19ff2397}</Project>
       <Name>BIMRLCommon</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\BIMRLGraph\BIMRLGraph.csproj">
-      <Project>{179cd0ed-da22-4d61-be50-e4a02add07d4}</Project>
-      <Name>BIMRLGraph</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

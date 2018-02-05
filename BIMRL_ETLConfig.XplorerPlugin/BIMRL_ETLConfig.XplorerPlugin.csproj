@@ -82,6 +82,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'RelWPDB_Postgres|x64'">
     <OutputPath>bin\x64\RelWPDB_Postgres\</OutputPath>
@@ -302,7 +303,8 @@
     <Error Condition="!Exists('..\packages\Xbim.Geometry.4.0.14\build\Xbim.Geometry.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Xbim.Geometry.4.0.14\build\Xbim.Geometry.targets'))" />
   </Target>
   <PropertyGroup>
-    <PostBuildEvent>call "$(ProjectDir)..\postbuild.bat" "$(ConfigurationName)" "$(TargetDir)" "$(TargetName)"</PostBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

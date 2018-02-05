@@ -64,7 +64,7 @@ namespace BIMRL
       public static void updateMajorAxesAndOBB(int fedID, string whereCond)
       {
          BIMRLCommon bimrlCommon = new BIMRLCommon();
-
+         Vector3D trueNorth = BIMRLUtils.GetProjectTrueNorth(fedID, ref bimrlCommon);
 #if ORACLE
          string sqlStmt = "SELECT ELEMENTID, GEOMETRYBODY FROM " + DBOperation.formatTabName("BIMRL_ELEMENT", fedID) + " WHERE GEOMETRYBODY IS NOT NULL";
          if (!string.IsNullOrEmpty(whereCond))
@@ -109,7 +109,7 @@ namespace BIMRL
 
             //foreach (Polyhedron polyH in polyHList)
             //{
-               BIMRLGeometryPostProcess postProc = new BIMRLGeometryPostProcess(elementid, polyH, bimrlCommon, fedID, null);
+               BIMRLGeometryPostProcess postProc = new BIMRLGeometryPostProcess(elementid, polyH, bimrlCommon, fedID, null, trueNorth);
                postProc.deriveMajorAxes();
                postProc.trueOBBFaces();
                postProc.projectedFaces();
@@ -742,6 +742,94 @@ namespace BIMRL
       public static bool IsNull(this object T)
       {
          return T == null ? true : false;
+      }
+
+      public static Vector3D GetProjectTrueNorth(int currFedID, ref BIMRLCommon refBIMRLCommon)
+      {
+         Vector3D trueNorth = new Vector3D();
+         string sqlStmt = null;
+         try
+         {
+               sqlStmt = "Select PROPERTYVALUE FROM " + DBOperation.formatTabName("BIMRL_PROPERTIES", currFedID) + " WHERE PROPERTYGROUPNAME='IFCATTRIBUTES' AND PROPERTYNAME='TRUENORTH'";
+#if ORACLE
+               OracleCommand cmd = new OracleCommand(sqlStmt, DBOperation.DBConn);
+               object ret = cmd.ExecuteScalar();
+#endif
+#if POSTGRES
+               NpgsqlConnection arbConn = DBOperation.arbitraryConnection();
+               NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt, arbConn);
+               object ret = cmd.ExecuteScalar();
+               //object ret = DBOperation.ExecuteScalarWithTrans2(sqlStmt);
+#endif
+               if (ret != null)
+               {
+                  string trueNorthStr = ret as string;
+                  string tmpStr = trueNorthStr.Replace('[', ' ');
+                  tmpStr = tmpStr.Replace(']', ' ');
+
+                  string[] tokens = tmpStr.Trim().Split(',');
+                  if (tokens.Length < 2)
+                  {
+                     // not a valid value, use default
+                     trueNorth = new Vector3D(0.0, 1.0, 0.0);
+                  }
+                  else
+                  {
+                     double x = Convert.ToDouble(tokens[0]);
+                     double y = Convert.ToDouble(tokens[1]);
+                     double z = 0.0;     // ignore Z for true north
+                     //if (tokens.Length >= 3)
+                     //    z = Convert.ToDouble(tokens[2]); 
+                     trueNorth = new Vector3D(x, y, z);
+                  }
+               }
+               else
+               {
+                  trueNorth = new Vector3D(0.0, 1.0, 0.0);   // if not defined, default is the project North = +Y of the coordinate system
+               }
+#if ORACLE
+               cmd.Dispose();
+#endif
+         }
+#if ORACLE
+         catch (OracleException e)
+#endif
+#if POSTGRES
+         catch (NpgsqlException e)
+#endif
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + sqlStmt;
+            refBIMRLCommon.StackPushIgnorableError(excStr);
+#if POSTGRES
+            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
+#endif
+            return trueNorth;
+            // Ignore any error
+         }
+         catch (SystemException e)
+         {
+            string excStr = "%%Insert Error - " + e.Message + "\n\t" + sqlStmt;
+            refBIMRLCommon.StackPushError(excStr);
+            throw;
+         }
+
+         return trueNorth;
+      }
+
+      public static void ProcessFaceTask(int FedID, string whereCond, BIMRLCommon BIMRLCommonRef)
+      {
+         BIMRLSpatialIndex spIdx = new BIMRLSpatialIndex(BIMRLCommonRef);
+         ProcFacesPar pfPar = new ProcFacesPar(spIdx, FedID, whereCond);
+         Thread procFaceThr = new Thread(ProcessFacesThreadTask);
+         procFaceThr.SetApartmentState(ApartmentState.MTA);
+         procFaceThr.Start(pfPar);
+         procFaceThr.Join();
+      }
+
+      public static void ProcessFacesThreadTask(object par)
+      {
+         ProcFacesPar param = par as ProcFacesPar;
+         param.spIdx.createFacesFromBIMRLElement(param.FedID, param.whereCond);
       }
    }
 }

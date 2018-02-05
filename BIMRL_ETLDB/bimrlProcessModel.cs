@@ -42,7 +42,7 @@ using Npgsql;
 using NpgsqlTypes;
 #endif
 using BIMRL.Common;
-using BIMRL.BIMRLGraph;
+//using BIMRL.BIMRLGraph;
 using Newtonsoft.Json;
 
 namespace BIMRL
@@ -381,22 +381,31 @@ namespace BIMRL
             int commandStatus = command.ExecuteNonQuery();
             DBOperation.commitTransaction();
 
+            var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
+            string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
+
             if (DBOperation.OnepushETL)
             {
                DBOperation.commitInterval = 10000;
                int octreeLevel = DBOperation.computeRecomOctreeLevel(DBOperation.currFedModel.FederatedID);
 
-               // 1. Create Octree spatial indexes and the Brep Topology Faces
-               spIdx.createSpatialIndexFromBIMRLElement(DBOperation.currFedModel.FederatedID, null, true, true);
+               // 1. Create the Brep Topology Faces
+               BIMRLUtils.ProcessFaceTask(DBOperation.currFedModel.FederatedID, null, _bimrlCommon);
 
-               // 2. Update major Axes and OBB
+               // 2. Create Octree spatial indexes
+               spIdx.createSpatialIndexFromBIMRLElement(DBOperation.currFedModel.FederatedID, null, false, true);
+
+               // 3. Update major Axes and OBB
                BIMRLUtils.updateMajorAxesAndOBB(DBOperation.currFedModel.FederatedID, null);
 
-               // 3. Enhance Space Boundary
+               // (Re)-Create the spatial indexes
+               DBOperation.ExecuteSystemScript(DBOperation.currFedModel.FederatedID, "BIMRL_Idx_SpatialIndexes_cr.sql", "BIMRL_Idx_TopoFace_cr.sql", "BIMRL_Idx_MajorAxes.sql");
+
+               // 4. Enhance Space Boundary
                EnhanceBRep eBrep = new EnhanceBRep();
                eBrep.enhanceSpaceBoundary(null);
 
-               // 4. Process Face orientations. We will procees the normal face first and then after that the spacial ones (OBB, PROJOBB)
+               // 5. Process Face orientations. We will procees the normal face first and then after that the spacial ones (OBB, PROJOBB)
                string whereCond2 = "";
                BIMRLCommon.appendToString(" TYPE NOT IN ('OBB','PROJOBB')", " AND ", ref whereCond2);
                eBrep.ProcessOrientation(whereCond2);
@@ -407,7 +416,7 @@ namespace BIMRL
                BIMRLCommon.appendToString(" TYPE='PROJOBB'", " AND ", ref whereCond2);
                eBrep.ProcessOrientation(whereCond2);
 
-               // 5. Create Graph Data
+               // 6. Create Graph Data
 #if ORACLE
                GraphData graphData = new GraphData();
                graphData.createCirculationGraph(DBOperation.currFedModel.FederatedID);
@@ -426,13 +435,10 @@ namespace BIMRL
             {
                // Minimum (without One-push ETL, create the bounding boxes (AABB)
                spIdx.createSpatialIndexFromBIMRLElement(DBOperation.currFedModel.FederatedID, null, false, false);
+
+               // (Re)-Create the spatial indexes
+               DBOperation.ExecuteSystemScript(DBOperation.currFedModel.FederatedID, "BIMRL_Idx_SpatialIndexes_cr.sql", "BIMRL_Idx_TopoFace_cr.sql", "BIMRL_Idx_MajorAxes.sql");
             }
-
-            var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
-            string exePath = new FileInfo(location.AbsolutePath).Directory.FullName;
-
-            // (Re)-Create the spatial indexes
-            DBOperation.ExecuteSystemScript(DBOperation.currFedModel.FederatedID, "BIMRL_Idx_SpatialIndexes_cr.sql", "BIMRL_Idx_TopoFace_cr.sql", "BIMRL_Idx_MajorAxes.sql");
 
             //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes_cr.sql"), DBOperation.currFedModel.FederatedID);
             //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace_cr.sql"), DBOperation.currFedModel.FederatedID);

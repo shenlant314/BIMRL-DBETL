@@ -22,3 +22,17 @@ BIMRLMisc/bin/
 BIMRLMisc/obj/
 packages/
 *~
+BIMRL_ETL.XplorerPlugin/bin_ora/
+BIMRL_ETLConfig.XplorerPlugin/bin_ora/
+BIMRL_ETLDB/bin_ora/
+BIMRL_Main.XplorerPlugin/bin_ora/
+BIMRL_Main-Standalone/bin/
+BIMRL_Main-Standalone/obj/
+BIMRLCommon/bin_ora/
+BIMRLDiffModelsCmd/bin_ora/
+BIMRLDiffModelsUI/bin_ora/
+BIMRLGeomTester/bin_ora/
+BIMRLGraph/bin_ora/
+BIMRLGraphTest/bin_ora/
+BIMRLMisc/bin_ora/
+.vs/*

@@ -36,7 +36,7 @@ namespace BIMRL.Common
       public static double defaultTol { get; } = 1e-6;
       public static int defaultDoubleDecimalPrecision { get; } = 6; // from the above
       public static int defaultFloatDecimalPrecision { get; } = 6; // from the above
-                                                      //static float _default_floatTol = 1e-6F; 
+                                                                   //static float _default_floatTol = 1e-6F; 
       static double _doubleTol = 1e-6;
       static float _floatTol = 1e-6F;
       public static int _doubleDecimalPrecision = 6; // from the above

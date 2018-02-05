@@ -439,9 +439,12 @@ namespace BIMRL
                         dynamic polygB = JsonConvert.DeserializeObject(bTF.polygon);
                         Face3D btfFace = JsonGeomUtils.Generate_Face3D(polygB);
 #endif
-
-                        if (!Face3D.touch(tfFace, btfFace))
-                           continue;       // not touching each other, skip
+                        if (axisAlg < 0)
+                        {
+                           // TODO: Improve the touch function with tolerance by projecting the faces into the same plane if not axis-aligned (axis-aligned one is already handled above)
+                           if (!Face3D.touch(tfFace, btfFace))
+                              continue;       // not touching each other, skip
+                        }
 
                         bool cPAtS = Face3D.inside(tfFace, bTF.centroid);
                         bool cPAtBPS = Face3D.inside(btfFace, tf.centroid);

@@ -62,12 +62,13 @@ public class BIMRLGeometryPostProcess
 
       Dictionary<Point3D, HashSet<int>> sortedFVert = new Dictionary<Point3D, HashSet<int>>();
 
-      public BIMRLGeometryPostProcess(string elementid, Polyhedron geometry, BIMRLCommon bimrlCommon, int federatedID, string faceCategory)
+      public BIMRLGeometryPostProcess(string elementid, Polyhedron geometry, BIMRLCommon bimrlCommon, int federatedID, string faceCategory, Vector3D trueNorth)
       {
          _geom = geometry;
          _elementid = elementid;
          _refBIMRLCommon = bimrlCommon;
          _currFedID = federatedID;
+         _trueNorth = trueNorth;
          // For optimization purpose, the offset for face id is fixed to 10000 for OBB and 10100 for PROJOBB. If there is any other category in future, this needs to be updated !!
          if (!string.IsNullOrEmpty(faceCategory))
          {
@@ -85,71 +86,74 @@ public class BIMRLGeometryPostProcess
             _fIDOffset = 0;
          }
 
-         string sqlStmt = null;
-         try
-         {
-            Vector3D nullVector = new Vector3D();
-            if (_trueNorth == nullVector)
-            {
-               sqlStmt = "Select PROPERTYVALUE FROM " + DBOperation.formatTabName("BIMRL_PROPERTIES", _currFedID) + " WHERE PROPERTYGROUPNAME='IFCATTRIBUTES' AND PROPERTYNAME='TRUENORTH'";
-#if ORACLE
-               OracleCommand cmd = new OracleCommand(sqlStmt, DBOperation.DBConn);
-               object ret = cmd.ExecuteScalar();
-#endif
-#if POSTGRES
-               object ret = DBOperation.ExecuteScalarWithTrans2(sqlStmt);
-#endif
-               if (ret != null)
-               {
-                  string trueNorthStr = ret as string;
-                  string tmpStr = trueNorthStr.Replace('[', ' ');
-                  tmpStr = tmpStr.Replace(']', ' ');
+//         string sqlStmt = null;
+//         try
+//         {
+//            Vector3D nullVector = new Vector3D();
+//            if (_trueNorth == nullVector)
+//            {
+//               sqlStmt = "Select PROPERTYVALUE FROM " + DBOperation.formatTabName("BIMRL_PROPERTIES", _currFedID) + " WHERE PROPERTYGROUPNAME='IFCATTRIBUTES' AND PROPERTYNAME='TRUENORTH'";
+//#if ORACLE
+//               OracleCommand cmd = new OracleCommand(sqlStmt, DBOperation.DBConn);
+//               object ret = cmd.ExecuteScalar();
+//#endif
+//#if POSTGRES
+//               NpgsqlConnection arbConn = DBOperation.arbitraryConnection();
+//               NpgsqlCommand cmd = new NpgsqlCommand(sqlStmt, arbConn);
+//               object ret = cmd.ExecuteScalar();
+//               //object ret = DBOperation.ExecuteScalarWithTrans2(sqlStmt);
+//#endif
+//               if (ret != null)
+//               {
+//                  string trueNorthStr = ret as string;
+//                  string tmpStr = trueNorthStr.Replace('[', ' ');
+//                  tmpStr = tmpStr.Replace(']', ' ');
 
-                  string[] tokens = tmpStr.Trim().Split(',');
-                  if (tokens.Length < 2)
-                  {
-                     // not a valid value, use default
-                     _trueNorth = new Vector3D(0.0, 1.0, 0.0);
-                  }
-                  else
-                  {
-                     double x = Convert.ToDouble(tokens[0]);
-                     double y = Convert.ToDouble(tokens[1]);
-                     double z = 0.0;     // ignore Z for true north
-                     //if (tokens.Length >= 3)
-                     //    z = Convert.ToDouble(tokens[2]); 
-                     _trueNorth = new Vector3D(x, y, z);
-                  }
-               }
-               else
-               {
-                  _trueNorth = new Vector3D(0.0, 1.0, 0.0);   // if not defined, default is the project North = +Y of the coordinate system
-               }
-#if ORACLE
-               cmd.Dispose();
-#endif
-            }
-         }
-#if ORACLE
-         catch (OracleException e)
-#endif
-#if POSTGRES
-         catch (NpgsqlException e)
-#endif
-         {
-            string excStr = "%%Insert Error - " + e.Message + "\n\t" + sqlStmt;
-            _refBIMRLCommon.StackPushIgnorableError(excStr);
-#if POSTGRES
-            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
-#endif
-            // Ignore any error
-         }
-         catch (SystemException e)
-         {
-            string excStr = "%%Insert Error - " + e.Message + "\n\t" + sqlStmt;
-            _refBIMRLCommon.StackPushError(excStr);
-            throw;
-         }	
+//                  string[] tokens = tmpStr.Trim().Split(',');
+//                  if (tokens.Length < 2)
+//                  {
+//                     // not a valid value, use default
+//                     _trueNorth = new Vector3D(0.0, 1.0, 0.0);
+//                  }
+//                  else
+//                  {
+//                     double x = Convert.ToDouble(tokens[0]);
+//                     double y = Convert.ToDouble(tokens[1]);
+//                     double z = 0.0;     // ignore Z for true north
+//                     //if (tokens.Length >= 3)
+//                     //    z = Convert.ToDouble(tokens[2]); 
+//                     _trueNorth = new Vector3D(x, y, z);
+//                  }
+//               }
+//               else
+//               {
+//                  _trueNorth = new Vector3D(0.0, 1.0, 0.0);   // if not defined, default is the project North = +Y of the coordinate system
+//               }
+//#if ORACLE
+//               cmd.Dispose();
+//#endif
+//            }
+//         }
+//#if ORACLE
+//         catch (OracleException e)
+//#endif
+//#if POSTGRES
+//         catch (NpgsqlException e)
+//#endif
+//         {
+//            string excStr = "%%Insert Error - " + e.Message + "\n\t" + sqlStmt;
+//            _refBIMRLCommon.StackPushIgnorableError(excStr);
+//#if POSTGRES
+//            DBOperation.CurrTransaction.Rollback(DBOperation.def_savepoint);
+//#endif
+//            // Ignore any error
+//         }
+//         catch (SystemException e)
+//         {
+//            string excStr = "%%Insert Error - " + e.Message + "\n\t" + sqlStmt;
+//            _refBIMRLCommon.StackPushError(excStr);
+//            throw;
+//         }	
       }
 
       public List<Face3D> MergedFaceList
@@ -169,14 +173,14 @@ public class BIMRLGeometryPostProcess
          //if (_geom.Faces.Count > 1000)
          //    return;
          double origTol = MathUtils.tol;
-         int origDPrec = MathUtils._doubleDecimalPrecision;
-         int origFPrec = MathUtils._floatDecimalPrecision;
+         //int origDPrec = MathUtils._doubleDecimalPrecision;
+         //int origFPrec = MathUtils._floatDecimalPrecision;
          int lastFaceID = 0;
 
-         // Use better precision for the merging of faces because it deals with smaller numbers generally (e.g. Millimeter default tol we use 0.1mm. For this we will use 0.001)
-         MathUtils.tol = origTol/100;
-         MathUtils._doubleDecimalPrecision = origDPrec + 2;
-         MathUtils._floatDecimalPrecision = origFPrec + 2;
+         //// Use better precision for the merging of faces because it deals with smaller numbers generally (e.g. Millimeter default tol we use 0.1mm. For this we will use 0.001)
+         //MathUtils.tol = origTol/100;
+         //MathUtils._doubleDecimalPrecision = origDPrec + 2;
+         //MathUtils._floatDecimalPrecision = origFPrec + 2;
 
          foreach (Face3D f in _geom.Faces)
          {
@@ -203,7 +207,7 @@ public class BIMRLGeometryPostProcess
          // Loop through the dictionary to merge faces that have the same normal (on the same plane)
          foreach (KeyValuePair<Point3D, HashSet<int>> dictItem in sortedFVert)
          {
-            IEqualityComparer<Vector3D> normalComparer = new vectorCompare(MathUtils.tol, MathUtils._doubleDecimalPrecision);
+            IEqualityComparer<Vector3D> normalComparer = new vectorCompare(MathUtils.tol, MathUtils.defaultDoubleDecimalPrecision);
             Dictionary<Vector3D, List<int>> faceSortedByNormal = new Dictionary<Vector3D, List<int>>(normalComparer);
             List<int> fIDList;
             List<int> badFIDList = new List<int>();
@@ -256,9 +260,9 @@ public class BIMRLGeometryPostProcess
             badFIDList.Clear();
          }
 
-         MathUtils.tol = origTol;
-         MathUtils._doubleDecimalPrecision = origDPrec;
-         MathUtils._floatDecimalPrecision = origFPrec;
+         //MathUtils.tol = origTol;
+         //MathUtils._doubleDecimalPrecision = origDPrec;
+         //MathUtils._floatDecimalPrecision = origFPrec;
       }
 
       bool tryMergeFaces(List<int> inputFaceList, out List<int> outputFaceList)
@@ -1682,7 +1686,7 @@ public class BIMRLGeometryPostProcess
             obbGeom = OBB;
 #endif
             {
-               BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(_elementid, obbGeom, _refBIMRLCommon, _currFedID, "OBB");
+               BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(_elementid, obbGeom, _refBIMRLCommon, _currFedID, "OBB", _trueNorth);
                processFaces.simplifyAndMergeFaces();
                processFaces.insertIntoDB(false);
             }
@@ -1703,9 +1707,27 @@ public class BIMRLGeometryPostProcess
 #if POSTGRES
          Polyhedron modOBBPolyH = createGeomOBB(modOBB);
 #endif
-         BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(_elementid, modOBBPolyH, _refBIMRLCommon, _currFedID, "PROJOBB");
+         BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(_elementid, modOBBPolyH, _refBIMRLCommon, _currFedID, "PROJOBB", _trueNorth);
          processFaces.simplifyAndMergeFaces();
          processFaces.insertIntoDB(false);
       }
+
+      public static void ProcessTopoFace(object state)
+      {
+         TopoFaceState stateInfo = state as TopoFaceState;
+
+         // We will skip large buildinglementproxy that has more than 5000 vertices
+         bool largeMesh = (string.Compare(stateInfo.elemTyp, "IFCBUILDINGELEMENTPROXY", true) == 0) && stateInfo.geom.Vertices.Count > 5000;
+         if (!largeMesh)
+         {
+            // - Process face information and create consolidated faces and store them into BIMRL_TOPO_FACE table
+            BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(stateInfo.elemID, stateInfo.geom, stateInfo.refBIMRLCommon, stateInfo.federatedId, null, stateInfo.trueNorth);
+            processFaces.simplifyAndMergeFaces();
+            processFaces.insertIntoDB(false);
+         }
+         stateInfo.manualEvent.Set();
+      }
+
+
    }
 }

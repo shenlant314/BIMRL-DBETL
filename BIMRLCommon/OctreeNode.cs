@@ -375,7 +375,7 @@ namespace BIMRL.Common
                         }
 #else
                     ParallelOptions po = new ParallelOptions();
-                    po.MaxDegreeOfParallelism = 8;
+                    po.MaxDegreeOfParallelism = Environment.ProcessorCount * 2;
 
                     Parallel.ForEach(childToTraverse, po, i => OctreeNodeProcess.Process(node._children[i], _polyH, faceList));
 #endif
@@ -475,7 +475,7 @@ namespace BIMRL.Common
                   }
 #else
                ParallelOptions po = new ParallelOptions();
-               po.MaxDegreeOfParallelism = 8;
+               po.MaxDegreeOfParallelism = Environment.ProcessorCount * 2;
 
                Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], face));
 #endif
@@ -576,7 +576,7 @@ namespace BIMRL.Common
                   }
 #else
                ParallelOptions po = new ParallelOptions();
-               po.MaxDegreeOfParallelism = 8;
+               po.MaxDegreeOfParallelism = Environment.ProcessorCount * 2;
 
                Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], lineSegment));
 #endif
