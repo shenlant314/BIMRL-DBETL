@@ -128,8 +128,8 @@
       <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Npgsql, Version=3.2.5.0, Culture=neutral, PublicKeyToken=5d8b90d52f46fda7, processorArchitecture=MSIL">
-      <HintPath>..\packages\Npgsql.3.2.5\lib\net451\Npgsql.dll</HintPath>
+    <Reference Include="Npgsql, Version=3.2.6.0, Culture=neutral, PublicKeyToken=5d8b90d52f46fda7, processorArchitecture=MSIL">
+      <HintPath>C:\Users\INVSG008\Documents\Subversion\MyOpenSource\packages\Npgsql.3.2.6\lib\net451\Npgsql.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Oracle.DataAccess, Version=4.121.2.0, Culture=neutral, PublicKeyToken=89b483f429c47342, processorArchitecture=AMD64">
@@ -158,7 +158,6 @@
     <Compile Include="ElementID.cs" />
     <Compile Include="Face3D.cs" />
     <Compile Include="FederatedModelInfo.cs" />
-    <Compile Include="Ihas3DLocation.cs" />
     <Compile Include="Line3D.cs" />
     <Compile Include="LineSegment3D.cs" />
     <Compile Include="MathUtils.cs" />

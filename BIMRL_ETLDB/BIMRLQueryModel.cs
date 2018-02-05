@@ -31,22 +31,22 @@ using NetSdoGeometry;
 using Npgsql;
 using NpgsqlTypes;
 #endif
-using Xbim.Common.Geometry;
+//using Xbim.Common.Geometry;
 using BIMRL.Common;
 using Newtonsoft.Json;
 
 namespace BIMRL
 {
-    public struct BIMRLModelInfo
-    {
-        public int ModelID { get; set; }
-        public string ModelName { get; set; }
-        public string Source { get; set; }
-        public XbimPoint3D? Location { get; set; }
-        public XbimMatrix3D? Transformation { get; set; }
-        public XbimVector3D? Scale { get; set; }
-        public int NumberOfElement { get; set; }
-    }
+   public struct BIMRLModelInfo
+   {
+      public int ModelID { get; set; }
+      public string ModelName { get; set; }
+      public string Source { get; set; }
+      //public Point3D Location { get; set; }
+      //public Matrix3D Transformation { get; set; }
+      //public Vector3D Scale { get; set; }
+      public int NumberOfElement { get; set; }
+   }
 
    public class BIMRLQueryModel
    {

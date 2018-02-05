@@ -817,7 +817,7 @@ namespace BIMRL.Common
          try
          {
             DataTable dt = ExecuteToDataTableWithTrans2(sqlStmt);
-            if (dt.Rows.Count == 0)
+            if (dt == null || dt.Rows == null || dt.Rows.Count == 0)
                return null;
 
             fedModel.FederatedID = (int) dt.Rows[0]["federatedid"];
@@ -1235,7 +1235,10 @@ namespace BIMRL.Common
       public static FederatedModelInfo currFedModel
       {
          get { return _FederatedModelInfo; }
-         set { _FederatedModelInfo = value; }
+         set {
+            _FederatedModelInfo = value;
+            currSelFedID = _FederatedModelInfo.FederatedID;
+         }
       }
 
       public static string formatTabName(string rawTabName)
