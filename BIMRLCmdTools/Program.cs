@@ -277,9 +277,9 @@ namespace BIMRLCmdTools
                      // Update Spatial index (including major axes and OBB) and Boundary faces
                      if (regenSpatialIndex && regenBoundaryFaces && regenMajorAxes)
                      {
-                        spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, true);
                         BIMRLUtils.updateMajorAxesAndOBB(FedID, whereCond);
-                        //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes_cr.sql"), FedID);
+                        BIMRLUtils.ProcessFaceTask(FedID, whereCond, BIMRLCommonRef);
+                        spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, false, true);                        //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes_cr.sql"), FedID);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace_cr.sql"), FedID);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), FedID);
                         if (recreateIndex)
@@ -288,7 +288,8 @@ namespace BIMRLCmdTools
                      }
                      else if (regenSpatialIndex && regenBoundaryFaces && !regenMajorAxes)
                      {
-                        spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, true);
+                        BIMRLUtils.ProcessFaceTask(FedID, whereCond, BIMRLCommonRef);
+                        spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, false, true);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes_cr.sql"), FedID);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace_cr.sql"), FedID);
                         if (recreateIndex)
@@ -298,8 +299,8 @@ namespace BIMRLCmdTools
                      // Update Spatial index (including major axes and OBB) only
                      else if (regenSpatialIndex && !regenBoundaryFaces && regenMajorAxes)
                      {
-                        spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, false);
                         BIMRLUtils.updateMajorAxesAndOBB(FedID, whereCond);
+                        spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, false, true);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes_cr.sql"), FedID);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), FedID);
                         if (recreateIndex)
@@ -309,11 +310,11 @@ namespace BIMRLCmdTools
                      // Update Boundary faces and MajorAxes
                      else if (!regenSpatialIndex && regenBoundaryFaces && regenMajorAxes)
                      {
-                        spIdx.createFacesFromBIMRLElement(FedID, whereCond);
+                        BIMRLUtils.updateMajorAxesAndOBB(FedID, whereCond);
+                        BIMRLUtils.ProcessFaceTask(FedID, whereCond, BIMRLCommonRef);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace_cr.sql"), FedID);
                         if (recreateIndex)
                            DBOperation.ExecuteSystemScript(FedID, "BIMRL_Idx_TopoFace_cr.sql");
-                        BIMRLUtils.updateMajorAxesAndOBB(FedID, whereCond);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_MajorAxes.sql"), FedID);
                         if (recreateIndex)
                            DBOperation.ExecuteSystemScript(FedID, "BIMRL_Idx_MajorAxes.sql");
@@ -321,7 +322,7 @@ namespace BIMRLCmdTools
                      // Update Spatial Index only
                      else if (regenSpatialIndex && !regenBoundaryFaces && !regenMajorAxes)
                      {
-                        spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, false);
+                        spIdx.createSpatialIndexFromBIMRLElement(FedID, whereCond, false, true);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_SpatialIndexes_cr.sql"), FedID);
                         if (recreateIndex)
                            DBOperation.ExecuteSystemScript(FedID, "BIMRL_Idx_SpatialIndexes_cr.sql");
@@ -330,7 +331,7 @@ namespace BIMRLCmdTools
                      // update faces only
                      else if (!regenSpatialIndex && regenBoundaryFaces && !regenMajorAxes)
                      {
-                        spIdx.createFacesFromBIMRLElement(FedID, whereCond);
+                        BIMRLUtils.ProcessFaceTask(FedID, whereCond, BIMRLCommonRef);
                         //DBOperation.executeScript(Path.Combine(exePath, DBOperation.ScriptPath, "BIMRL_Idx_TopoFace_cr.sql"), FedID);
                         if (recreateIndex)
                            DBOperation.ExecuteSystemScript(FedID, "BIMRL_Idx_TopoFace_cr.sql");

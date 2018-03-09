@@ -91,7 +91,7 @@ namespace BIMRL
             if (!SDOGeomUtils.generate_Polyhedron(geom, out polyH))
                continue;       // something wrong, unable to get the polyhedron, skip
 
-            BIMRLGeometryPostProcess postProc = new BIMRLGeometryPostProcess(elementid, polyH, bimrlCommon, fedID, null);
+            BIMRLGeometryPostProcess postProc = new BIMRLGeometryPostProcess(elementid, polyH, bimrlCommon, fedID, null,trueNorth);
             postProc.deriveMajorAxes();
             postProc.trueOBBFaces();
             postProc.projectedFaces();

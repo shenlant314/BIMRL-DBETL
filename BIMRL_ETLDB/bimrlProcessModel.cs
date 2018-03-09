@@ -42,7 +42,7 @@ using Npgsql;
 using NpgsqlTypes;
 #endif
 using BIMRL.Common;
-//using BIMRL.BIMRLGraph;
+using BIMRL.BIMRLGraph;
 using Newtonsoft.Json;
 
 namespace BIMRL

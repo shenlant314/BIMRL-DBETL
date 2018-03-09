@@ -53,6 +53,8 @@ namespace BIMRL
 
       public void processMaterials()
       {
+         string currStep = "";
+
 #if ORACLE
          List<string> insTGuid = new List<string>();
          List<string> insTMatName = new List<string>();
