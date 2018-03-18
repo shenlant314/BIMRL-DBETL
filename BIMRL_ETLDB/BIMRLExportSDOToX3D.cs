@@ -472,7 +472,7 @@ namespace BIMRL
                { 
                   foreach (Face3D face in polyH.Faces)
                   {
-                     foreach (Point3D vtx in face.outerAndInnerVertices)
+                     foreach (Point3D vtx in face.AllVertices)
                      {
                         v = transformToX3D.Transform(vtx);
                         pointStr.Append(string.Format("{0:0.##########} {1:0.##########} {2:0.##########} ", v.X, v.Y, v.Z));
@@ -759,9 +759,9 @@ namespace BIMRL
 
                StringBuilder coordStr = new StringBuilder();
                StringBuilder vertIdxStr = new StringBuilder();
-               for (int v=0; v < face.outerAndInnerVertices.Count; ++v)
+               for (int v=0; v < face.AllVertices.Count; ++v)
                {
-                  Point3D pt = transformToX3D.Transform(face.outerAndInnerVertices[v]);
+                  Point3D pt = transformToX3D.Transform(face.AllVertices[v]);
                   coordStr.Append(string.Format("{0:0.##########} {1:0.##########} {2:0.##########} ", pt.X, pt.Y, pt.Z));
                   vertIdxStr.Append(string.Format("{0} ", v));
                }
@@ -882,7 +882,7 @@ namespace BIMRL
             }
 #endif
 #if POSTGRES
-            foreach (Point3D vtx in f.outerAndInnerVertices)
+            foreach (Point3D vtx in f.AllVertices)
             {
                Point3D P = transformToX3D.Transform(vtx);
                pointStr.Append(string.Format("{0:0.##########} {1:0.##########} {2:0.##########} ", P.X, P.Y, P.Z));
@@ -1252,7 +1252,7 @@ namespace BIMRL
 
                   foreach (Face3D face in pH.Faces)
                   {
-                     foreach(Point3D vtx in face.outerAndInnerVertices)
+                     foreach(Point3D vtx in face.AllVertices)
                      {
                         Point3D v1 = transformToX3D.Transform(vtx);
 
@@ -1307,7 +1307,7 @@ namespace BIMRL
 
                   int vertIdx = 0;     // new Index for the X3D index to the vertex coordinate lists
 
-                  foreach (Point3D vtx in face.outerAndInnerVertices)
+                  foreach (Point3D vtx in face.AllVertices)
                   {
                      Point3D pt = transformToX3D.Transform(vtx);
                      coordStr.Append(string.Format("{0:0.##########} {1:0.##########} {2:0.##########} ", pt.X, pt.Y, pt.Z));
@@ -1342,12 +1342,12 @@ namespace BIMRL
                   oFile.WriteEndElement();  // Shape
 
                   // creating separate faces for the holes
-                  for(int i=1; i<face.verticesWithHoles.Count; ++i)
+                  for(int i=1; i<face.OuterAndInnerVertices.Count; ++i)
                   {
                      vertIdxStr.Clear();
                      coordStr.Clear();
                      vertIdx = 0;
-                     foreach (Point3D v in face.verticesWithHoles[i])
+                     foreach (Point3D v in face.OuterAndInnerVertices[i])
                      {
                         Point3D pt = transformToX3D.Transform(v);
                         coordStr.Append(string.Format("{0:0.##########} {1:0.##########} {2:0.##########} ", pt.X, pt.Y, pt.Z));

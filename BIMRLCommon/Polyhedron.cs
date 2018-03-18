@@ -93,7 +93,7 @@ namespace BIMRL.Common
          _Faces = faceList;
          foreach (Face3D f in faceList)
          {
-            _vertices.AddRange(f.outerAndInnerVertices);
+            _vertices.AddRange(f.AllVertices);
          }
          _isSolid = isSolid;
       }
@@ -125,7 +125,7 @@ namespace BIMRL.Common
             _Faces = value;
             foreach (Face3D f in value)
             {
-               _vertices.AddRange(f.outerAndInnerVertices);
+               _vertices.AddRange(f.AllVertices);
             }
          }
       }
@@ -241,9 +241,9 @@ namespace BIMRL.Common
       /// <returns></returns>
       public static bool inside(Polyhedron polyH, Face3D face)
       {
-         for (int i=0; i<face.boundaries.Count; i++)
+         for (int i=0; i<face.OuterBoundaries.Count; i++)
          {
-            if (!inside(polyH, face.boundaries[i]))
+            if (!inside(polyH, face.OuterBoundaries[i]))
                return false;
          }
          return true;
@@ -333,7 +333,7 @@ namespace BIMRL.Common
       public static bool intersect(Polyhedron polyH, Face3D face)
       {
          List<Face3D> faceList = new List<Face3D>();
-         BoundingBox3D bound = new BoundingBox3D(face.vertices);
+         BoundingBox3D bound = new BoundingBox3D(face.OuterVertices);
 
          faceList = Face3D.exclFacesOutsideOfBound(polyH.Faces, bound, 0x111);
 

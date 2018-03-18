@@ -251,6 +251,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SDOGeomUtils.cs" />
     <Compile Include="TopoFaceRec.cs" />
+    <Compile Include="TopoFaceRecCollection.cs" />
     <Compile Include="TopoFaceState.cs" />
   </ItemGroup>
   <ItemGroup>

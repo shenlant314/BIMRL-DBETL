@@ -186,6 +186,38 @@ namespace BIMRL.Common
                                  a.Z - b.Z);
       }
 
+      public static bool operator <(Point3D p1, Point3D p2)
+      {
+         if (p1.X < p2.X && p1.Y < p2.Y && p1.Z < p2.Z)
+            return true;
+         else
+            return false;
+      }
+
+      public static bool operator >(Point3D p1, Point3D p2)
+      {
+         if (p1.X > p2.X && p1.Y > p2.Y && p1.Z > p2.Z)
+            return true;
+         else
+            return false;
+      }
+
+      public static bool operator <=(Point3D p1, Point3D p2)
+      {
+         if (p1.X <= p2.X && p1.Y <= p2.Y && p1.Z <= p2.Z)
+            return true;
+         else
+            return false;
+      }
+
+      public static bool operator >=(Point3D p1, Point3D p2)
+      {
+         if (p1.X >= p2.X && p1.Y >= p2.Y && p1.Z >= p2.Z)
+            return true;
+         else
+            return false;
+      }
+
       public double Length()
       {
          return (double)Math.Sqrt(_X * _X + _Y * _Y + _Z * _Z);

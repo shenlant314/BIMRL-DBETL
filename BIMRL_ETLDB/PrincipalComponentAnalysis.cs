@@ -43,7 +43,7 @@ namespace BIMRL
 
         public PrincipalComponentAnalysis (Face3D geom)
         {
-            pointSet.AddRange(geom.vertices);
+            pointSet.AddRange(geom.OuterVertices);
         }
 
         public PrincipalComponentAnalysis(List<Point3D> pointList)

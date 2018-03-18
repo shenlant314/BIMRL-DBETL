@@ -1214,7 +1214,7 @@ namespace BIMRL
       Point3D getHighestPoint(Face3D face)
       {
          Point3D highestVert = new Point3D(double.MinValue, double.MinValue, double.MinValue);
-         foreach (Point3D vert in face.vertices)
+         foreach (Point3D vert in face.OuterVertices)
          {
             if (vert.Z > highestVert.Z)
             {
@@ -1229,7 +1229,7 @@ namespace BIMRL
       Point3D getLowestPoint(Face3D face)
       {
          Point3D lowestVert = new Point3D(double.MaxValue, double.MaxValue, double.MaxValue);
-         foreach (Point3D vert in face.vertices)
+         foreach (Point3D vert in face.OuterVertices)
          {
             if (vert.Z < lowestVert.Z)
             {

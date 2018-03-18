@@ -305,10 +305,11 @@ namespace BIMRL.Common
                     }
 
                      // If doesn't intersect (passes the check above), either it is fully contained, full contains or disjoint
-                     // Inside check should only be done for a Solid. Surface geometry will not be reliable
-                     if (_polyH.IsSolid)
-                     {
-                        if (Polyhedron.inside(_polyH, childNode.nodeCellCuboid.cuboidPolyhedron.Vertices[3]))
+                     //// Inside check should only be done for a Solid. Surface geometry will not be reliable
+                     //if (_polyH.IsSolid)
+                     //{
+                        //if (Polyhedron.inside(_polyH, childNode.nodeCellCuboid.cuboidPolyhedron.Vertices[3]))
+                        if (childNode.nodeCellCuboid.cuboidPolyhedron.boundingBox.IsInside(_polyH))
                         {
                            childNode._flag = PolyhedronIntersectEnum.Inside;
                            insideCount++;
@@ -325,7 +326,7 @@ namespace BIMRL.Common
       #endif
                            continue;
                         }
-                     }
+                     //}
 
                     // If the 2 polyH do not intersect, the cuboid does not fully contain the polyH, nor the cuboid is fully inside the polyH, it must be disjoint
                     childNode._flag = PolyhedronIntersectEnum.Disjoint;
@@ -375,7 +376,7 @@ namespace BIMRL.Common
                         }
 #else
                     ParallelOptions po = new ParallelOptions();
-                    po.MaxDegreeOfParallelism = Environment.ProcessorCount * 2;
+                    //po.MaxDegreeOfParallelism = Environment.ProcessorCount * 2;
 
                     Parallel.ForEach(childToTraverse, po, i => OctreeNodeProcess.Process(node._children[i], _polyH, faceList));
 #endif
@@ -438,7 +439,8 @@ namespace BIMRL.Common
                     // Fully contains check only valid if the parent is fully contains, if intersect, it should never be full contains
                     if (node._flag == PolyhedronIntersectEnum.FullyContains)
                     {
-                        if (Polyhedron.insideCuboid(childNode.nodeCellCuboid.cuboidPolyhedron, face.vertices[2]))
+                        //if (Polyhedron.insideCuboid(childNode.nodeCellCuboid.cuboidPolyhedron, face.OuterVertices[2]))
+                        if (childNode.nodeCellCuboid.cuboidPolyhedron.boundingBox.IsInside(face))
                         {
                             // if polyH is entirely inside the cuboid, we will set this for further split (the same as intersection
                             childToTraverse.Add(i);       // We will remove the node if it is disjoint, otherwise it will continue splitting until the condition met
@@ -475,7 +477,7 @@ namespace BIMRL.Common
                   }
 #else
                ParallelOptions po = new ParallelOptions();
-               po.MaxDegreeOfParallelism = Environment.ProcessorCount * 2;
+               //po.MaxDegreeOfParallelism = Environment.ProcessorCount * 2;
 
                Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], face));
 #endif
@@ -539,7 +541,8 @@ namespace BIMRL.Common
                     // Fully contains check only valid if the parent is fully contains, if intersect, it should never be full contains
                     if (node._flag == PolyhedronIntersectEnum.FullyContains)
                     {
-                        if (Polyhedron.insideCuboid(childNode.nodeCellCuboid.cuboidPolyhedron, lineSegment.startPoint))
+                        //if (Polyhedron.insideCuboid(childNode.nodeCellCuboid.cuboidPolyhedron, lineSegment.startPoint))
+                        if (childNode.nodeCellCuboid.cuboidPolyhedron.boundingBox.IsInside(lineSegment))
                         {
                             // if polyH is entirely inside the cuboid, we will set this for further split (the same as intersection
                             childToTraverse.Add(i);       // We will remove the node if it is disjoint, otherwise it will continue splitting until the condition met
@@ -576,7 +579,7 @@ namespace BIMRL.Common
                   }
 #else
                ParallelOptions po = new ParallelOptions();
-               po.MaxDegreeOfParallelism = Environment.ProcessorCount * 2;
+               //po.MaxDegreeOfParallelism = Environment.ProcessorCount * 2;
 
                Parallel.ForEach(childToTraverse, i => OctreeNodeProcess.Process(node._children[i], lineSegment));
 #endif

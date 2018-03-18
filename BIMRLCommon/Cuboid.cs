@@ -268,24 +268,37 @@ namespace BIMRL.Common
          return Polyhedron.intersect(this._polyHRep, LS);
       }
 
-      public bool isInside (Polyhedron PH)
+      public bool isInside (Polyhedron pH)
       {
-         return Polyhedron.inside(this._polyHRep, PH);
+         //return Polyhedron.inside(this._polyHRep, PH);
+         // To check whether a polyhedron is inside a cuboid, we simply need to check the polyhedron's bounding box is inside the cuboid
+         return _polyHRep.boundingBox.IsInside(pH);
       }
 
-      public bool isInside (Face3D F)
+      public bool isInside(BoundingBox3D bbox)
       {
-         return Polyhedron.inside(this._polyHRep, F);
+         return _polyHRep.boundingBox.IsInside(bbox);
       }
 
-      public bool isInside (LineSegment3D LS)
+      public bool isInside (Face3D face)
       {
-         return Polyhedron.inside(this._polyHRep, LS);
+         //return Polyhedron.inside(this._polyHRep, face);
+         // To check whether a face is inside a cuboid, we simply need to check the face's bounding box is inside the cuboid
+         return _polyHRep.boundingBox.IsInside(face);
       }
 
-      public bool isInside (Point3D P)
+      public bool isInside (LineSegment3D ls)
       {
-         return Polyhedron.inside(this._polyHRep, P);
+         //return Polyhedron.inside(this._polyHRep, ls);
+         // To check whether a linesegment is inside a cuboid, we simply need to check the linesegment's bounding box is inside the cuboid
+         return _polyHRep.boundingBox.IsInside(ls);
+      }
+
+      public bool isInside (Point3D point)
+      {
+         //return Polyhedron.inside(this._polyHRep, point);
+         // To check whether a linesegment is inside a cuboid, we simply need to check the linesegment's bounding box is inside the cuboid
+         return _polyHRep.boundingBox.IsInside(point);
       }
 
       public override string ToString()

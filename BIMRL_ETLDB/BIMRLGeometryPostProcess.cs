@@ -186,7 +186,7 @@ public class BIMRLGeometryPostProcess
          {
             facesColl.Add(lastFaceID, f);         // Keep faces in a dictionary and assigns ID
 
-            foreach (Point3D vert in f.outerAndInnerVertices)
+            foreach (Point3D vert in f.AllVertices)
             {
                HashSet<int> facesOfVert;
                if (!sortedFVert.TryGetValue(vert, out facesOfVert))
@@ -298,10 +298,10 @@ public class BIMRLGeometryPostProcess
                inputFaceList.Remove(disc);
          }
 
-         while (currEdgeIdx < firstF.outerAndInnerBoundaries.Count && inputFaceList.Count > 0)
+         while (currEdgeIdx < firstF.AllBoundaries.Count && inputFaceList.Count > 0)
          {
-            LineSegment3D currEdge = firstF.outerAndInnerBoundaries[currEdgeIdx];
-            LineSegment3D reversedEdge = new LineSegment3D(firstF.outerAndInnerBoundaries[currEdgeIdx].endPoint, firstF.outerAndInnerBoundaries[currEdgeIdx].startPoint);
+            LineSegment3D currEdge = firstF.AllBoundaries[currEdgeIdx];
+            LineSegment3D reversedEdge = new LineSegment3D(firstF.AllBoundaries[currEdgeIdx].endPoint, firstF.AllBoundaries[currEdgeIdx].startPoint);
 
             //while (currFaceIdx < inputFaceList.Count && currEdgeIdx < firstF.outerAndInnerBoundaries.Count)
             //{
@@ -345,8 +345,8 @@ public class BIMRLGeometryPostProcess
                   currFaceIdx = coEdgeFace.Item2;
 
                   // CoEdge is with the same direction, need to reverse the face edges
-                  for (int coe = 0; coe < currFace.outerAndInnerBoundaries.Count; ++coe)
-                     faceSegmentDict.Remove(currFace.outerAndInnerBoundaries[coe]);
+                  for (int coe = 0; coe < currFace.AllBoundaries.Count; ++coe)
+                     faceSegmentDict.Remove(currFace.AllBoundaries[coe]);
                   currFace.Reverse();
 
                   //for (int coe = 0; coe < currFace.outerAndInnerBoundaries.Count; ++coe)
@@ -379,13 +379,13 @@ public class BIMRLGeometryPostProcess
                // Now we need to check other edges of this face whether there is other coincide edge (this is in the case of hole(s))
                List<int> fFaceIdxList = new List<int>(); 
                List<int> currFaceIdxList = new List<int>();
-               for (int ci = 0; ci < currFace.outerAndInnerBoundaries.Count; ci++)
+               for (int ci = 0; ci < currFace.AllBoundaries.Count; ci++)
                {
                   if (ci == idx)
                      continue;   // skip already known coincide edge
                   int ffIdx = -1;
-                  LineSegment3D reL = new LineSegment3D(currFace.outerAndInnerBoundaries[ci].endPoint, currFace.outerAndInnerBoundaries[ci].startPoint);
-                  ffIdx = firstF.outerAndInnerBoundaries.IndexOf(reL);
+                  LineSegment3D reL = new LineSegment3D(currFace.AllBoundaries[ci].endPoint, currFace.AllBoundaries[ci].startPoint);
+                  ffIdx = firstF.AllBoundaries.IndexOf(reL);
                   if (ffIdx > 0)
                   {
                      fFaceIdxList.Add(ffIdx);        // List of edges to skip when merging
@@ -401,17 +401,17 @@ public class BIMRLGeometryPostProcess
                   if (fFaceIdxList.Count > 0)
                      toSkip = fFaceIdxList.Contains(i);
                   if (!toSkip)
-                     newFaceEdges.Add(firstF.outerAndInnerBoundaries[i]);     // add the previous edges from the firstF faces first. This will skip the currEdge
+                     newFaceEdges.Add(firstF.AllBoundaries[i]);     // add the previous edges from the firstF faces first. This will skip the currEdge
                }
 
                // Add the next-in-sequence edges from the second face
-               for (int i = idx + 1; i < currFace.outerAndInnerBoundaries.Count; i++)
+               for (int i = idx + 1; i < currFace.AllBoundaries.Count; i++)
                {
                   bool toSkip = false;
                   if (currFaceIdxList.Count > 0)
                      toSkip = currFaceIdxList.Contains(i);
                   if (!toSkip)
-                     newFaceEdges.Add(currFace.outerAndInnerBoundaries[i]);
+                     newFaceEdges.Add(currFace.AllBoundaries[i]);
                }
                for (int i = 0; i < idx; i++)
                {
@@ -419,16 +419,16 @@ public class BIMRLGeometryPostProcess
                   if (currFaceIdxList.Count > 0)
                      toSkip = currFaceIdxList.Contains(i);
                   if (!toSkip)
-                     newFaceEdges.Add(currFace.outerAndInnerBoundaries[i]);
+                     newFaceEdges.Add(currFace.AllBoundaries[i]);
                }
 
-               for (int i = currEdgeIdx + 1; i < firstF.outerAndInnerBoundaries.Count; i++)
+               for (int i = currEdgeIdx + 1; i < firstF.AllBoundaries.Count; i++)
                {
                   bool toSkip = false;
                   if (fFaceIdxList.Count > 0)
                      toSkip = fFaceIdxList.Contains(i);
                   if (!toSkip)
-                     newFaceEdges.Add(firstF.outerAndInnerBoundaries[i]);
+                     newFaceEdges.Add(firstF.AllBoundaries[i]);
                }
 
                // Build a new face
@@ -568,7 +568,7 @@ public class BIMRLGeometryPostProcess
 
                // Reset currEdgeIdx since the first face has been replaced
                currEdgeIdx = 0;
-               reversedEdge = new LineSegment3D(firstF.outerAndInnerBoundaries[currEdgeIdx].endPoint, firstF.outerAndInnerBoundaries[currEdgeIdx].startPoint);
+               reversedEdge = new LineSegment3D(firstF.AllBoundaries[currEdgeIdx].endPoint, firstF.AllBoundaries[currEdgeIdx].startPoint);
 
                //mergedFacesIdxList.Add(inputFaceList[currFaceIdx]);
                //inputFaceList.RemoveAt(currFaceIdx);
@@ -577,7 +577,7 @@ public class BIMRLGeometryPostProcess
                inputFaceList.Remove(currFaceIdx);
 
                // Remove merged face from edge dict
-               IList<LineSegment3D> rem = facesColl[currFaceIdx].outerAndInnerBoundaries;
+               IList<LineSegment3D> rem = facesColl[currFaceIdx].AllBoundaries;
                for (int coe = 0; coe < rem.Count; ++coe)
                   faceSegmentDict.Remove(rem[coe]);
 
@@ -588,7 +588,7 @@ public class BIMRLGeometryPostProcess
             {
                currEdgeIdx++;
             }
-            if (merged || currEdgeIdx == firstF.outerAndInnerBoundaries.Count)
+            if (merged || currEdgeIdx == firstF.AllBoundaries.Count)
             {
                int lastFaceID = facesColl.Count;      // The new face ID is always at the end of the list
 
@@ -620,7 +620,7 @@ public class BIMRLGeometryPostProcess
                   mergedFacesIdxList.Add(inputFaceList[0]);
 
                   // Remove segments of this face from the segment dict
-                  IList<LineSegment3D> rem = firstF.outerAndInnerBoundaries;
+                  IList<LineSegment3D> rem = firstF.AllBoundaries;
                   for (int coe = 0; coe < rem.Count; ++coe)
                      faceSegmentDict.Remove(rem[coe]);
 
@@ -641,8 +641,12 @@ public class BIMRLGeometryPostProcess
 
       bool addSegmentsToDIct(ref IDictionary<LineSegment3D, Tuple<Face3D, int, int>> faceSegmentDict, ref Face3D theFace, int faceIdx)
       {
+         // Return false if it is an invalid face (has less than 3 edge boundaries)
+         if (theFace.AllBoundaries.Count < 3)
+            return false;
+
          IList<LineSegment3D> rollbackList = new List<LineSegment3D>();
-         IList<LineSegment3D> addFace = theFace.outerAndInnerBoundaries;
+         IList<LineSegment3D> addFace = theFace.AllBoundaries;
          // The Dictionary Add might fail because there may be coEdge that is in the same direction. In this case the face needs to be reversed
          try
          {
@@ -662,7 +666,7 @@ public class BIMRLGeometryPostProcess
          }
 
          theFace.Reverse();
-         addFace = theFace.outerAndInnerBoundaries;
+         addFace = theFace.AllBoundaries;
 
          try
          {
@@ -1045,7 +1049,7 @@ public class BIMRLGeometryPostProcess
                faceID = fIdx + _fIDOffset;
 
             Face3D face = facesColl[fIdx];
-            if (!Face3D.validateFace(face.verticesWithHoles) || !Face3D.validateFace(face))
+            if (!Face3D.validateFace(face.OuterAndInnerVertices) || !Face3D.validateFace(face))
             {
                // In some cases for unknown reason, we may get a face with all vertices aligned in a straight line, resulting in invalid normal vector
                // for this case, we will simply skip the face
@@ -1283,13 +1287,13 @@ public class BIMRLGeometryPostProcess
 
                // Add holes
                // For every hole, we will also create an independent face for the hole in addition of being a hole to the main face
-               if (face.verticesWithHoles.Count > 1)
+               if (face.OuterAndInnerVertices.Count > 1)
                {
                   List<Face3D> holeFaces = new List<Face3D>();
                   List<Point3D> holeCentroids = new List<Point3D>();
-                  for (int i = 1; i < face.verticesWithHoles.Count; i++)
+                  for (int i = 1; i < face.OuterAndInnerVertices.Count; i++)
                   {
-                     List<Point3D> holeVerts = face.verticesWithHoles[i].ToList();
+                     List<Point3D> holeVerts = face.OuterAndInnerVertices[i].ToList();
                      holeVerts.Reverse();          // Reverse it to get the positive normal direction
                      Face3D holeFace = new Face3D(holeVerts);
 

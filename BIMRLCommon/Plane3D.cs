@@ -151,7 +151,7 @@ namespace BIMRL.Common
         public static bool Overlaps(Plane3D P1, Face3D F1)
         {
             bool parallel = Vector3D.Parallels(P1.normalVector, F1.basePlane.normalVector);
-            bool pOnPlane = pointOnPlane(P1, F1.vertices[0]);
+            bool pOnPlane = pointOnPlane(P1, F1.OuterVertices[0]);
             // if the normals are the same and point in P2 is also point in P1, the two planes are overlapped
             return (parallel && pOnPlane);
         }

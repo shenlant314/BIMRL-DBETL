@@ -53,12 +53,16 @@ namespace BIMRL.Common
    public class Face3D
    {
       private Plane3D _basePlane;
-      private List<LineSegment3D> _boundaryLines = new List<LineSegment3D>();
-      private List<List<LineSegment3D>> _innerBoundaries = new List<List<LineSegment3D>>();
-      private List<Point3D> _vertices = new List<Point3D>();
-      private List<List<Point3D>> _innerVertices = new List<List<Point3D>>();
+      //private List<LineSegment3D> _boundaryLines = new List<LineSegment3D>();
+      //private List<List<LineSegment3D>> _innerBoundaries = new List<List<LineSegment3D>>();
+      private List<List<LineSegment3D>> _FaceBoundaries;
+      private List<LineSegment3D> _AllFaceBoundaries;
+      //private List<Point3D> _vertices = new List<Point3D>();
+      //private List<List<Point3D>> _innerVertices = new List<List<Point3D>>();
       private List<int> _nonColinearEdgesIdx = new List<int>();
       private BoundingBox3D containingBB;
+      private List<Point3D> _AllVertices;
+      private List<List<Point3D>> _OuterAndInnerVertices;
 
       public Face3D()
       { 
@@ -66,26 +70,32 @@ namespace BIMRL.Common
 
       public Face3D (List<Point3D> vertices, bool skipCheck=false)
       {
-         _vertices = vertices;
+         _OuterAndInnerVertices = new List<List<Point3D>>();
+         _OuterAndInnerVertices.Add(vertices);
+         _AllVertices = new List<Point3D>();
+         _AllVertices.AddRange(vertices);
+
          Vector3D faceNormal;
 
          // Allow skip check for faster creation. It is to be used only for a good data that guarantees non-colinear edges
+         List<LineSegment3D> outerBound;
          if (skipCheck)
          {
-            generateEdgesFromGoodSource(vertices, out _boundaryLines, out _nonColinearEdgesIdx);
+            generateEdgesFromGoodSource(vertices, out outerBound, out _nonColinearEdgesIdx);
             faceNormal = createSimpleNormal(vertices);
          }
          else
          {
-            generateEdges(vertices, out _boundaryLines, out _nonColinearEdgesIdx);
+            generateEdges(vertices, out outerBound, out _nonColinearEdgesIdx);
 
             // Use Newell's method to calculate normal because any vertices > 3 can be concave
-            faceNormal = normalByNewellMethod(_vertices);
+            faceNormal = normalByNewellMethod(vertices);
          }
-
-         _basePlane = new Plane3D(_vertices[0], faceNormal);
-
-         containingBB = new BoundingBox3D(_vertices);
+         _FaceBoundaries = new List<List<LineSegment3D>>();
+         _FaceBoundaries.Add(outerBound);
+         _AllFaceBoundaries = new List<LineSegment3D>(outerBound);
+         _basePlane = new Plane3D(OuterVertices[0], faceNormal);
+         containingBB = new BoundingBox3D(vertices);
       }
 
       /// <summary>
@@ -108,26 +118,36 @@ namespace BIMRL.Common
 
       private void Initialize(List<List<Point3D>> vertices)
       {
+         _OuterAndInnerVertices = new List<List<Point3D>>();
          // Initialize the outer boundary information
-         _vertices = removeDuplicateEndPoints(vertices[0]);
-         generateEdges(vertices[0], out _boundaryLines, out _nonColinearEdgesIdx);
+         _OuterAndInnerVertices.Add(removeDuplicateEndPoints(vertices[0]));
+         _AllVertices = new List<Point3D>();
+         _AllVertices.AddRange(vertices[0]);
+         _FaceBoundaries = new List<List<LineSegment3D>>();
+         List<LineSegment3D> outerBound;
+         generateEdges(vertices[0], out outerBound, out _nonColinearEdgesIdx);
+         _FaceBoundaries.Add(outerBound);
+         _AllFaceBoundaries = new List<LineSegment3D>(outerBound);
 
          // Use Newell's method to calculate normal because any vertices > 3 can be concave
-         Vector3D faceNormal = normalByNewellMethod(_vertices);
-         _basePlane = new Plane3D(_vertices[0], faceNormal);
+         Vector3D faceNormal = normalByNewellMethod(OuterVertices);
+         _basePlane = new Plane3D(OuterVertices[0], faceNormal);
 
-         containingBB = new BoundingBox3D(_vertices);
+         containingBB = new BoundingBox3D(OuterVertices);
 
          // Now add the inner boundary informations
          for (int i = 1; i < vertices.Count; i++)
          {
+            _AllVertices.AddRange(vertices[i]);
             List<Point3D> innerLoop = new List<Point3D>();
             List<LineSegment3D> innerBound = new List<LineSegment3D>();
             List<int> nonColinearBoundIdx = new List<int>();
 
-            _innerVertices.Add(removeDuplicateEndPoints(vertices[i]));
-            generateEdges(vertices[i], out innerBound, out nonColinearBoundIdx);
-            _innerBoundaries.Add(innerBound);
+            List<Point3D> cleanedUpVerts = removeDuplicateEndPoints(vertices[i]);
+            _OuterAndInnerVertices.Add(cleanedUpVerts);
+            generateEdges(cleanedUpVerts, out innerBound, out nonColinearBoundIdx);
+            _FaceBoundaries.Add(innerBound);
+            _AllFaceBoundaries.AddRange(innerBound);
          }
       }
 
@@ -187,32 +207,34 @@ namespace BIMRL.Common
       }
 
       [JsonIgnore]
-      public List<Point3D> vertices
+      public List<Point3D> OuterVertices
       {
-         get { return _vertices; }
+         get { return _OuterAndInnerVertices[0]; }
       }
 
       [JsonIgnore]
-      public List<Point3D> outerAndInnerVertices
+      public List<Point3D> AllVertices
       {
          get
          {
-            List<Point3D> tmp = new List<Point3D>();
-            tmp.AddRange(_vertices);
-            foreach (List<Point3D> verts in _innerVertices)
-               tmp.AddRange(verts);
-            return tmp;
+            //List<Point3D> tmp = new List<Point3D>();
+            //tmp.AddRange(_vertices);
+            //foreach (List<Point3D> verts in _innerVertices)
+            //   tmp.AddRange(verts);
+            //return tmp;
+            return _AllVertices;
          }
       }
 
       [JsonProperty("VerticesWithHoles")]
-      public List<List<Point3D>> verticesWithHoles
+      public List<List<Point3D>> OuterAndInnerVertices
       {
          get 
          {
-            List<List<Point3D>> tmp = new List<List<Point3D>>(_innerVertices);
-            tmp.Insert(0, _vertices);
-            return tmp;
+            //List<List<Point3D>> tmp = new List<List<Point3D>>(_innerVertices);
+            //tmp.Insert(0, _vertices);
+            //return tmp;
+            return _OuterAndInnerVertices;
          }
          set
          {
@@ -221,53 +243,55 @@ namespace BIMRL.Common
       }
 
       [JsonIgnore]
-      public List<LineSegment3D> boundaries
+      public List<LineSegment3D> OuterBoundaries
       {
-         get { return _boundaryLines; }
+         get { return _FaceBoundaries[0]; }
       }
 
       [JsonIgnore]
-      public List<LineSegment3D> outerAndInnerBoundaries
+      public List<LineSegment3D> AllBoundaries
       {
          get
          {
-            List<LineSegment3D> tmp = new List<LineSegment3D>();
-            tmp.AddRange(_boundaryLines);
-            foreach (List<LineSegment3D> innerBound in _innerBoundaries)
-               tmp.AddRange(innerBound);
-            return tmp;
+            //List<LineSegment3D> tmp = new List<LineSegment3D>();
+            //tmp.AddRange(_boundaryLines);
+            //foreach (List<LineSegment3D> innerBound in _innerBoundaries)
+            //   tmp.AddRange(innerBound);
+            //return tmp;
+            return _AllFaceBoundaries;
          }
       }
 
-      Dictionary<LineSegment3D, int> _outerAndInnerBoundariesWithDict;
-      [JsonIgnore]
-      public Dictionary<LineSegment3D, int> outerAndInnerBoundariesWithDict
-      {
-         get
-         {
-            if (_outerAndInnerBoundariesWithDict == null)
-            {
-               IEqualityComparer<LineSegment3D> segCompare = new SegmentCompare();
-               _outerAndInnerBoundariesWithDict = new Dictionary<LineSegment3D, int>(segCompare);
-               int count = 0;
-               foreach (LineSegment3D lineS in _boundaryLines)
-                  _outerAndInnerBoundariesWithDict.Add(lineS, count++);
-               foreach (List<LineSegment3D> innerBound in _innerBoundaries)
-                  foreach (LineSegment3D lineS in innerBound)
-                     _outerAndInnerBoundariesWithDict.Add(lineS, count++);
-            }
-            return _outerAndInnerBoundariesWithDict;
-         }
-      }
+      //Dictionary<LineSegment3D, int> _outerAndInnerBoundariesWithDict;
+      //[JsonIgnore]
+      //public Dictionary<LineSegment3D, int> outerAndInnerBoundariesWithDict
+      //{
+      //   get
+      //   {
+      //      if (_outerAndInnerBoundariesWithDict == null)
+      //      {
+      //         IEqualityComparer<LineSegment3D> segCompare = new SegmentCompare();
+      //         _outerAndInnerBoundariesWithDict = new Dictionary<LineSegment3D, int>(segCompare);
+      //         int count = 0;
+      //         foreach (LineSegment3D lineS in _boundaryLines)
+      //            _outerAndInnerBoundariesWithDict.Add(lineS, count++);
+      //         foreach (List<LineSegment3D> innerBound in _innerBoundaries)
+      //            foreach (LineSegment3D lineS in innerBound)
+      //               _outerAndInnerBoundariesWithDict.Add(lineS, count++);
+      //      }
+      //      return _outerAndInnerBoundariesWithDict;
+      //   }
+      //}
 
       [JsonIgnore]
-      public List<List<LineSegment3D>> boundariesWithHoles
+      public List<List<LineSegment3D>> OuterAndInnerBoundaries
       {
          get
          {
-            List<List<LineSegment3D>> tmp = new List<List<LineSegment3D>>(_innerBoundaries);
-            tmp.Insert(0, _boundaryLines);
-            return tmp;
+            //List<List<LineSegment3D>> tmp = new List<List<LineSegment3D>>(_innerBoundaries);
+            //tmp.Insert(0, _boundaryLines);
+            //return tmp;
+            return _FaceBoundaries;
          }
       }
 
@@ -277,37 +301,57 @@ namespace BIMRL.Common
          get { return containingBB; }
       }
 
+      /// <summary>
+      /// Reverse the vertices sequence. Only works for the OuterVertices
+      /// </summary>
       public void Reverse()
       {
          // First reverse the vertex list, and then regenerate the rest
-         _vertices.Reverse();
+         foreach (List<Point3D> vertList in OuterAndInnerVertices)
+            vertList.Reverse();
 
-         _boundaryLines.Clear();
+         if (_AllFaceBoundaries == null)
+            _AllFaceBoundaries = new List<LineSegment3D>();
+         else
+            _AllFaceBoundaries.Clear();
+
+         if (_FaceBoundaries == null)
+            _FaceBoundaries = new List<List<LineSegment3D>>();
+         else
+            _FaceBoundaries.Clear();
+
          _nonColinearEdgesIdx.Clear();
-            
-         for (int i = 0; i < vertices.Count; i++)
+
+         for (int k = 0; k < OuterAndInnerVertices.Count; ++k)
          {
-            LineSegment3D edge;
-            if (i == vertices.Count - 1)
-               edge = new LineSegment3D(vertices[i], vertices[0]);
-            else
-               edge = new LineSegment3D(vertices[i], vertices[i + 1]);
-            _boundaryLines.Add(edge);
-            if (i > 0 && i < vertices.Count)
+            List<LineSegment3D> boundLines = new List<LineSegment3D>();
+            for (int i = 0; i < OuterAndInnerVertices[k].Count; ++i)
             {
-               if (_boundaryLines[i].baseLine.direction != _boundaryLines[i - 1].baseLine.direction)
-                  _nonColinearEdgesIdx.Add(i - 1);
+               LineSegment3D edge;
+               if (i == OuterAndInnerVertices[k].Count - 1)
+                  edge = new LineSegment3D(OuterAndInnerVertices[k][i], OuterAndInnerVertices[k][0]);
+               else
+                  edge = new LineSegment3D(OuterAndInnerVertices[k][i], OuterAndInnerVertices[k][i + 1]);
+               boundLines.Add(edge);
+               if (i > 0 && i < OuterAndInnerVertices[k].Count)
+               {
+                  if (boundLines[i].baseLine.direction != boundLines[i - 1].baseLine.direction)
+                     _nonColinearEdgesIdx.Add(i - 1);
+               }
+               if (i == OuterAndInnerVertices[k].Count - 1)
+                  if (boundLines[i].baseLine.direction != boundLines[0].baseLine.direction)
+                     _nonColinearEdgesIdx.Add(i);
             }
-            if (i == vertices.Count - 1)
-               if (_boundaryLines[i].baseLine.direction != _boundaryLines[0].baseLine.direction)
-                  _nonColinearEdgesIdx.Add(i);
+            _AllFaceBoundaries.AddRange(boundLines);
+            _FaceBoundaries.Add(boundLines);
          }
-         _basePlane = new Plane3D(vertices[0], _boundaryLines[_nonColinearEdgesIdx[0]].baseLine.direction, _boundaryLines[_nonColinearEdgesIdx[1]].baseLine.direction);
-         containingBB = new BoundingBox3D(vertices);
+         _basePlane = new Plane3D(OuterVertices[0], OuterBoundaries[_nonColinearEdgesIdx[0]].baseLine.direction, OuterBoundaries[_nonColinearEdgesIdx[1]].baseLine.direction);
+         containingBB = new BoundingBox3D(OuterVertices);
       }
 
       /// <summary>
-      /// Touch check between 2 faces. Currently only returns true/false. Should be improved with a new face that overlap between the 2 input faces
+      /// Touch check between 2 faces. Currently only returns true/false. Should be improved with a new face that overlap between the 2 input faces.
+      /// Only operates on the OuterVertices
       /// </summary>
       /// <param name="F1">Face 1</param>
       /// <param name="F2">Face 2</param>
@@ -317,21 +361,21 @@ namespace BIMRL.Common
          if (Vector3D.Parallels(F1._basePlane.normalVector, F2._basePlane.normalVector))
          {
             // test for any point inside another face
-            for (int i = 0; i < F2._vertices.Count; i++)
+            for (int i = 0; i < F2.OuterVertices.Count; i++)
             {
-               if (Face3D.inside(F1, F2._vertices[i]))
+               if (Face3D.inside(F1, F2.OuterVertices[i]))
                   return true;
             }
-            for (int i = 0; i < F1._vertices.Count; i++)
+            for (int i = 0; i < F1.OuterVertices.Count; i++)
             {
-               if (Face3D.inside(F2, F1._vertices[i]))
+               if (Face3D.inside(F2, F1.OuterVertices[i]))
                   return true;
             }
             // if still not returning true, test whether the edges intersect
             List<Point3D> intPoints = new List<Point3D>();
-            for (int i = 0; i < F2.boundaries.Count; ++i)
+            for (int i = 0; i < F2.OuterBoundaries.Count; ++i)
             {
-               if (Face3D.intersect(F1, F2.boundaries[i]))
+               if (Face3D.intersect(F1, F2.OuterBoundaries[i]))
                   return true;
             }
          }
@@ -341,6 +385,7 @@ namespace BIMRL.Common
 
       /// <summary>
       /// Calculating intersection beween 2 Faces. The outcome of the intersection should be a LineSegment
+      /// Only operates on the OuterVertices
       /// </summary>
       /// <param name="F1">First Face</param>
       /// <param name="F2">Second Face</param>
@@ -355,9 +400,9 @@ namespace BIMRL.Common
          if (F1._basePlane.normalVector == F2._basePlane.normalVector)
          {
             // test points inside another face
-            for (int i = 0; i < F2._vertices.Count; i++ )
+            for (int i = 0; i < F2.OuterVertices.Count; i++ )
             {
-               if (!Face3D.inside(F1, F2._vertices[i]))
+               if (!Face3D.inside(F1, F2.OuterVertices[i]))
                   continue;
                mode = FaceIntersectEnum.Overlap;
                return true;
@@ -437,9 +482,9 @@ namespace BIMRL.Common
                return false;       // line is parallel with the plane, no intersection
 
             LineSegmentIntersectEnum mode = LineSegmentIntersectEnum.Undefined;
-            for (int i=0; i<F1.boundaries.Count; i++)
+            for (int i=0; i<F1.OuterBoundaries.Count; i++)
             {
-               bool st = LineSegment3D.intersect(F1.boundaries[i], LS, out intPt, out mode);
+               bool st = LineSegment3D.intersect(F1.OuterBoundaries[i], LS, out intPt, out mode);
                if (st) intPoints.Add(intPt);
             }
             if (intPoints.Count > 0) return true;
@@ -478,10 +523,10 @@ namespace BIMRL.Common
                return false;       // line is parallel with the plane, no intersection
 
             LineSegmentIntersectEnum mode = LineSegmentIntersectEnum.Undefined;
-            for (int i = 0; i < F1.boundaries.Count; i++)
+            for (int i = 0; i < F1.OuterBoundaries.Count; i++)
             {
                Point3D intP;
-               if (LineSegment3D.intersect(F1.boundaries[i], LS, out intP, out mode))
+               if (LineSegment3D.intersect(F1.OuterBoundaries[i], LS, out intP, out mode))
                   return true;
             }
             return false;
@@ -546,9 +591,9 @@ namespace BIMRL.Common
          Point3D rayEndP = new Point3D(P1.X, P1.Y, P1.Z);
          if (DimttoZero == 0)
          {
-            for (int i=0; i<F1.vertices.Count; i++)
+            for (int i=0; i<F1.OuterVertices.Count; i++)
             {
-               projVert.Add(new Point3D(0.0, F1.vertices[i].Y, F1.vertices[i].Z));
+               projVert.Add(new Point3D(0.0, F1.OuterVertices[i].Y, F1.OuterVertices[i].Z));
             }
             projIntP.X = 0.0;
             rayEndP.X = 0.0;
@@ -559,9 +604,9 @@ namespace BIMRL.Common
          }
          else if (DimttoZero == 1)
          {
-            for (int i = 0; i < F1.vertices.Count; i++)
+            for (int i = 0; i < F1.OuterVertices.Count; i++)
             {
-               projVert.Add(new Point3D(F1.vertices[i].X, 0.0, F1.vertices[i].Z));
+               projVert.Add(new Point3D(F1.OuterVertices[i].X, 0.0, F1.OuterVertices[i].Z));
             }
             projIntP.Y = 0.0;
             rayEndP.Y = 0.0;
@@ -573,9 +618,9 @@ namespace BIMRL.Common
          }
          else if (DimttoZero == 2)
          {
-            for (int i = 0; i < F1.vertices.Count; i++)
+            for (int i = 0; i < F1.OuterVertices.Count; i++)
             {
-               projVert.Add(new Point3D(F1.vertices[i].X, F1.vertices[i].Y, 0.0));
+               projVert.Add(new Point3D(F1.OuterVertices[i].X, F1.OuterVertices[i].Y, 0.0));
             }
             projIntP.Z = 0.0;
             rayEndP.Z = 0.0;
@@ -599,31 +644,31 @@ namespace BIMRL.Common
          int intCount = 0;
          Point3D iP = new Point3D();
          LineSegmentIntersectEnum mod = LineSegmentIntersectEnum.Undefined;
-         for (int i = 0; i < projFace.boundaries.Count; i++)
+         for (int i = 0; i < projFace.OuterBoundaries.Count; i++)
          {
-            if (ray.baseLine.direction == projFace.boundaries[i].baseLine.direction)
+            if (ray.baseLine.direction == projFace.OuterBoundaries[i].baseLine.direction)
                continue;   //ignore segment that is parallel to the ray (rule #3)
 
             Point3D pointToExclude = new Point3D();
             if (DimttoZero == 0 || DimttoZero == 1)
             {
                // for both X-Z and Y-Z plane (Z as vertical axis)
-               if (projFace.boundaries[i].startPoint.Z <= ray.startPoint.Z && projFace.boundaries[i].endPoint.Z > ray.startPoint.Z)
-                  pointToExclude = projFace.boundaries[i].endPoint;       // Rule #1
-               else if (projFace.boundaries[i].startPoint.Z > ray.startPoint.Z && projFace.boundaries[i].endPoint.Z <= ray.startPoint.Z)
-                  pointToExclude = projFace.boundaries[i].startPoint;     // Rule #2
+               if (projFace.OuterBoundaries[i].startPoint.Z <= ray.startPoint.Z && projFace.OuterBoundaries[i].endPoint.Z > ray.startPoint.Z)
+                  pointToExclude = projFace.OuterBoundaries[i].endPoint;       // Rule #1
+               else if (projFace.OuterBoundaries[i].startPoint.Z > ray.startPoint.Z && projFace.OuterBoundaries[i].endPoint.Z <= ray.startPoint.Z)
+                  pointToExclude = projFace.OuterBoundaries[i].startPoint;     // Rule #2
             }
             else
             {
                // for X-Y plane (Y as vertical axis)
-               if (projFace.boundaries[i].startPoint.Y <= ray.startPoint.Y && projFace.boundaries[i].endPoint.Y > ray.startPoint.Y)
-                  pointToExclude = projFace.boundaries[i].endPoint;       // Rule #1
-               else if (projFace.boundaries[i].startPoint.Y > ray.startPoint.Y && projFace.boundaries[i].endPoint.Y <= ray.startPoint.Y)
-                  pointToExclude = projFace.boundaries[i].startPoint;     // Rule #2
+               if (projFace.OuterBoundaries[i].startPoint.Y <= ray.startPoint.Y && projFace.OuterBoundaries[i].endPoint.Y > ray.startPoint.Y)
+                  pointToExclude = projFace.OuterBoundaries[i].endPoint;       // Rule #1
+               else if (projFace.OuterBoundaries[i].startPoint.Y > ray.startPoint.Y && projFace.OuterBoundaries[i].endPoint.Y <= ray.startPoint.Y)
+                  pointToExclude = projFace.OuterBoundaries[i].startPoint;     // Rule #2
             }
 
             // In the evaluation of the number of intersection between a ray and a face, we will ignore the intersection point that is equal to the rule #2 or #3
-            if (LineSegment3D.intersect(ray, projFace.boundaries[i], out iP, out mod) && (iP != pointToExclude))
+            if (LineSegment3D.intersect(ray, projFace.OuterBoundaries[i], out iP, out mod) && (iP != pointToExclude))
                intCount++;
          }
          if (intCount % 2 == 1) return true;
@@ -672,18 +717,18 @@ namespace BIMRL.Common
       public static bool inside (Face3D F1, Face3D F2)
       {
          // Do intersection first
-         for (int i = 0; i < F1.boundaries.Count; i++)
+         for (int i = 0; i < F1.OuterBoundaries.Count; i++)
          {
-            for (int j = 0; j < F2.boundaries.Count; j++)
+            for (int j = 0; j < F2.OuterBoundaries.Count; j++)
             {
                Point3D iPoint = new Point3D();
                LineSegmentIntersectEnum mode;
-               if (LineSegment3D.intersect(F1.boundaries[i], F2.boundaries[j], out iPoint, out mode)) return false;    // there is intersection
+               if (LineSegment3D.intersect(F1.OuterBoundaries[i], F2.OuterBoundaries[j], out iPoint, out mode)) return false;    // there is intersection
             }
          }
 
          // If there is no intersection, at least one vertex of F2 must be inside F1
-         if (inside(F1, F2.vertices[0])) return true;    // one vertex of F2 is inside F1 and there is no intersection
+         if (inside(F1, F2.OuterVertices[0])) return true;    // one vertex of F2 is inside F1 and there is no intersection
          return false;
       }
 
@@ -701,12 +746,12 @@ namespace BIMRL.Common
          {
             for (int i = 0; i < faces.Count; i++)
             {
-               for (int j = 0; j < faces[i].boundaries.Count; j++)
+               for (int j = 0; j < faces[i].OuterBoundaries.Count; j++)
                {
                   // Sufficient to test whether there is any of the end point of the segment is beyond the Axis location
                   if (axisPl.normalVector.X != 0.0)
                   {
-                     if (faces[i].boundaries[j].startPoint.X >= axisPl.point.X || faces[i].boundaries[j].endPoint.X >= axisPl.point.X)
+                     if (faces[i].OuterBoundaries[j].startPoint.X >= axisPl.point.X || faces[i].OuterBoundaries[j].endPoint.X >= axisPl.point.X)
                      {
                         facesBeyond.Add(faces[i]);
                         break;
@@ -714,7 +759,7 @@ namespace BIMRL.Common
                   }
                   else if (axisPl.normalVector.Y != 0.0)
                   {
-                     if (faces[i].boundaries[j].startPoint.Y >= axisPl.point.Y || faces[i].boundaries[j].endPoint.Y >= axisPl.point.Y)
+                     if (faces[i].OuterBoundaries[j].startPoint.Y >= axisPl.point.Y || faces[i].OuterBoundaries[j].endPoint.Y >= axisPl.point.Y)
                      {
                         facesBeyond.Add(faces[i]);
                         break;
@@ -722,7 +767,7 @@ namespace BIMRL.Common
                   }
                   if (axisPl.normalVector.Z != 0.0)
                   {
-                     if (faces[i].boundaries[j].startPoint.Z >= axisPl.point.Z || faces[i].boundaries[j].endPoint.Z >= axisPl.point.Z)
+                     if (faces[i].OuterBoundaries[j].startPoint.Z >= axisPl.point.Z || faces[i].OuterBoundaries[j].endPoint.Z >= axisPl.point.Z)
                      {
                         facesBeyond.Add(faces[i]);
                         break;
@@ -743,42 +788,50 @@ namespace BIMRL.Common
       public static List<Face3D> exclFacesRightOfAxis(List<Face3D> faces, Plane3D axisPl)
       {
          List<Face3D> facesLeftOfAxis = new List<Face3D>();
-         // Only deal with one axis set, either A, Y or Z, otherwise null List will be returned
+         // Only deal with one axis set, either X, Y or Z, otherwise null List will be returned
          if ((axisPl.normalVector.Y == 0.0 && axisPl.normalVector.Z == 0.0) || (axisPl.normalVector.X == 0.0 && axisPl.normalVector.Y == 0.0) || (axisPl.normalVector.X == 0.0 && axisPl.normalVector.Z == 0.0))
          {
             for (int i = 0; i < faces.Count; i++)
             {
-               bool right = true;
+               bool right = false;
+               //bool right = true;
 
-               // Test all face boundaries are beyond the axis location specified
-               for (int j = 0; j < faces[i].boundaries.Count; j++)
-               {
-                  // It is sufficient to stop checking if any point of any of the boundaries lies behind the Axis location
-                  if (axisPl.normalVector.X != 0.0)
-                  {
-                     if (!(faces[i].boundaries[j].startPoint.X > axisPl.point.X && faces[i].boundaries[j].endPoint.X > axisPl.point.X))
-                     {
-                        right = false;
-                        break;
-                     }
-                  }
-                  else if (axisPl.normalVector.Y != 0.0)
-                  {
-                     if (!(faces[i].boundaries[j].startPoint.Y > axisPl.point.Y && faces[i].boundaries[j].endPoint.Y > axisPl.point.Y))
-                     {
-                        right = false;
-                        break;
-                     }
-                  }
-                  if (axisPl.normalVector.Z != 0.0)
-                  {
-                     if (!(faces[i].boundaries[j].startPoint.Z > axisPl.point.Z && faces[i].boundaries[j].endPoint.Z > axisPl.point.Z))
-                     {
-                        right = false;
-                        break;
-                     }
-                  }
-               }
+               //// Test all face boundaries are beyond the axis location specified
+               //for (int j = 0; j < faces[i].OuterBoundaries.Count; j++)
+               //{
+               //   // It is sufficient to stop checking if any point of any of the boundaries lies behind the Axis location
+               //   if (axisPl.normalVector.X != 0.0)
+               //   {
+               //      if (!(faces[i].OuterBoundaries[j].startPoint.X > axisPl.point.X && faces[i].OuterBoundaries[j].endPoint.X > axisPl.point.X))
+               //      {
+               //         right = false;
+               //         break;
+               //      }
+               //   }
+               //   else if (axisPl.normalVector.Y != 0.0)
+               //   {
+               //      if (!(faces[i].OuterBoundaries[j].startPoint.Y > axisPl.point.Y && faces[i].OuterBoundaries[j].endPoint.Y > axisPl.point.Y))
+               //      {
+               //         right = false;
+               //         break;
+               //      }
+               //   }
+               //   if (axisPl.normalVector.Z != 0.0)
+               //   {
+               //      if (!(faces[i].OuterBoundaries[j].startPoint.Z > axisPl.point.Z && faces[i].OuterBoundaries[j].endPoint.Z > axisPl.point.Z))
+               //      {
+               //         right = false;
+               //         break;
+               //      }
+               //   }
+               //}
+               if (axisPl.normalVector.X != 0.0)
+                  right = faces[i].boundingBox.LLB.X > axisPl.point.X;
+               else if (axisPl.normalVector.Y != 0.0)
+                  right = faces[i].boundingBox.LLB.Y > axisPl.point.Y;
+               else if (axisPl.normalVector.Z != 0.0)
+                  right = faces[i].boundingBox.LLB.Z > axisPl.point.Z;
+
                if (right == false)
                   facesLeftOfAxis.Add(faces[i]);
             }
@@ -800,37 +853,45 @@ namespace BIMRL.Common
          {
             for (int i = 0; i < faces.Count; i++)
             {
-               bool left = true;
+               bool left = false;
+               //bool left = true;
 
-               // Test all face boundaries are beyond the axis location specified
-               for (int j = 0; j < faces[i].boundaries.Count; j++)
-               {
-                  // It is sufficient to stop checking if any point of any of the boundaries lies behind the Axis location
-                  if (axisPl.normalVector.X != 0.0)
-                  {
-                     if (!(faces[i].boundaries[j].startPoint.X < axisPl.point.X && faces[i].boundaries[j].endPoint.X < axisPl.point.X))
-                     {
-                        left = false;
-                        break;
-                     }
-                  }
-                  else if (axisPl.normalVector.Y != 0.0)
-                  {
-                     if (!(faces[i].boundaries[j].startPoint.Y < axisPl.point.Y && faces[i].boundaries[j].endPoint.Y < axisPl.point.Y))
-                     {
-                        left = false;
-                        break;
-                     }
-                  }
-                  if (axisPl.normalVector.Z != 0.0)
-                  {
-                     if (!(faces[i].boundaries[j].startPoint.Z < axisPl.point.Z && faces[i].boundaries[j].endPoint.Z < axisPl.point.Z))
-                     {
-                        left = false;
-                        break;
-                     }
-                  }
-               }
+               //// Test all face boundaries are beyond the axis location specified
+               //for (int j = 0; j < faces[i].OuterBoundaries.Count; j++)
+               //{
+               //   // It is sufficient to stop checking if any point of any of the boundaries lies behind the Axis location
+               //   if (axisPl.normalVector.X != 0.0)
+               //   {
+               //      if (!(faces[i].OuterBoundaries[j].startPoint.X < axisPl.point.X && faces[i].OuterBoundaries[j].endPoint.X < axisPl.point.X))
+               //      {
+               //         left = false;
+               //         break;
+               //      }
+               //   }
+               //   else if (axisPl.normalVector.Y != 0.0)
+               //   {
+               //      if (!(faces[i].OuterBoundaries[j].startPoint.Y < axisPl.point.Y && faces[i].OuterBoundaries[j].endPoint.Y < axisPl.point.Y))
+               //      {
+               //         left = false;
+               //         break;
+               //      }
+               //   }
+               //   if (axisPl.normalVector.Z != 0.0)
+               //   {
+               //      if (!(faces[i].OuterBoundaries[j].startPoint.Z < axisPl.point.Z && faces[i].OuterBoundaries[j].endPoint.Z < axisPl.point.Z))
+               //      {
+               //         left = false;
+               //         break;
+               //      }
+               //   }
+               //}
+               if (axisPl.normalVector.X != 0.0)
+                  left = faces[i].boundingBox.URT.X < axisPl.point.X;
+               else if (axisPl.normalVector.Y != 0.0)
+                  left = faces[i].boundingBox.URT.Y < axisPl.point.Y;
+               else if (axisPl.normalVector.Z != 0.0)
+                  left = faces[i].boundingBox.URT.Z < axisPl.point.Z;
+
                if (left == false)
                   facesRightOfAxis.Add(faces[i]);
             }
@@ -884,9 +945,9 @@ namespace BIMRL.Common
       {
          string pr = "Base plane: \n" + "P" + this.basePlane.point.ToString() + "\nN" + this.basePlane.normalVector.ToString()
                      + "\nVertices:";
-         for (int i=0; i<this.vertices.Count; i++)
+         for (int i=0; i<this.OuterVertices.Count; i++)
          {
-            pr += "\n" + this.vertices[i].ToString();
+            pr += "\n" + this.OuterVertices[i].ToString();
          }
          return pr;
       }
@@ -1017,17 +1078,17 @@ namespace BIMRL.Common
       {
          List<List<Point3D>> newFaceVerts = new List<List<Point3D>>();
          List<Point3D> newOuterVerts = new List<Point3D>();
-         foreach (Point3D p in theFace.verticesWithHoles[0])
+         foreach (Point3D p in theFace.OuterAndInnerVertices[0])
          {
             Point3D newP = new Point3D();
             newP = p + offsetVector;
             newOuterVerts.Add(newP);
          }
          newFaceVerts.Add(newOuterVerts);
-         for (int i = 1; i < theFace.verticesWithHoles.Count; ++i)
+         for (int i = 1; i < theFace.OuterAndInnerVertices.Count; ++i)
          {
             List<Point3D> newInnerVerts = new List<Point3D>();
-            foreach (Point3D p in theFace.verticesWithHoles[i])
+            foreach (Point3D p in theFace.OuterAndInnerVertices[i])
             {
                Point3D newP = new Point3D();
                newP = p + offsetVector;
@@ -1044,7 +1105,7 @@ namespace BIMRL.Common
          Point3D firstP = null;
          bool first = true;
          bool nullFace = false;
-         foreach (Point3D p in theFace.vertices)
+         foreach (Point3D p in theFace.OuterVertices)
          {
             if (first)
             {
@@ -1067,8 +1128,8 @@ namespace BIMRL.Common
          // Define LCS of the face to transform the face to a 2D plane with the face normal as +Z
          Vector3D zAxis = this.basePlane.normalVector;
          zAxis.Normalize();
-         Point3D p1 = this.verticesWithHoles[0].ElementAt(0);
-         Point3D p2 = this.verticesWithHoles[0].ElementAt(1);
+         Point3D p1 = this.OuterAndInnerVertices[0].ElementAt(0);
+         Point3D p2 = this.OuterAndInnerVertices[0].ElementAt(1);
          Vector3D xAxis = new Vector3D(p2.X - p1.X, p2.Y - p1.Y, p2.Z - p1.Z);   // arbitrary taken from a vector of P1-P2
          xAxis.Normalize();
          Vector3D yAxis = xAxis.CrossProduct(zAxis);
@@ -1089,10 +1150,10 @@ namespace BIMRL.Common
             double fArea = 0.0;
             // Transform the face loop to its plane to make it 2D
             Matrix3D faceTrf = this.GetFaceTransform();
-            for (int i = 0; i < this.verticesWithHoles.Count; ++i)
+            for (int i = 0; i < this.OuterAndInnerVertices.Count; ++i)
             {
                // The loop direction of the inner loop(s) will subtract the outer loop area
-               fArea += CalculateLoopArea(this.verticesWithHoles[i], faceTrf);
+               fArea += CalculateLoopArea(this.OuterAndInnerVertices[i], faceTrf);
             }
             return fArea;
          }
@@ -1113,10 +1174,10 @@ namespace BIMRL.Common
       public static Face3D TransformFace(Face3D inputFace, Matrix3D transform)
       {
          List<List<Point3D>> newfaceloops = new List<List<Point3D>>();
-         newfaceloops.Add(transformLoop(inputFace.verticesWithHoles[0], transform).ToList());
-         for (int il = 1; il < inputFace.verticesWithHoles.Count; ++il)
+         newfaceloops.Add(transformLoop(inputFace.OuterAndInnerVertices[0], transform).ToList());
+         for (int il = 1; il < inputFace.OuterAndInnerVertices.Count; ++il)
          {
-            newfaceloops.Add(transformLoop(inputFace.verticesWithHoles[il], transform).ToList());
+            newfaceloops.Add(transformLoop(inputFace.OuterAndInnerVertices[il], transform).ToList());
          }
          return new Face3D(newfaceloops);
       }
