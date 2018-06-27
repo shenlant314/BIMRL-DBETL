@@ -50,9 +50,13 @@ namespace BIMRL.BIMRL_ETLConfig
       {
          InitializeComponent();
          if (DBOperation.DBConn != null)
-            Button_Disconnect.IsEnabled = true;
+         {
+            Button_Connection.Content = "Disconnect";
+         }
          else
-            Button_Disconnect.IsEnabled = false;
+         {
+            Button_Connection.Content = "Connect";
+         }
 
          if (DBOperation.objectForSpaceBoundary.Count > 0)
          {
@@ -249,9 +253,17 @@ namespace BIMRL.BIMRL_ETLConfig
 
       private void Button_Disconnect_Click(object sender, RoutedEventArgs e)
       {
-         DBOperation.Disconnect();
-         Button_Disconnect.IsEnabled = false;
-         Close();
+         if (Button_Connection.Content.Equals("Disconnect"))
+         {
+            DBOperation.Disconnect();
+            Button_Connection.Content = "Connect";
+         }
+         else if (Button_Connection.Content.Equals("Connect"))
+         {
+            DBOperation.ConnectToDB(TextBox_DBUserID.Text, TextBox_DBPassword.Text, TextBox_DBConn.Text);
+            Button_Connection.Content = "Disconnect";
+         }
+         //Close();
       }
 
       private void CheckBox_OnepushETL_Checked(object sender, RoutedEventArgs e)

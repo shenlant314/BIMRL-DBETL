@@ -21,7 +21,7 @@
         <TextBlock x:Name="TextBlock_DB_ConnStr" HorizontalAlignment="Left" Margin="314,62,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="246" Height="54"/>
         <Button x:Name="Button_OK" Content="OK" Margin="0,0,12,11" Click="Button_OK_Click" Height="20" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="75" Grid.Row="1"/>
         <Button x:Name="Button_Cancel" Content="Cancel" Margin="0,0,92,11" Click="Button_Click" Height="20" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="75" Grid.Row="1"/>
-        <Button x:Name="Button_Disconnect" Content="Disconnect" HorizontalAlignment="Left" Margin="304,31,0,0" Width="75" Click="Button_Disconnect_Click" Height="20" VerticalAlignment="Top"/>
+        <Button x:Name="Button_Connection" Content="Disconnect" HorizontalAlignment="Left" Margin="304,31,0,0" Width="75" Click="Button_Disconnect_Click" Height="20" VerticalAlignment="Top"/>
         <Label Content="Database Connection" HorizontalAlignment="Left" Margin="10,2,0,0" VerticalAlignment="Top" Height="26" Width="123"/>
         <CheckBox x:Name="CheckBox_OnepushETL" Content="One push ETL process" HorizontalAlignment="Left" Margin="10,127,0,0" VerticalAlignment="Top" Unchecked="CheckBox_OnepushETL_Unchecked" Checked="CheckBox_OnepushETL_Checked" Height="15" Width="175"/>
         <Rectangle Fill="#FFF4F4F5" HorizontalAlignment="Left" Height="180" Margin="5,30,0,0" Stroke="Black" VerticalAlignment="Top" Width="263" Grid.Row="1"/>
