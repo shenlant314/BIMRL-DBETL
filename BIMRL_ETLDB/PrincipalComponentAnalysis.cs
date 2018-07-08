@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using System.Numerics;
 using BIMRL.Common;
 using MathNet.Numerics.Providers.LinearAlgebra;
+using MathNet.Numerics;
 
 namespace BIMRL
 {
@@ -145,7 +146,7 @@ namespace BIMRL
             Complex[] eigenValues = new Complex[3];
             double[] eigenVectorsM = new double[9];
 
-            ManagedLinearAlgebraProvider pca = new ManagedLinearAlgebraProvider();
+            ILinearAlgebraProvider<double> pca = LinearAlgebraControl.CreateManaged();
             pca.EigenDecomp(true, 3, covarianceMatrix, eigenVectors, eigenValues, eigenVectorsM);
             
             // major axis
