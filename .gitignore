@@ -36,3 +36,5 @@ BIMRLGraph/bin_ora/
 BIMRLGraphTest/bin_ora/
 BIMRLMisc/bin_ora/
 .vs/*
+BIMRLCmdTools/bin/
+BIMRLCmdTools/obj/
