@@ -308,8 +308,8 @@ namespace BIMRL.Common
                      //// Inside check should only be done for a Solid. Surface geometry will not be reliable
                      //if (_polyH.IsSolid)
                      //{
-                        //if (Polyhedron.inside(_polyH, childNode.nodeCellCuboid.cuboidPolyhedron.Vertices[3]))
-                        if (childNode.nodeCellCuboid.cuboidPolyhedron.boundingBox.IsInside(_polyH))
+                        if (Polyhedron.inside(_polyH, childNode.nodeCellCuboid.cuboidPolyhedron.Vertices[3]))
+                        //if (childNode.nodeCellCuboid.cuboidPolyhedron.boundingBox.IsInside(_polyH))
                         {
                            childNode._flag = PolyhedronIntersectEnum.Inside;
                            insideCount++;

@@ -35,6 +35,7 @@ using NpgsqlTypes;
 //using Xbim.Common.Geometry;
 using BIMRL.Common;
 using Newtonsoft.Json;
+using System.Globalization;
 
 namespace BIMRL
 {
@@ -870,7 +871,7 @@ namespace BIMRL
                   idlist += "'" + faceidList[faceIdxColl[k]] + "'";
                }
                stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
-                                    + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4")
+                                    + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4", CultureInfo.InvariantCulture)
                                     + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
 
 #if ORACLE
@@ -932,7 +933,7 @@ namespace BIMRL
                   }
 
                   stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
-                                       + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4")
+                                       + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4", CultureInfo.InvariantCulture)
                                        + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
 #if ORACLE
                   cmd.CommandText = stmt;
@@ -996,7 +997,7 @@ namespace BIMRL
                   idlist += "'" + faceidList[faceIdxColl[k]] + "'";
                }
                stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
-                                    + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4")
+                                    + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4", CultureInfo.InvariantCulture)
                                     + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
 #if ORACLE
                cmd.CommandText = stmt;
@@ -1053,7 +1054,7 @@ namespace BIMRL
                   }
 
                   stmt = "UPDATE " + DBOperation.formatTabName("BIMRL_TOPO_FACE") + " SET ORIENTATION='" + orientation + "'"
-                     + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4")
+                     + ", TOPORBOTTOM_Z=" + prevPos.Z.ToString("F4", CultureInfo.InvariantCulture)
                      + " WHERE ELEMENTID='" + elemid + "' AND ID IN (" + idlist + ")";
 
 #if ORACLE
