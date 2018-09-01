@@ -40,9 +40,9 @@ using Newtonsoft.Json;
 
 namespace BIMRL
 {
-public class BIMRLGeometryPostProcess
+   public class BIMRLGeometryPostProcess
    {
-      static Vector3D _trueNorth = new Vector3D();
+      Vector3D _trueNorth = new Vector3D();
       Polyhedron _geom;
       string _elementid;
       int _currFedID;
@@ -57,6 +57,7 @@ public class BIMRLGeometryPostProcess
       string _faceCategory;
       Vector3D[] majorAxes;
       int _fIDOffset;
+      static volatile int m_FaceId = 1;
 
       Dictionary<int, Face3D> facesColl = new Dictionary<int, Face3D>();
 
@@ -74,17 +75,26 @@ public class BIMRLGeometryPostProcess
          {
             _faceCategory = faceCategory;
             if (string.Compare(faceCategory, "OBB") == 0)
-               _fIDOffset = 10000;
+               _fIDOffset = 99999800;
             else if (string.Compare(faceCategory, "PROJOBB") == 0)
-               _fIDOffset = 10100;
+               _fIDOffset = 99999900;
             else
-               _fIDOffset = 10200;
+               _fIDOffset = 99910000;
          }
          else
          {
             _faceCategory = "BODY"; // default value
             _fIDOffset = 0;
          }
+      }
+
+      /// <summary>
+      /// Reset the Face ID cache. To be done in each element being processed
+      /// 
+      /// </summary>
+      public static void ResetFaceIdCache()
+      {
+         m_FaceId = 1;
       }
 
       public List<Face3D> MergedFaceList
@@ -220,7 +230,7 @@ public class BIMRLGeometryPostProcess
          while (inputFaceList.Count > 0)
          {
             Face3D mergedFace = null;
-            for (int currEdgeIdx = 0; currEdgeIdx < firstF.OuterAndInnerBoundaries.Count; ++currEdgeIdx)
+            for (int currEdgeIdx = 0; currEdgeIdx < firstF.AllBoundaries.Count; ++currEdgeIdx)
             { 
                LineSegment3D currEdge = firstF.AllBoundaries[currEdgeIdx];
                LineSegment3D reversedEdge = new LineSegment3D(firstF.AllBoundaries[currEdgeIdx].endPoint, firstF.AllBoundaries[currEdgeIdx].startPoint);
@@ -549,20 +559,19 @@ public class BIMRLGeometryPostProcess
                   //addSegmentsToDIct(ref faceSegmentDict, ref face, lastFaceID);
                }
             }
-
-            // Finally, there may be multiple faces left because there are multiple disconnected faces at the same normal. Collect them and return
-            if (faceSegmentDict.Count > 0)
-            {
-               HashSet<int> indexFaces = new HashSet<int>();
-               foreach (KeyValuePair<LineSegment3D, Tuple<Face3D, int, int>> segmentFace in faceSegmentDict)
-               {
-                  indexFaces.Add(segmentFace.Value.Item2);
-               }
-               foreach (int idxFace in indexFaces)
-                  outputFaceList.Add(idxFace);
-            }
          }
 
+         // Finally, there may be multiple faces left because there are multiple disconnected faces at the same normal. Collect them and return
+         if (faceSegmentDict.Count > 0)
+         {
+            HashSet<int> indexFaces = new HashSet<int>();
+            foreach (KeyValuePair<LineSegment3D, Tuple<Face3D, int, int>> segmentFace in faceSegmentDict)
+            {
+               indexFaces.Add(segmentFace.Value.Item2);
+            }
+            foreach (int idxFace in indexFaces)
+               outputFaceList.Add(idxFace);
+         }
          //return merged;
       }
 
@@ -686,9 +695,9 @@ public class BIMRLGeometryPostProcess
          foreach (int fIdx in _mergedFaceList)
          {
             // For the main table, we want to ensure that the face ID is not-overlapped
-            int faceID = fIdx;
+            int faceID = 0;
             if (!forUserDict)
-               faceID = fIdx + _fIDOffset;
+               faceID = (m_FaceId++) + _fIDOffset;
 
             Face3D face = facesColl[fIdx];
             if (!Face3D.validateFace(face.OuterAndInnerVertices) || !Face3D.validateFace(face))

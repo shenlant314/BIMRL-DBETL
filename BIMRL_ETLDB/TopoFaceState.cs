@@ -20,15 +20,15 @@ namespace BIMRL
       public ManualResetEvent manualEvent;
       public Vector3D trueNorth;
 
-      public TopoFaceState(string elementID, BIMRLCommon refBIMRLCommon, Polyhedron polyhedronGeom, string elementType, int fedID, ManualResetEvent manualEvent, Vector3D trueNorth)
+      public TopoFaceState(string elementID, BIMRLCommon inpRefBIMRLCommon, Polyhedron polyhedronGeom, string elementType, int fedID, ManualResetEvent inpManualEvent, Vector3D inpTrueNorth)
       {
-         this.elemID = elementID;
-         this.refBIMRLCommon = refBIMRLCommon;
-         this.geom = polyhedronGeom;
-         this.elemTyp = elementType;
-         this.federatedId = fedID;
-         this.manualEvent = manualEvent;
-         this.trueNorth = trueNorth;
+         elemID = elementID;
+         refBIMRLCommon = inpRefBIMRLCommon;
+         geom = polyhedronGeom;
+         elemTyp = elementType;
+         federatedId = fedID;
+         manualEvent = inpManualEvent;
+         trueNorth = inpTrueNorth;
       }
    }
 }

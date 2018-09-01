@@ -842,7 +842,7 @@ namespace BIMRL
                face = JsonGeomUtils.Generate_Face3D(polyg);
 #endif
                Point3D highestPoint = getHighestPoint(face);
-               if (MathUtils.equalTolSign(normalList[i].Z, 1.0, 0.1) && normalList[i].Z > prevVal && highestPoint.Z > prevPos.Z)
+               if (MathUtils.equalTolSign(normalList[i].Z, 1.0, 0.1) && highestPoint.Z > prevPos.Z)
                {
                   prevPos = highestPoint;
                   if (prevIdx >= 0)
@@ -852,10 +852,10 @@ namespace BIMRL
                   faceIdxColl.Add(prevIdx);
                   prevVal = normalList[i].Z;
                }
-               else if (MathUtils.equalTolSign(normalList[i].Z, 1.0, 0.1) && MathUtils.equalTol(normalList[i].Z,prevVal) && MathUtils.equalTol(highestPoint.Z,prevPos.Z))
+               else if (MathUtils.equalTolSign(normalList[i].Z, 1.0, 0.1) && MathUtils.equalTol(highestPoint.Z,prevPos.Z))
                {
-                  removeFromList.Add(prevIdx);
-                  faceIdxColl.Add(prevIdx);
+                  //removeFromList.Add(prevIdx);
+                  faceIdxColl.Add(i);
                }
             }
             if (prevIdx >= 0 && faceIdxColl.Count > 0)
@@ -968,7 +968,7 @@ namespace BIMRL
 #endif
 
                Point3D lowestPoint = getLowestPoint(face);
-               if (MathUtils.equalTolSign(normalList[i].Z, -1.0, 0.1) && normalList[i].Z < prevVal && lowestPoint.Z < prevPos.Z)
+               if (MathUtils.equalTolSign(normalList[i].Z, -1.0, 0.1) && lowestPoint.Z < prevPos.Z)
                {
                   prevPos = lowestPoint;
                   if (prevIdx >= 0)
@@ -978,10 +978,10 @@ namespace BIMRL
                   faceIdxColl.Add(prevIdx);
                   prevVal = normalList[i].Z;
                }
-               else if (MathUtils.equalTolSign(normalList[i].Z, -1.0, 0.1) && MathUtils.equalTol(normalList[i].Z, prevVal) && MathUtils.equalTol(lowestPoint.Z, prevPos.Z))
+               else if (MathUtils.equalTolSign(normalList[i].Z, -1.0, 0.1) && MathUtils.equalTol(lowestPoint.Z, prevPos.Z))
                {
                   removeFromList.Add(prevIdx);
-                  faceIdxColl.Add(prevIdx);
+                  faceIdxColl.Add(i);
                }
             }
             if (prevIdx >= 0 && faceIdxColl.Count > 0)

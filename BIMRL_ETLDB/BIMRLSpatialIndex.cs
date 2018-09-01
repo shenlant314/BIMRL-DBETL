@@ -213,6 +213,18 @@ namespace BIMRL
                   centList = new List<SdoGeometry>();
                   eidUpdList = new List<string>();
                }
+               
+               // We will skip large buildinglementproxy that has more than 5000 vertices
+               bool largeMesh = (string.Compare(elemTyp, "IFCBUILDINGELEMENTPROXY", true) == 0) && geom.Vertices.Count > 5000;
+
+               // There is a problem with concurrent insert into Oracle. For now enable this only for Postgres version
+               if ((createFaces && !largeMesh) || (createFaces && selectedRegen))
+               {
+                  // - Process face information and create consolidated faces and store them into BIMRL_TOPO_FACE table
+                  BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(elemID, geom, _refBIMRLCommon, federatedId, null, trueNorth);
+                  processFaces.simplifyAndMergeFaces();
+                  processFaces.insertIntoDB(false);
+               }
 #endif
 #if POSTGRES
                GeometryTypeEnum geomType = reader.GetFieldValue<GeometryTypeEnum>(2);
@@ -229,24 +241,28 @@ namespace BIMRL
                centList.Add(geom.boundingBox.Center);
                eidUpdList.Add(elemID);
                sublistCnt++;
-#endif
+
+               if (createFaces)
+               {
+                  foreach (Polyhedron lump in geomList)
+                  {
+                     ManualResetEvent currManualEvent = (new ManualResetEvent(false));
+                     manualEvents.Add(currManualEvent);
+                     stateInfo = new TopoFaceState(elemID, _refBIMRLCommon, lump, elemTyp, federatedId, currManualEvent, trueNorth);
+                     ThreadPool.QueueUserWorkItem(new WaitCallback(BIMRLGeometryPostProcess.ProcessTopoFace), stateInfo);
+                  }
+               }
 
                // We will skip large buildinglementproxy that has more than 5000 vertices
-               bool largeMesh = (string.Compare(elemTyp, "IFCBUILDINGELEMENTPROXY", true) == 0) && geom.Vertices.Count > 5000;
-               if ((createFaces && !largeMesh) || (createFaces && selectedRegen))
-               {
-                  // - Process face information and create consolidated faces and store them into BIMRL_TOPO_FACE table
-                  BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(elemID, geom, _refBIMRLCommon, federatedId, null, trueNorth);
-                  processFaces.simplifyAndMergeFaces();
-                  processFaces.insertIntoDB(false);
-               }
-               //if (createFaces)
+               //bool largeMesh = (string.Compare(elemTyp, "IFCBUILDINGELEMENTPROXY", true) == 0) && geom.Vertices.Count > 5000;
+               //if ((createFaces && !largeMesh) || (createFaces && selectedRegen))
                //{
-               //   ManualResetEvent currManualEvent = (new ManualResetEvent(false));
-               //   manualEvents.Add(currManualEvent);
-               //   stateInfo = new TopoFaceState(elemID, _refBIMRLCommon, geom, elemTyp, federatedId, currManualEvent, trueNorth);
-               //   ThreadPool.QueueUserWorkItem(new WaitCallback(BIMRLGeometryPostProcess.ProcessTopoFace), stateInfo);
+               //   // - Process face information and create consolidated faces and store them into BIMRL_TOPO_FACE table
+               //   BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(elemID, geom, _refBIMRLCommon, federatedId, null, trueNorth);
+               //   processFaces.simplifyAndMergeFaces();
+               //   processFaces.insertIntoDB(false);
                //}
+#endif
 
                if (createSpIdx)
                   octreeInstance.ComputeOctree(elemID, geom);
@@ -255,17 +271,24 @@ namespace BIMRL
             reader.Close();
             reader.Dispose();
 
-            // Wait for all the threads to complete thw work
-            //var wait = true;
-            //while (wait)
-            //{
-            //   WaitHandle.WaitAll(manualEvents.Take(60).ToArray());
-            //   manualEvents.RemoveRange(0, manualEvents.Count > 59 ? 60 : manualEvents.Count);
-            //   wait = manualEvents.Any();
-            //}
-
+            // Wait for all the threads to complete the work
+#if POSTGRES
+            var wait = true;
+            while (wait)
+            {
+               if (manualEvents.Count > 0)
+               {
+                  WaitHandle.WaitAll(manualEvents.Take(60).ToArray());
+                  manualEvents.RemoveRange(0, manualEvents.Count > 59 ? 60 : manualEvents.Count);
+                  wait = manualEvents.Any();
+               }
+               else
+                  break;
+            }
+#endif
             DBOperation.commitTransaction();
             command.Dispose();
+            BIMRLGeometryPostProcess.ResetFaceIdCache();
 
             if (createSpIdx)
             {
@@ -322,9 +345,7 @@ namespace BIMRL
             string sqlStmt3 = "UPDATE " + DBOperation.formatTabName("BIMRL_ELEMENT", federatedId) + " SET GeometryBody_BBOX = @bbox, "
                               + "GeometryBody_BBOX_CENTROID = @cent WHERE ELEMENTID = @eid";
             NpgsqlCommand commandUpdBbox = new NpgsqlCommand(sqlStmt3, DBOperation.DBConn);
-            //commandUpdBbox.Parameters.Add("@bbox", NpgsqlDbType.Array | NpgsqlDbType.Composite);
-            //commandUpdBbox.Parameters.Add("@cent", NpgsqlDbType.Composite);
-            //commandUpdBbox.Parameters.Add("@eid", NpgsqlDbType.Varchar);
+
             //commandUpdBbox.Prepare();
 
             for (int i = 0; i < bboxList.Count; ++i)
@@ -335,9 +356,6 @@ namespace BIMRL
                Point3D centr = centList[i];
                commandUpdBbox.Parameters.AddWithValue("@cent", centr);
                commandUpdBbox.Parameters.AddWithValue("@eid", eidUpdList[i]);
-               //commandUpdBbox.Parameters["@bbox"].Value = bboxList[i];
-               //commandUpdBbox.Parameters["@cent"].Value = centList[i];
-               //commandUpdBbox.Parameters["@eid"].Value = elemID;
                int commandStatus = commandUpdBbox.ExecuteNonQuery();
             }
             DBOperation.commitTransaction();
@@ -409,7 +427,32 @@ namespace BIMRL
 
                Polyhedron geom;
                if (!SDOGeomUtils.generate_Polyhedron(sdoGeomData, out geom, isSolid))
-                  continue;                                       // if there is something not right, skip the geometry
+                  continue;                                       
+               
+               // if there is something not right, skip the geometry
+               {
+                  //// - Process face information and create consolidated faces and store them into BIMRL_TOPO_FACE table
+                  BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(elemID, geom, _refBIMRLCommon, federatedId, null);
+                  processFaces.simplifyAndMergeFaces();
+                  processFaces.insertIntoDB(false);
+                  //ManualResetEvent currManualEvent = (new ManualResetEvent(false));
+                  //manualEvents.Add(currManualEvent);
+                  //stateInfo = new TopoFaceState(elemID, _refBIMRLCommon, geom, "", federatedId, currManualEvent, trueNorth);
+                  //ThreadPool.QueueUserWorkItem(new WaitCallback(BIMRLGeometryPostProcess.ProcessTopoFace), stateInfo);
+               }
+            }
+            reader.Dispose();
+            // Wait for all threads to complete
+            //WaitHandle.WaitAll(manualEvents.ToArray());
+            //var wait = true;
+            //while (wait)
+            //{
+            //   WaitHandle.WaitAll(manualEvents.Take(60).ToArray());
+            //   manualEvents.RemoveRange(0, manualEvents.Count > 59 ? 60 : manualEvents.Count);
+            //   wait = manualEvents.Any();
+            //}
+         }
+         catch (OracleException e)
 #endif
 #if POSTGRES
                GeometryTypeEnum geomType = reader.GetFieldValue<GeometryTypeEnum>(1);
@@ -422,10 +465,9 @@ namespace BIMRL
 
                //Polyhedron geom = Polyhedron.UnionPolyhedronList(polyHList);
                foreach (Polyhedron geom in polyHList)
-#endif
                {
                   //// - Process face information and create consolidated faces and store them into BIMRL_TOPO_FACE table
-                  //BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(elemID, geom, _refBIMRLCommon, federatedId, null);
+                  //BIMRLGeometryPostProcess processFaces = new BIMRLGeometryPostProcess(elemID, geom, _refBIMRLCommon, federatedId, null, trueNorth);
                   //processFaces.simplifyAndMergeFaces();
                   //processFaces.insertIntoDB(false);
                   ManualResetEvent currManualEvent = (new ManualResetEvent(false));
@@ -435,20 +477,21 @@ namespace BIMRL
                }
             }
             reader.Dispose();
-            // Wait for all threads to complete
-            //WaitHandle.WaitAll(manualEvents.ToArray());
+
             var wait = true;
             while (wait)
             {
-               WaitHandle.WaitAll(manualEvents.Take(60).ToArray());
-               manualEvents.RemoveRange(0, manualEvents.Count > 59 ? 60 : manualEvents.Count);
-               wait = manualEvents.Any();
+               if (manualEvents.Count > 0)
+               {
+                  WaitHandle.WaitAll(manualEvents.Take(60).ToArray());
+                  manualEvents.RemoveRange(0, manualEvents.Count > 59 ? 60 : manualEvents.Count);
+                  wait = manualEvents.Any();
+               }
+               else
+                  break;
             }
+            BIMRLGeometryPostProcess.ResetFaceIdCache();
          }
-#if ORACLE
-         catch (OracleException e)
-#endif
-#if POSTGRES
          catch (NpgsqlException e)
 #endif
          {
