@@ -505,17 +505,18 @@ namespace BIMRL_Main_Standalone
             {
                _qModel.deleteModel(FedID);
 
-               // Refresh the model list
-               fedModels = _qModel.getFederatedModels();
-               DataGrid_FedModels.AutoGenerateColumns = true;
-               DataGrid_FedModels.IsReadOnly = true;
-               DataGrid_FedModels.ItemsSource = fedModels;
-               DataGrid_FedModels.MinRowHeight = 20;
+               //// Refresh the model list
+               //fedModels = _qModel.getFederatedModels();
+               //DataGrid_FedModels.AutoGenerateColumns = true;
+               //DataGrid_FedModels.IsReadOnly = true;
+               //DataGrid_FedModels.ItemsSource = fedModels;
+               //DataGrid_FedModels.MinRowHeight = 20;
 
-               // Always turn off the check box to delete the model
-               _deleteModel = false;
-               CheckBox_DeleteModel.IsChecked = false;
-               Button_DeleteModel.IsEnabled = false;
+               //// Always turn off the check box to delete the model
+               //_deleteModel = false;
+               //CheckBox_DeleteModel.IsChecked = false;
+               //Button_DeleteModel.IsEnabled = false;
+               RefreshModelList();
             }
          }
          catch (SystemException excp)
@@ -527,6 +528,21 @@ namespace BIMRL_Main_Standalone
             DBOperation.rollbackTransaction();
          }
          DBOperation.commitTransaction();
+      }
+
+      private void RefreshModelList()
+      {
+         // Refresh the model list
+         fedModels = _qModel.getFederatedModels();
+         DataGrid_FedModels.AutoGenerateColumns = true;
+         DataGrid_FedModels.IsReadOnly = true;
+         DataGrid_FedModels.ItemsSource = fedModels;
+         DataGrid_FedModels.MinRowHeight = 20;
+
+         // Always turn off the check box to delete the model
+         _deleteModel = false;
+         CheckBox_DeleteModel.IsChecked = false;
+         Button_DeleteModel.IsEnabled = false;
       }
 
       static bool _majorAxes = true;
@@ -782,6 +798,11 @@ namespace BIMRL_Main_Standalone
       private void textBox_ConsoleOutput_TextChanged(object sender, TextChangedEventArgs e)
       {
 
+      }
+
+      private void Button_Refresh_Click(object sender, RoutedEventArgs e)
+      {
+         RefreshModelList();
       }
    }
 }

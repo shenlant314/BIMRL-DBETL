@@ -506,7 +506,7 @@ namespace BIMRL.Common
          }
          try
          {
-            cmd.Prepare();
+            //cmd.Prepare();
             NpgsqlDataAdapter qAdapter = new NpgsqlDataAdapter(cmd);
             qAdapter.Fill(qResult);
             cmd.Dispose();

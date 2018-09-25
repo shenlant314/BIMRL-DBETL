@@ -100,15 +100,15 @@ namespace BIMRL
          { 
             DBOperation.beginTransaction();
             IIfcProject firstProject;
-            if (modelStore.IsFederation)
-            {
-               IfcStore firstModel = modelStore.ReferencedModels.FirstOrDefault().Model as IfcStore;
-               firstProject = firstModel.Instances.OfType<IIfcProject>().FirstOrDefault();
-            }
-            else
-            {
-               firstProject = modelStore.Instances.OfType<IIfcProject>().FirstOrDefault();
-            }
+            //if (modelStore.IsFederation)
+            //{
+            firstProject = modelStore.Instances.OfType<IIfcProject>().FirstOrDefault();
+            //}
+            //else
+            //{
+            //   IfcStore firstModel = modelStore.ReferencedModels.FirstOrDefault().Model as IfcStore;
+            //firstProject = firstModel.Instances.OfType<IIfcProject>().FirstOrDefault();
+            //}
             string projLName;
 
             // Check whether Model has been defined before

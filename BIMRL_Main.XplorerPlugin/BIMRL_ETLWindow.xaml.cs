@@ -490,17 +490,18 @@ namespace BIMRLMainXplorerPlugin
             {
                _qModel.deleteModel(FedID);
 
-               // Refresh the model list
-               fedModels = _qModel.getFederatedModels();
-               DataGrid_FedModels.AutoGenerateColumns = true;
-               DataGrid_FedModels.IsReadOnly = true;
-               DataGrid_FedModels.ItemsSource = fedModels;
-               DataGrid_FedModels.MinRowHeight = 20;
+               //// Refresh the model list
+               //fedModels = _qModel.getFederatedModels();
+               //DataGrid_FedModels.AutoGenerateColumns = true;
+               //DataGrid_FedModels.IsReadOnly = true;
+               //DataGrid_FedModels.ItemsSource = fedModels;
+               //DataGrid_FedModels.MinRowHeight = 20;
 
-               // Always turn off the check box to delete the model
-               _deleteModel = false;
-               CheckBox_DeleteModel.IsChecked = false;
-               Button_DeleteModel.IsEnabled = false;
+               //// Always turn off the check box to delete the model
+               //_deleteModel = false;
+               //CheckBox_DeleteModel.IsChecked = false;
+               //Button_DeleteModel.IsEnabled = false;
+               RefreshModelList();
             }
          }
          catch (SystemException excp)
@@ -511,6 +512,21 @@ namespace BIMRLMainXplorerPlugin
                showError(null);
             DBOperation.rollbackTransaction();
          }
+      }
+
+      private void RefreshModelList()
+      {
+         // Refresh the model list
+         fedModels = _qModel.getFederatedModels();
+         DataGrid_FedModels.AutoGenerateColumns = true;
+         DataGrid_FedModels.IsReadOnly = true;
+         DataGrid_FedModels.ItemsSource = fedModels;
+         DataGrid_FedModels.MinRowHeight = 20;
+
+         // Always turn off the check box to delete the model
+         _deleteModel = false;
+         CheckBox_DeleteModel.IsChecked = false;
+         Button_DeleteModel.IsEnabled = false;
       }
 
       static bool _majorAxes = true;
@@ -763,6 +779,11 @@ namespace BIMRLMainXplorerPlugin
       private void textBox_ConsoleOutput_TextChanged(object sender, TextChangedEventArgs e)
       {
 
+      }
+
+      private void Button_Refresh_Click(object sender, RoutedEventArgs e)
+      {
+         RefreshModelList();
       }
    }
 }
